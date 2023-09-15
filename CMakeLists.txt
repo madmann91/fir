@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 3.20)
+project(fir VERSION 1.0)
+
+add_compile_options(
+    $<$<C_COMPILER_ID:GNU,Clang>:-Wall>
+    $<$<C_COMPILER_ID:GNU,Clang>:-Wextra>
+    $<$<C_COMPILER_ID:GNU,Clang>:-pedantic>)
+set(CMAKE_C_STANDARD 23)
+
+add_subdirectory(src)
+
+find_package(Doxygen QUIET)
+if (DOXYGEN_FOUND)
+    add_custom_target(doc COMMAND Doxygen::doxygen WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doc)
+endif ()
+
+include(CTest)
+if (BUILD_TESTING)
+    add_subdirectory(test)
+endif ()
