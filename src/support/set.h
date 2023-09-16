@@ -16,7 +16,7 @@
             very_long_prefix_once == 0 && htable_is_bucket_occupied(&(set).htable, very_long_prefix_i); \
             very_long_prefix_once = 1) \
 
-#define DECL_MAP(name, elem_ty, hash, cmp) \
+#define DECL_SET(name, elem_ty, hash, cmp) \
     struct name { \
         struct htable htable; \
     }; \

@@ -6,6 +6,7 @@ add_compile_options(
     $<$<C_COMPILER_ID:GNU,Clang>:-Wextra>
     $<$<C_COMPILER_ID:GNU,Clang>:-pedantic>)
 set(CMAKE_C_STANDARD 23)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
 
 add_subdirectory(src)
 

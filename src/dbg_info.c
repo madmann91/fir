@@ -19,7 +19,7 @@ static bool cmp_str(char* const* str_ptr, char* const* other_ptr) {
     return !strcmp(*str_ptr, *other_ptr);
 }
 
-DECL_MAP(string_set, char*, hash_str, cmp_str)
+DECL_SET(string_set, char*, hash_str, cmp_str)
 DECL_VEC(dbg_info_vec, struct fir_dbg_info*)
 
 struct fir_dbg_info_pool {
@@ -43,6 +43,7 @@ void fir_dbg_info_pool_destroy(struct fir_dbg_info_pool* pool) {
         free(*elem_ptr);
     }
     dbg_info_vec_destroy(&pool->dbg_info);
+    free(pool);
 }
 
 static inline const char* unique_string(struct fir_dbg_info_pool* pool, const char* str) {

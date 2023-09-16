@@ -32,3 +32,25 @@ TEST(module) {
 
     fir_mod_destroy(mod);
 }
+
+TEST(uses) {
+    struct fir_mod* mod = fir_mod_create("module");
+
+    const struct fir_node* forty_two = fir_int_const(fir_int_ty(mod, 32), 42);
+    struct fir_node* func = fir_func(fir_func_ty(forty_two->ty, forty_two->ty));
+
+    for (size_t i = 0; i < 10; ++i)
+        fir_node_set_op(func, 0, forty_two);
+
+    REQUIRE(forty_two->uses != NULL);
+    REQUIRE(forty_two->uses->user == func);
+    REQUIRE(forty_two->uses->index == 0);
+    REQUIRE(forty_two->uses->next == NULL);
+
+    for (size_t i = 0; i < 10; ++i)
+        fir_node_set_op(func, 0, NULL);
+
+    REQUIRE(forty_two->uses == NULL);
+
+    fir_mod_destroy(mod);
+}

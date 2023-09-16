@@ -198,6 +198,11 @@ int main(int argc, char** argv) {
         enabled_tests += test->enabled ? 1 : 0;
     }
 
+    if (enabled_tests == 0) {
+        fprintf(stderr, "no tests match filters\n");
+        return 1;
+    }
+
     printf("running %zu test(s):\n\n", enabled_tests);
     // Must flush to avoid flushing previously-buffered content in the forked children
     fflush(stdout);
@@ -237,7 +242,7 @@ int main(int argc, char** argv) {
         asserts_passed += context.asserts_passed;
     }
     test_vec_destroy(&tests);
-    printf("\n%s%zu/%zu tests passed, %zu asserts passed%s\n",
+    printf("\n%s%zu/%zu test(s) passed, %zu assertion(s) passed%s\n",
         options.disable_colors ? "" : color_code(failed == 0),
         passed, passed + failed, asserts_passed,
         options.disable_colors ? "" : TERM1(TERM_RESET));
