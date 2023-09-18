@@ -4,8 +4,9 @@ add_executable(testdriver
     unit/module.c
     unit/support/map.c
     unit/support/set.c)
+
 target_include_directories(testdriver PRIVATE ../src .)
-target_link_libraries(testdriver PRIVATE libfir)
+target_link_libraries(testdriver PRIVATE libfir libfir_support)
 
 # PCRE2 does not come with a configuration file. This crude hack auto-detects its presence on most
 # systems and compiles with it when it is available.

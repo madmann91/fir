@@ -1,7 +1,7 @@
 #ifndef FIR_NODE_LIST_H
 #define FIR_NODE_LIST_H
 
-/// \file
+/// @file
 ///
 /// This file lists all the nodes of the IR, grouped by category. The lists come in the form of
 /// macros that can be passed another macro argument which determines how the list is expanded. This
@@ -9,18 +9,18 @@
 
 /// Lists all types.
 #define FIR_TYPE_LIST(x) \
-    x(MEM_TY,      "mem") \
-    x(ERR_TY,      "err") \
-    x(PTR_TY,      "ptr") \
-    x(NORET_TY,    "noret") \
-    x(INT_TY,      "int") \
-    x(FLOAT_TY,    "float") \
-    x(TUP_TY,      "tup") \
-    x(ARRAY_TY,    "array") \
-    x(DYNARRAY_TY, "dynarray") \
-    x(FUNC_TY,     "func")
+    x(MEM_TY,      "mem_ty") \
+    x(ERR_TY,      "err_ty") \
+    x(PTR_TY,      "ptr_ty") \
+    x(NORET_TY,    "noret_ty") \
+    x(INT_TY,      "int_ty") \
+    x(FLOAT_TY,    "float_ty") \
+    x(TUP_TY,      "tup_ty") \
+    x(ARRAY_TY,    "array_ty") \
+    x(DYNARRAY_TY, "dynarray_ty") \
+    x(FUNC_TY,     "func_ty")
 
-/// List all nominal nodes. \see module.h
+/// List all nominal nodes. @see module.h
 #define FIR_NOMINAL_NODE_LIST(x) \
     x(GLOBAL, "global") \
     x(FUNC,   "func")
@@ -100,11 +100,11 @@
 
 /// List all aggregate operations.
 #define FIR_AGGR_OP_LIST(x) \
-    x(TUP,   "tup") \
-    x(ARRAY, "array") \
-    x(INS,   "ins") \
-    x(EXT,   "ext") \
-    x(OFF,   "addrof")
+    x(TUP,    "tup") \
+    x(ARRAY,  "array") \
+    x(INS,    "ins") \
+    x(EXT,    "ext") \
+    x(ADDROF, "addrof")
 
 /// List all memory operations.
 #define FIR_MEM_OP_LIST(x) \

@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(fir VERSION 1.0)
 
+option(BUILD_SHARED_LIBS "Build a shared library." ON)
+
 add_compile_options(
     $<$<C_COMPILER_ID:GNU,Clang>:-Wall>
     $<$<C_COMPILER_ID:GNU,Clang>:-Wextra>

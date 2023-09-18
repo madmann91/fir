@@ -3,6 +3,7 @@
 #include "alloc.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 #define VEC_MIN_CAPACITY 4
 
