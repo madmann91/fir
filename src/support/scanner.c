@@ -144,12 +144,16 @@ struct token scanner_advance(struct scanner* scanner) {
         if (accept_char(scanner, '{')) return make_token(scanner, first_byte, begin_pos, TOK_LBRACKET);
         if (accept_char(scanner, '}')) return make_token(scanner, first_byte, begin_pos, TOK_RBRACKET);
         if (accept_char(scanner, ',')) return make_token(scanner, first_byte, begin_pos, TOK_COMMA);
-        if (accept_char(scanner, '+')) return make_token(scanner, first_byte, begin_pos, TOK_PLUS);
         if (accept_char(scanner, '=')) return make_token(scanner, first_byte, begin_pos, TOK_EQ);
         if (accept_char(scanner, '-')) {
             if (!is_eof(scanner) && isdigit(cur_char(scanner)))
                 return parse_literal(scanner, scanner->bytes_read, begin_pos, true);
             return make_token(scanner, first_byte, begin_pos, TOK_MINUS);
+        }
+        if (accept_char(scanner, '+')) {
+            if (!is_eof(scanner) && isdigit(cur_char(scanner)))
+                return parse_literal(scanner, scanner->bytes_read, begin_pos, false);
+            return make_token(scanner, first_byte, begin_pos, TOK_PLUS);
         }
 
         if (accept_char(scanner, '#')) {

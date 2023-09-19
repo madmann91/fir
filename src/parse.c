@@ -5,6 +5,7 @@
 #include "support/map.h"
 #include "support/str.h"
 #include "support/hash.h"
+#include "support/bits.h"
 
 #include <stdio.h>
 
@@ -260,7 +261,7 @@ static inline union fir_node_data parse_node_data(
     if (tag == FIR_CONST || fir_node_tag_has_fp_flags(tag)) {
         parser_expect(&context->parser, TOK_LBRACKET);
         if (tag == FIR_CONST && ty->tag == FIR_INT_TY) {
-            data.int_val = parse_int_val(context);
+            data.int_val = parse_int_val(context) & make_bitmask(ty->data.bitwidth);
         } else if (tag == FIR_CONST && ty->tag == FIR_FLOAT_TY) {
             data.float_val = parse_float_val(context);
         } else {
@@ -327,6 +328,7 @@ static inline const struct fir_node* parse_node_body(
             .data = data,
             .op_count = ops.elem_count
         }, ty, ops.elems);
+    assert(node->ty == ty);
 
     op_vec_destroy(&ops);
     return node;
