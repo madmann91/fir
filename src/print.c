@@ -9,16 +9,12 @@ static inline void print_indent(FILE* file, size_t indent) {
 }
 
 static void print_fp_flags(FILE* file, enum fir_fp_flags flags) {
-    if (flags == FIR_FP_STRICT) fprintf(file, "[strict]");
-    else if (flags == FIR_FP_FAST) fprintf(file, "[fast]");
-    else {
-        fprintf(file, "[");
-        if (flags & FIR_FP_FINITE_ONLY)    fprintf(file, "+fo");
-        if (flags & FIR_FP_NO_SIGNED_ZERO) fprintf(file, "+nsz");
-        if (flags & FIR_FP_ASSOCIATIVE)    fprintf(file, "+a");
-        if (flags & FIR_FP_DISTRIBUTIVE)   fprintf(file, "+d");
-        fprintf(file, "]");
-    }
+    fprintf(file, "[");
+    if (flags & FIR_FP_FINITE_ONLY)    fprintf(file, "+fo");
+    if (flags & FIR_FP_NO_SIGNED_ZERO) fprintf(file, "+nsz");
+    if (flags & FIR_FP_ASSOCIATIVE)    fprintf(file, "+a");
+    if (flags & FIR_FP_DISTRIBUTIVE)   fprintf(file, "+d");
+    fprintf(file, "]");
 }
 
 static void print_node(FILE* file, const struct fir_node* node) {
@@ -28,7 +24,7 @@ static void print_node(FILE* file, const struct fir_node* node) {
     else if (node->tag == FIR_CONST && node->ty->tag == FIR_INT_TY)
         fprintf(file, "[%"PRIu64"]", node->data.int_val);
     else if (node->tag == FIR_CONST && node->ty->tag == FIR_FLOAT_TY)
-        fprintf(file, "[%a(%g)]", node->data.float_val, node->data.float_val);
+        fprintf(file, "[%a]", node->data.float_val);
     else if (node->tag == FIR_ARRAY_TY)
         fprintf(file, "[%"PRIu64"]", node->data.array_dim);
     else if (fir_node_has_fp_flags(node))

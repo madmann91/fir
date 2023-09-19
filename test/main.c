@@ -207,9 +207,13 @@ int main(int argc, char** argv) {
     // Must flush to avoid flushing previously-buffered content in the forked children
     fflush(stdout);
 
+    size_t max_width = 0;
     FOREACH_VEC(struct test, test, tests) {
-        if (test->enabled)
-            start_test(test);
+        if (!test->enabled)
+            continue;
+        size_t width = strlen(test->name);
+        max_width = max_width < width ? width : max_width;
+        start_test(test);
     }
 
     for (size_t i = 0; i < enabled_tests; ++i) {
@@ -231,7 +235,8 @@ int main(int argc, char** argv) {
         const char* color = color_code(success);
         if (WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV)
             msg = "[SEGFAULT]";
-        printf(" %10s .............................. %s%s%s\n", test->name,
+        printf(" %*s .............................. %s%s%s\n",
+            (int)max_width, test->name,
             options.disable_colors ? "" : color, msg,
             options.disable_colors ? "" : TERM1(TERM_RESET));
 

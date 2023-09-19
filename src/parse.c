@@ -92,6 +92,16 @@ static inline double parse_float_val(struct parse_context* context) {
     return float_val;
 }
 
+static inline void invalid_fp_flag(
+    struct parse_context* context,
+    const struct fir_source_range* source_range,
+    struct str_view fp_flag)
+{
+    parser_error(&context->parser, source_range,
+        "invalid floating-point flag '%.*s'",
+        (int)fp_flag.length, fp_flag.data);
+}
+
 static inline enum fir_fp_flags parse_fp_flags(struct parse_context* context) {
     enum fir_fp_flags fp_flags = FIR_FP_STRICT;
     while (parser_accept(&context->parser, TOK_PLUS)) {
@@ -100,12 +110,8 @@ static inline enum fir_fp_flags parse_fp_flags(struct parse_context* context) {
         else if (str_view_is_equal(ident, str_view("nsz"))) fp_flags |= FIR_FP_NO_SIGNED_ZERO;
         else if (str_view_is_equal(ident, str_view("a")))   fp_flags |= FIR_FP_ASSOCIATIVE;
         else if (str_view_is_equal(ident, str_view("d")))   fp_flags |= FIR_FP_DISTRIBUTIVE;
-        else {
-            parser_error(&context->parser,
-                &context->parser.ahead->source_range,
-                "invalid floating-point flag '%.*s'",
-                (int)ident.length, ident.data);
-        }
+        else invalid_fp_flag(context, &context->parser.ahead->source_range, ident);
+
         parser_expect(&context->parser, TOK_IDENT);
     }
     return fp_flags;

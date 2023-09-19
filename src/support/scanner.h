@@ -35,6 +35,7 @@ enum token_tag {
     TOK_RBRACE,
     TOK_COMMA,
     TOK_PLUS,
+    TOK_MINUS,
     TOK_EQ
 };
 

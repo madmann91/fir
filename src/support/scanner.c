@@ -1,6 +1,7 @@
 #include "scanner.h"
 
 #include <string.h>
+#include <math.h>
 
 struct scanner scanner_create(const char* data, size_t size) {
     return (struct scanner) {
@@ -88,7 +89,8 @@ static inline enum token_tag find_keyword(struct str_view view) {
 static inline struct token parse_literal(
     struct scanner* scanner,
     size_t first_byte,
-    struct fir_source_pos begin_pos)
+    struct fir_source_pos begin_pos,
+    bool has_minus)
 {
     bool is_float = false;
 
@@ -115,10 +117,14 @@ static inline struct token parse_literal(
     }
 
     struct token token = make_token(scanner, first_byte, begin_pos, is_float ? TOK_FLOAT : TOK_INT);
-    if (is_float)
-        token.float_val = strtod(token.str.data, NULL);
-    else
+    if (is_float) {
+        token.float_val = copysign(strtod(token.str.data, NULL), has_minus ? -1.0 : 1.0);
+    } else if (has_minus) {
+        long long int signed_int = -strtoll(token.str.data + prefix_len, NULL, base);
+        token.int_val = (uint64_t)signed_int;
+    } else {
         token.int_val = strtoull(token.str.data + prefix_len, NULL, base);
+    }
     return token;
 }
 
@@ -140,6 +146,11 @@ struct token scanner_advance(struct scanner* scanner) {
         if (accept_char(scanner, ',')) return make_token(scanner, first_byte, begin_pos, TOK_COMMA);
         if (accept_char(scanner, '+')) return make_token(scanner, first_byte, begin_pos, TOK_PLUS);
         if (accept_char(scanner, '=')) return make_token(scanner, first_byte, begin_pos, TOK_EQ);
+        if (accept_char(scanner, '-')) {
+            if (!is_eof(scanner) && isdigit(cur_char(scanner)))
+                return parse_literal(scanner, scanner->bytes_read, begin_pos, true);
+            return make_token(scanner, first_byte, begin_pos, TOK_MINUS);
+        }
 
         if (accept_char(scanner, '#')) {
             while (!is_eof(scanner) && cur_char(scanner) != '\n')
@@ -158,7 +169,7 @@ struct token scanner_advance(struct scanner* scanner) {
         }
 
         if (isdigit(cur_char(scanner)))
-            return parse_literal(scanner, first_byte, begin_pos);
+            return parse_literal(scanner, first_byte, begin_pos, false);
 
         eat_char(scanner);
         return make_token(scanner, first_byte, begin_pos, TOK_ERR);
@@ -183,6 +194,7 @@ const char* token_tag_to_string(enum token_tag tag) {
         case TOK_RBRACE:   return "}";
         case TOK_COMMA:    return ",";
         case TOK_PLUS:     return "+";
+        case TOK_MINUS:    return "-";
         case TOK_EQ:       return "=";
         default:
             assert("invalid token tag");
