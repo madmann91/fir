@@ -19,8 +19,8 @@ static inline bool cmp_str_view(const struct str_view* str_view, const struct st
     return str_view_is_equal(*str_view, *other);
 }
 
-DECL_SET(str_view_set, struct str_view, hash_str_view, cmp_str_view)
-DECL_VEC(dbg_info_vec, struct fir_dbg_info*)
+DEF_SET(str_view_set, struct str_view, hash_str_view, cmp_str_view, PRIVATE)
+DEF_VEC(dbg_info_vec, struct fir_dbg_info*, PRIVATE)
 
 struct fir_dbg_info_pool {
     struct str_view_set strings;

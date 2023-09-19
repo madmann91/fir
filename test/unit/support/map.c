@@ -4,7 +4,7 @@
 static inline uint32_t hash_int(const int* i) { return *i; }
 static inline bool cmp_int(const int* i, const int* j) { return *i == *j; }
 
-DECL_MAP(foo_map, int, int, hash_int, cmp_int)
+DEF_MAP(foo_map, int, int, hash_int, cmp_int, PRIVATE)
 
 TEST(map) {
     struct foo_map foo_map = foo_map_create();

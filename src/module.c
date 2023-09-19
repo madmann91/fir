@@ -72,9 +72,9 @@ static inline bool cmp_node(
     return true;
 }
 
-DECL_MAP(internal_node_map, const struct fir_node*, const struct fir_node*, hash_node, cmp_node)
-DECL_VEC(func_vec, struct fir_node*)
-DECL_VEC(global_vec, struct fir_node*)
+DEF_MAP(internal_node_map, const struct fir_node*, const struct fir_node*, hash_node, cmp_node, PRIVATE)
+DEF_VEC(func_vec, struct fir_node*, PRIVATE)
+DEF_VEC(global_vec, struct fir_node*, PRIVATE)
 
 struct fir_mod {
     char* name;

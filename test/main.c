@@ -24,7 +24,7 @@ struct test {
     int read_pipe;
 };
 
-DECL_VEC(test_vec, struct test)
+DEF_VEC(test_vec, struct test, PRIVATE)
 
 static struct test_vec tests = {};
 

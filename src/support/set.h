@@ -1,6 +1,7 @@
 #pragma once
 
 #include "htable.h"
+#include "linkage.h"
 
 #include <string.h>
 
@@ -12,27 +13,39 @@
         very_long_prefix_once = 0; \
         very_long_prefix_i < (set).htable.capacity; \
         ++very_long_prefix_i, very_long_prefix_once = 0) \
-        for (const elem_ty* elem = &((const elem_ty*)(set).htable.keys)[very_long_prefix_i]; \
+        for (elem_ty const* elem = &((elem_ty const*)(set).htable.keys)[very_long_prefix_i]; \
             very_long_prefix_once == 0 && htable_is_bucket_occupied(&(set).htable, very_long_prefix_i); \
             very_long_prefix_once = 1) \
 
-#define DECL_SET(name, elem_ty, hash, cmp) \
+#define DEF_SET(name, elem_ty, hash, cmp, linkage) \
+    DECL_SET(name, elem_ty, linkage) \
+    IMPL_SET(name, elem_ty, hash, cmp, linkage)
+
+#define DECL_SET(name, elem_ty, linkage) \
     struct name { \
         struct htable htable; \
     }; \
-    static inline struct name name##_create_with_capacity(size_t capacity) { \
+    LINKAGE(linkage) struct name name##_create_with_capacity(size_t); \
+    LINKAGE(linkage) struct name name##_create(void); \
+    LINKAGE(linkage) void name##_destroy(struct name*); \
+    LINKAGE(linkage) void name##_rehash(struct name*); \
+    LINKAGE(linkage) bool name##_insert(struct name*, elem_ty const*); \
+    LINKAGE(linkage) elem_ty const* name##_find(const struct name*, elem_ty const*);
+
+#define IMPL_SET(name, elem_ty, hash, cmp, linkage) \
+    LINKAGE(linkage) struct name name##_create_with_capacity(size_t capacity) { \
         return (struct name) { \
             .htable = htable_create(sizeof(elem_ty), 0, capacity) \
         }; \
     } \
-    static inline struct name name##_create(void) { \
+    LINKAGE(linkage) struct name name##_create(void) { \
         return name##_create_with_capacity(SET_DEFAULT_CAPACITY); \
     } \
-    static inline void name##_destroy(struct name* set) { \
+    LINKAGE(linkage) void name##_destroy(struct name* set) { \
         htable_destroy(&set->htable); \
     } \
-    static inline void name##_rehash(struct name*); \
-    static inline bool name##_insert(struct name* set, elem_ty const* elem) { \
+    LINKAGE(linkage) void name##_rehash(struct name*); \
+    LINKAGE(linkage) bool name##_insert(struct name* set, elem_ty const* elem) { \
         struct htable* htable = &set->htable; \
         uint32_t h = hash(elem) | HTABLE_OCCUPIED_FLAG; \
         size_t idx = htable_first_bucket(htable, h); \
@@ -47,7 +60,7 @@
             name##_rehash(set); \
         return true; \
     } \
-    static inline elem_ty const* name##_find(const struct name* set, elem_ty const* elem) { \
+    LINKAGE(linkage) elem_ty const* name##_find(const struct name* set, elem_ty const* elem) { \
         const struct htable* htable = &set->htable; \
         uint32_t h = hash(elem) | HTABLE_OCCUPIED_FLAG; \
         size_t idx = htable_first_bucket(htable, h); \
@@ -57,7 +70,7 @@
         } \
         return NULL; \
     } \
-    static inline void name##_rehash(struct name* set) { \
+    LINKAGE(linkage) void name##_rehash(struct name* set) { \
         struct name copy = name##_create_with_capacity(htable_rehashed_capacity(&set->htable)); \
         for (size_t i = 0; i < set->htable.capacity; ++i) { \
             if (!htable_is_bucket_occupied(&set->htable, i)) \

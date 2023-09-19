@@ -1,6 +1,8 @@
 #include "fir/node.h"
 #include "fir/module.h"
 
+#include "analysis/scope.h"
+
 #include <inttypes.h>
 
 static inline void print_indent(FILE* file, size_t indent) {
@@ -64,6 +66,13 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod) {
     struct fir_node** funcs = fir_mod_funcs(mod);
     for (size_t i = 0; i < fir_mod_func_count(mod); ++i) {
         fir_node_print(file, funcs[i], 0);
+        fprintf(file, "\n");
+        struct scope scope = scope_compute(funcs[i]);
+        FOREACH_SET(const struct fir_node*, node_ptr, scope) {
+            fir_node_print(file, *node_ptr, 1);
+            fprintf(file, "\n");
+        }
+        scope_destroy(&scope);
         fprintf(file, "\n");
     }
 }

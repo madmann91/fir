@@ -9,8 +9,6 @@
 
 #include <stdio.h>
 
-#define SMALL_OP_COUNT
-
 static inline uint32_t hash_str_view(const struct str_view* str_view) {
     uint32_t h = hash_init();
     for (size_t i = 0; i < str_view->length; ++i)
@@ -29,9 +27,9 @@ struct delayed_op {
     struct fir_node* nominal_node;
 };
 
-DECL_SMALL_VEC(op_vec, const struct fir_node*)
-DECL_VEC(delayed_op_vec, struct delayed_op)
-DECL_MAP(symbol_table, struct str_view, const struct fir_node*, hash_str_view, cmp_str_view)
+DEF_SMALL_VEC(op_vec, const struct fir_node*, PRIVATE)
+DEF_VEC(delayed_op_vec, struct delayed_op, PRIVATE)
+DEF_MAP(symbol_table, struct str_view, const struct fir_node*, hash_str_view, cmp_str_view, PRIVATE)
 
 struct parse_context {
     struct fir_mod* mod;
