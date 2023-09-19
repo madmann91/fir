@@ -14,6 +14,8 @@ add_library(libfir
     parse.c
     print.c)
 
+add_executable(fir main.c)
+
 target_include_directories(libfir PUBLIC ../include)
 target_include_directories(libfir_support PUBLIC ../include)
 target_include_directories(libfir_analysis PUBLIC ../include)
@@ -28,3 +30,5 @@ set_target_properties(libfir_support libfir_analysis PROPERTIES
     PREFIX ""
     POSITION_INDEPENDENT_CODE ON
     C_VISIBILITY_PRESET hidden)
+
+target_link_libraries(fir PRIVATE libfir)

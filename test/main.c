@@ -87,12 +87,12 @@ static void usage() {
     printf(
         "usage: testdriver [options] filters ...\n"
         "options:\n"
-        "   -h    --help       Shows this message\n"
+        "   -h    --help       Shows this message.\n"
 #ifdef ENABLE_REGEX
-        "         --regex      Allow the use of PERL-style regular expressions in filters\n"
+        "         --regex      Allow the use of PERL-style regular expressions in filters.\n"
 #endif
-        "         --no-color   Turns of the use of color in the output\n"
-        "         --list       Lists all tests and exit\n");
+        "         --no-color   Turns of the use of color in the output.\n"
+        "         --list       Lists all tests and exit.\n");
 }
 
 struct options {
