@@ -38,6 +38,7 @@ struct scope scope_compute(const struct fir_node* func) {
         for (const struct fir_use* use = node->uses; use; use = use->next)
             node_stack_push(&node_stack, &use->user);
     }
+    node_stack_destroy(&node_stack);
 
     return scope;
 }
