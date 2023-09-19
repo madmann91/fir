@@ -20,6 +20,15 @@ TEST(parse) {
         .file_size = data_len - 1,
         .error_log = stderr
     }));
+    struct fir_node** funcs = fir_mod_funcs(mod);
+    REQUIRE(fir_mod_func_count(mod) == 1);
+    const struct fir_node* int32_ty = fir_int_ty(mod, 32);
+    const struct fir_node* tup_ty = fir_tup_ty(mod, (const struct fir_node*[]) { int32_ty, int32_ty }, 2);
+    const struct fir_node* one = fir_int_const(int32_ty, 1);
+    const struct fir_node* two = fir_iarith_op(FIR_IADD, one, one);
+    const struct fir_node* pair = fir_tup(mod, (const struct fir_node*[]) { one, two }, 2);
+    REQUIRE(funcs[0]->ty == fir_func_ty(int32_ty, tup_ty));
+    REQUIRE(funcs[0]->ops[0] == pair);
     fir_mod_destroy(mod);
 }
 

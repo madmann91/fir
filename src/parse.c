@@ -362,8 +362,7 @@ bool fir_mod_parse(struct fir_mod* mod, const struct fir_parse_input* input) {
     while (context.parser.ahead->tag != TOK_EOF)
         parse_node(&context);
 
-    for (size_t i = 0; i < context.delayed_ops.elem_count; ++i) {
-        const struct delayed_op* delayed_op = &context.delayed_ops.elems[i];
+    FOREACH_VEC(const struct delayed_op, delayed_op, context.delayed_ops) {
         const struct fir_node* const* op = symbol_table_find(&context.symbol_table, &delayed_op->op_name);
         if (op)
             fir_node_set_op(delayed_op->nominal_node, delayed_op->op_index, *op);
