@@ -4,6 +4,7 @@
 #include "fir/platform.h"
 
 #include <stdint.h>
+#include <stddef.h>
 
 /// @file
 ///
@@ -43,11 +44,19 @@ FIR_SYMBOL struct fir_dbg_info_pool* fir_dbg_info_pool_create(void);
 FIR_SYMBOL void fir_dbg_info_pool_destroy(struct fir_dbg_info_pool*);
 
 /// Creates a debug information object and stores it into the given pool.
-/// Name and filename may be NULL. If they are not, they are copied uniquely into the pool.
 FIR_SYMBOL const struct fir_dbg_info* fir_dbg_info(
     struct fir_dbg_info_pool*,
     const char* name,
     const char* file_name,
+    struct fir_source_range source_range);
+
+/// Same as `fir_dbg_info`, but with explicit string lengths.
+FIR_SYMBOL const struct fir_dbg_info* fir_dbg_info_with_length(
+    struct fir_dbg_info_pool*,
+    const char* name,
+    size_t name_len,
+    const char* file_name,
+    size_t file_name_len,
     struct fir_source_range source_range);
 
 #endif

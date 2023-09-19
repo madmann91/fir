@@ -1,8 +1,6 @@
 add_library(libfir_support STATIC
     support/alloc.c
     support/primes.c
-    support/str.c
-    support/htable.c
     support/scanner.c
     support/parser.c)
 
@@ -23,5 +21,6 @@ set_target_properties(libfir PROPERTIES
     C_VISIBILITY_PRESET hidden)
 
 set_target_properties(libfir_support PROPERTIES
+    PREFIX ""
     POSITION_INDEPENDENT_CODE ON
     C_VISIBILITY_PRESET hidden)

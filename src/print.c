@@ -65,7 +65,11 @@ void fir_node_dump(const struct fir_node* node) {
 }
 
 void fir_mod_print(FILE* file, const struct fir_mod* mod) {
-    // TODO
+    struct fir_node** funcs = fir_mod_funcs(mod);
+    for (size_t i = 0; i < fir_mod_func_count(mod); ++i) {
+        fir_node_print(file, funcs[i], 0);
+        fprintf(file, "\n");
+    }
 }
 
 void fir_mod_dump(const struct fir_mod* mod) {

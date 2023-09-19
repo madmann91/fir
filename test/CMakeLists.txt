@@ -2,6 +2,7 @@ add_executable(testdriver
     main.c
     unit/dbg_info.c
     unit/module.c
+    unit/parse.c
     unit/support/map.c
     unit/support/set.c)
 

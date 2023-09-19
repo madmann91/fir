@@ -242,6 +242,7 @@ int main(int argc, char** argv) {
         asserts_passed += context.asserts_passed;
     }
     test_vec_destroy(&tests);
+
     printf("\n%s%zu/%zu test(s) passed, %zu assertion(s) passed%s\n",
         options.disable_colors ? "" : color_code(failed == 0),
         passed, passed + failed, asserts_passed,

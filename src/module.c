@@ -20,7 +20,7 @@ static uint32_t hash_node_data(uint32_t h, const struct fir_node* node) {
     else if (node->tag == FIR_CONST && node->ty->tag == FIR_INT_TY)
         h = hash_uint64(h, node->data.int_val);
     else if (node->tag == FIR_CONST && node->ty->tag == FIR_FLOAT_TY)
-        h = hash_uint64(h, double_bits(node->data.float_val));
+        h = hash_uint64(h, double_to_bits(node->data.float_val));
     else if (fir_node_has_bitwidth(node))
         h = hash_uint32(h, node->data.bitwidth);
     return h;
@@ -45,7 +45,7 @@ static inline bool cmp_node_data(const struct fir_node* node, const struct fir_n
     else if (node->tag == FIR_CONST && node->ty->tag == FIR_INT_TY)
         return node->data.int_val == other->data.int_val;
     else if (node->tag == FIR_CONST && node->ty->tag == FIR_FLOAT_TY)
-        return double_bits(node->data.float_val) == double_bits(other->data.float_val);
+        return double_to_bits(node->data.float_val) == double_to_bits(other->data.float_val);
     else if (node->tag == FIR_ARRAY_TY)
         return node->data.array_dim == other->data.array_dim;
     else if (fir_node_has_bitwidth(node))
@@ -154,10 +154,10 @@ static inline const struct fir_node* insert_node(struct fir_mod* mod, const stru
     if (found)
         return *found;
     struct fir_node* new_node = alloc_node(node->op_count);
-    new_node->id = mod->cur_id++;
     memcpy(new_node, node, sizeof(struct fir_node) + sizeof(struct fir_node*) * node->op_count);
     for (size_t i = 0; i < node->op_count; ++i)
         record_use(new_node, i);
+    new_node->id = mod->cur_id++;
     const struct fir_node* simplified_node = simplify_node(mod, new_node);
     assert(simplified_node->ty == new_node->ty);
     internal_node_map_insert(&mod->nodes, (const struct fir_node* const*)&new_node, &simplified_node);
@@ -208,7 +208,7 @@ void fir_node_set_op(struct fir_node* node, size_t op_index, const struct fir_no
 
 const struct fir_node* fir_node_rebuild(
     struct fir_mod* mod,
-    struct fir_node* node,
+    const struct fir_node* node,
     const struct fir_node* ty,
     const struct fir_node* const* ops)
 {
@@ -229,19 +229,19 @@ const struct fir_node* fir_node_rebuild(
     return rebuilt_node;
 }
 
-struct fir_node** fir_mod_funcs(struct fir_mod* mod) {
+struct fir_node** fir_mod_funcs(const struct fir_mod* mod) {
     return mod->funcs.elems;
 }
 
-struct fir_node** fir_mod_globals(struct fir_mod* mod) {
+struct fir_node** fir_mod_globals(const struct fir_mod* mod) {
     return mod->globals.elems;
 }
 
-size_t fir_mod_func_count(struct fir_mod* mod) {
+size_t fir_mod_func_count(const struct fir_mod* mod) {
     return mod->funcs.elem_count;
 }
 
-size_t fir_mod_global_count(struct fir_mod* mod) {
+size_t fir_mod_global_count(const struct fir_mod* mod) {
     return mod->globals.elem_count;
 }
 

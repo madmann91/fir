@@ -24,32 +24,41 @@
 /// IR module.
 struct fir_mod;
 
+struct fir_dbg_info_pool;
+
 /// Creates a module with the given name.
 FIR_SYMBOL struct fir_mod* fir_mod_create(const char* name);
 /// Destroys the given module. This releases memory holding all the nodes in the module.
 FIR_SYMBOL void fir_mod_destroy(struct fir_mod*);
 
 /// Returns the functions of the module.
-FIR_SYMBOL struct fir_node** fir_mod_funcs(struct fir_mod*);
+FIR_SYMBOL struct fir_node** fir_mod_funcs(const struct fir_mod*);
 /// Returns the global variables of the module.
-FIR_SYMBOL struct fir_node** fir_mod_globals(struct fir_mod*);
+FIR_SYMBOL struct fir_node** fir_mod_globals(const struct fir_mod*);
 /// Returns the number of functions in the module.
-FIR_SYMBOL size_t fir_mod_func_count(struct fir_mod*);
+FIR_SYMBOL size_t fir_mod_func_count(const struct fir_mod*);
 /// Returns the number of global variables in the module.
-FIR_SYMBOL size_t fir_mod_global_count(struct fir_mod*);
+FIR_SYMBOL size_t fir_mod_global_count(const struct fir_mod*);
 
 /// Prints the given module in the given stream.
 FIR_SYMBOL void fir_mod_print(FILE*, const struct fir_mod*);
 /// Prints the given module on the standard output.
 FIR_SYMBOL void fir_mod_dump(const struct fir_mod*);
 
-/// Parses a module from the given NULL-terminated file data.
-/// Returns true on success, otherwise false. Errors are reported on the standard error stream.
-FIR_SYMBOL bool fir_parse_mod(
-    const char* file_name,
-    const char* file_data,
-    size_t file_size,
-    struct fir_mod*);
+/// Input passed to `fir_mod_parse`.
+struct fir_parse_input {
+    const char* file_name; ///< Name of the file being parsed, for error messages.
+    const char* file_data; ///< File data, which must be NULL-terminated.
+    size_t file_size;      ///< File size, excluding NULL terminator.
+    FILE* error_log;       ///< Where errors will be reported, or NULL to disable error reporting.
+
+    /// Where to store debug information, or NULL to discard debug information.
+    struct fir_dbg_info_pool* dbg_pool;
+};
+
+/// Parses a module from the given input.
+/// @return true on success, otherwise false.
+FIR_SYMBOL bool fir_mod_parse(struct fir_mod*, const struct fir_parse_input* input);
 
 /// @name Types
 /// @{

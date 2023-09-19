@@ -1,8 +1,8 @@
 #include "parser.h"
 
-struct parser parser_init(const char* data, size_t size) {
+struct parser parser_create(const char* data, size_t size) {
     struct parser parser = {
-        .scanner = scanner_init(data, size),
+        .scanner = scanner_create(data, size),
     };
     for (size_t i = 0; i < MAX_AHEAD; ++i)
         parser_next(&parser);
@@ -47,7 +47,7 @@ bool parser_expect(struct parser* parser, enum token_tag tag) {
             &parser->ahead->source_range,
             "expected '%s', but got '%.*s'",
             token_tag_to_string(tag),
-            parser->ahead->str.length,
+            (int)parser->ahead->str.length,
             parser->ahead->str.data);
         return false;
     }

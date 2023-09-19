@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-struct scanner scanner_init(const char* data, size_t size) {
+struct scanner scanner_create(const char* data, size_t size) {
     return (struct scanner) {
         .data = data,
         .bytes_left = size,
@@ -22,14 +22,14 @@ static inline char cur_char(const struct scanner* scanner) {
 
 static inline void eat_char(struct scanner* scanner) {
     assert(!is_eof(scanner));
-    scanner->bytes_read++;
-    scanner->bytes_left--;
     if (cur_char(scanner) == '\n') {
         scanner->source_pos.row++;
         scanner->source_pos.col = 1;
     } else {
         scanner->source_pos.col++;
     }
+    scanner->bytes_read++;
+    scanner->bytes_left--;
 }
 
 static inline bool accept_char(struct scanner* scanner, char c) {
@@ -43,6 +43,20 @@ static inline bool accept_char(struct scanner* scanner, char c) {
 static inline void eat_spaces(struct scanner* scanner) {
     while (!is_eof(scanner) && isspace(cur_char(scanner)))
         eat_char(scanner);
+}
+
+static inline void eat_digits(struct scanner* scanner, int base) {
+    if (base == 2) {
+        while (!is_eof(scanner) && (cur_char(scanner) == '0' || cur_char(scanner) == '1'))
+            eat_char(scanner);
+    } else if (base == 16) {
+        while (!is_eof(scanner) && isxdigit(cur_char(scanner)))
+            eat_char(scanner);
+    } else {
+        assert(base == 10);
+        while (!is_eof(scanner) && isdigit(cur_char(scanner)))
+            eat_char(scanner);
+    }
 }
 
 static inline struct token make_token(
@@ -65,10 +79,47 @@ static inline struct token make_token(
 }
 
 static inline enum token_tag find_keyword(struct str_view view) {
-#define x(tag, str) if (!strncmp(str, view.data, view.length)) return TOK_##tag;
+#define x(tag, str) if (str_view_is_equal(view, str_view(str))) return TOK_##tag;
     FIR_NODE_LIST(x)
 #undef x
     return TOK_ERR;
+}
+
+static inline struct token parse_literal(
+    struct scanner* scanner,
+    size_t first_byte,
+    struct fir_source_pos begin_pos)
+{
+    bool is_float = false;
+
+    int base = 10;
+    int prefix_len = 0;
+    if (accept_char(scanner, '0')) {
+        if (accept_char(scanner, 'b')) { base = 2; prefix_len = 2; }
+        else if (accept_char(scanner, 'x')) { base = 16; prefix_len = 2; }
+    }
+
+    eat_digits(scanner, base);
+    if (accept_char(scanner, '.')) {
+        eat_digits(scanner, base);
+        is_float = true;
+    }
+
+    if ((base == 10 && accept_char(scanner, 'e')) ||
+        (base == 16 && accept_char(scanner, 'p')))
+    {
+        is_float = true;
+        if (!accept_char(scanner, '-'))
+            accept_char(scanner, '+');
+        eat_digits(scanner, 10);
+    }
+
+    struct token token = make_token(scanner, first_byte, begin_pos, is_float ? TOK_FLOAT : TOK_INT);
+    if (is_float)
+        token.float_val = strtod(token.str.data, NULL);
+    else
+        token.int_val = strtoull(token.str.data + prefix_len, NULL, base);
+    return token;
 }
 
 struct token scanner_advance(struct scanner* scanner) {
@@ -87,6 +138,7 @@ struct token scanner_advance(struct scanner* scanner) {
         if (accept_char(scanner, '{')) return make_token(scanner, first_byte, begin_pos, TOK_LBRACKET);
         if (accept_char(scanner, '}')) return make_token(scanner, first_byte, begin_pos, TOK_RBRACKET);
         if (accept_char(scanner, ',')) return make_token(scanner, first_byte, begin_pos, TOK_COMMA);
+        if (accept_char(scanner, '+')) return make_token(scanner, first_byte, begin_pos, TOK_PLUS);
         if (accept_char(scanner, '=')) return make_token(scanner, first_byte, begin_pos, TOK_EQ);
 
         if (accept_char(scanner, '#')) {
@@ -96,7 +148,7 @@ struct token scanner_advance(struct scanner* scanner) {
         }
 
         if (isalpha(cur_char(scanner)) || cur_char(scanner) == '_') {
-            while (!is_eof(scanner) && isalnum(cur_char(scanner)))
+            while (!is_eof(scanner) && (isalnum(cur_char(scanner)) || cur_char(scanner) == '_'))
                 eat_char(scanner);
             struct token token = make_token(scanner, first_byte, begin_pos, TOK_IDENT);
             enum token_tag keyword_tag = find_keyword(token.str);
@@ -104,6 +156,9 @@ struct token scanner_advance(struct scanner* scanner) {
                 token.tag = keyword_tag;
             return token;
         }
+
+        if (isdigit(cur_char(scanner)))
+            return parse_literal(scanner, first_byte, begin_pos);
 
         eat_char(scanner);
         return make_token(scanner, first_byte, begin_pos, TOK_ERR);
@@ -118,7 +173,8 @@ const char* token_tag_to_string(enum token_tag tag) {
         case TOK_EOF:      return "<end-of-file>";
         case TOK_ERR:      return "<invalid token>";
         case TOK_IDENT:    return "<identifier>";
-        case TOK_LITERAL:  return "<literal>";
+        case TOK_INT:      return "<integer literal>";
+        case TOK_FLOAT:    return "<floating-point literal>";
         case TOK_LPAREN:   return "(";
         case TOK_RPAREN:   return ")";
         case TOK_LBRACKET: return "[";
@@ -126,9 +182,25 @@ const char* token_tag_to_string(enum token_tag tag) {
         case TOK_LBRACE:   return "{";
         case TOK_RBRACE:   return "}";
         case TOK_COMMA:    return ",";
+        case TOK_PLUS:     return "+";
         case TOK_EQ:       return "=";
         default:
             assert("invalid token tag");
             return "";
     }
+}
+
+bool token_tag_is_node_tag(enum token_tag tag) {
+    switch (tag) {
+#define x(tag, ...) case TOK_##tag:
+        FIR_NODE_LIST(x)
+#undef x
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool token_tag_is_ty(enum token_tag tag) {
+    return token_tag_is_node_tag(tag) && fir_node_tag_is_ty((enum fir_node_tag)tag);
 }

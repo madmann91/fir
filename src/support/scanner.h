@@ -25,7 +25,8 @@ enum token_tag {
     TOK_EOF,
     TOK_ERR,
     TOK_IDENT,
-    TOK_LITERAL,
+    TOK_INT,
+    TOK_FLOAT,
     TOK_LPAREN,
     TOK_RPAREN,
     TOK_LBRACKET,
@@ -33,15 +34,23 @@ enum token_tag {
     TOK_LBRACE,
     TOK_RBRACE,
     TOK_COMMA,
+    TOK_PLUS,
     TOK_EQ
 };
 
 struct token {
     enum token_tag tag;
     struct str_view str;
+    union {
+        uint64_t int_val;
+        double float_val;
+    };
     struct fir_source_range source_range;
 };
 
-struct scanner scanner_init(const char* data, size_t size);
+struct scanner scanner_create(const char* data, size_t size);
 struct token scanner_advance(struct scanner*);
+
 const char* token_tag_to_string(enum token_tag);
+bool token_tag_is_node_tag(enum token_tag);
+bool token_tag_is_ty(enum token_tag);

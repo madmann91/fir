@@ -65,7 +65,7 @@
         return NULL; \
     } \
     static inline void name##_rehash(struct name* map) { \
-        struct name copy = name##_create_with_capacity(htable_grow_capacity(map->htable.capacity)); \
+        struct name copy = name##_create_with_capacity(htable_rehashed_capacity(&map->htable)); \
         for (size_t i = 0; i < map->htable.capacity; ++i) { \
             if (!htable_is_bucket_occupied(&map->htable, i)) \
                 continue; \

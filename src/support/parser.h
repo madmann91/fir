@@ -13,7 +13,7 @@ struct parser {
     void (*error_func) (void*, const struct fir_source_range*, const char* fmt, va_list);
 };
 
-struct parser parser_init(const char* data, size_t size);
+struct parser parser_create(const char* data, size_t size);
 
 void parser_error(
     struct parser*,
@@ -21,7 +21,6 @@ void parser_error(
     const char* fmt, ...);
 
 void parser_next(struct parser* parser);
-
 void parser_eat(struct parser*, enum token_tag);
 bool parser_accept(struct parser*, enum token_tag);
 bool parser_expect(struct parser*, enum token_tag);
