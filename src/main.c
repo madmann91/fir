@@ -47,14 +47,13 @@ static inline char* read_file(const char* file_name) {
             to_read = capacity - size;
         }
         size_t read = fread(data + size, 1, to_read, file);
-        size += to_read;
+        size += read;
         if (read < to_read)
             break;
     }
     fclose(file);
 
-    if (size >= capacity)
-        data = realloc(data, capacity + 1);
+    data = realloc(data, size + 1);
     data[size] = 0;
     return data;
 }
