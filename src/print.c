@@ -21,8 +21,10 @@ static void print_fp_flags(FILE* file, enum fir_fp_flags flags) {
 
 static void print_node(FILE* file, const struct fir_node* node) {
     fprintf(file, "%s", fir_node_tag_to_string(node->tag));
-    if (fir_node_has_bitwidth(node))
-        fprintf(file, "[%"PRIu32"]", node->data.bitwidth);
+    if (fir_node_is_nominal(node) && node->data.linkage != FIR_INTERNAL)
+        fprintf(file, "[%s]", node->data.linkage == FIR_IMPORTED ? "imported" : "exported");
+    else if (fir_node_has_bitwidth(node))
+        fprintf(file, "[%zu]", node->data.bitwidth);
     else if (node->tag == FIR_CONST && node->ty->tag == FIR_INT_TY)
         fprintf(file, "[%"PRIu64"]", node->data.int_val);
     else if (node->tag == FIR_CONST && node->ty->tag == FIR_FLOAT_TY)
@@ -63,8 +65,17 @@ void fir_node_dump(const struct fir_node* node) {
 }
 
 void fir_mod_print(FILE* file, const struct fir_mod* mod) {
+    struct fir_node** globals = fir_mod_globals(mod);
     struct fir_node** funcs = fir_mod_funcs(mod);
-    for (size_t i = 0; i < fir_mod_func_count(mod); ++i) {
+    size_t func_count = fir_mod_func_count(mod);
+    size_t global_count = fir_mod_global_count(mod);
+
+    for (size_t i = 0; i < global_count; ++i) {
+        fir_node_print(file, globals[i], 0);
+        fprintf(file, "\n");
+    }
+
+    for (size_t i = 0; i < func_count; ++i) {
         fir_node_print(file, funcs[i], 0);
         fprintf(file, "\n");
         struct scope scope = scope_compute(funcs[i]);

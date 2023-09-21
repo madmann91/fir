@@ -73,6 +73,26 @@ static inline void unknown_identifier(
         (int)ident.length, ident.data);
 }
 
+static inline void invalid_fp_flag(
+    struct parse_context* context,
+    const struct fir_source_range* source_range,
+    struct str_view fp_flag)
+{
+    parser_error(&context->parser, source_range,
+        "invalid floating-point flag '%.*s'",
+        (int)fp_flag.length, fp_flag.data);
+}
+
+static inline void invalid_linkage(
+    struct parse_context* context,
+    const struct fir_source_range* source_range,
+    struct str_view linkage)
+{
+    parser_error(&context->parser, source_range,
+        "invalid linkage '%.*s'",
+        (int)linkage.length, linkage.data);
+}
+
 static inline const struct fir_node* parse_ty(struct parse_context*);
 
 static inline uint64_t parse_int_val(struct parse_context* context) {
@@ -91,14 +111,15 @@ static inline double parse_float_val(struct parse_context* context) {
     return float_val;
 }
 
-static inline void invalid_fp_flag(
-    struct parse_context* context,
-    const struct fir_source_range* source_range,
-    struct str_view fp_flag)
-{
-    parser_error(&context->parser, source_range,
-        "invalid floating-point flag '%.*s'",
-        (int)fp_flag.length, fp_flag.data);
+static inline enum fir_linkage parse_linkage(struct parse_context* context) {
+    enum fir_linkage linkage = FIR_INTERNAL;
+    struct str_view ident = context->parser.ahead->str;
+    if (str_view_is_equal(ident, str_view("internal")))      linkage = FIR_INTERNAL;
+    else if (str_view_is_equal(ident, str_view("imported"))) linkage = FIR_IMPORTED;
+    else if (str_view_is_equal(ident, str_view("exported"))) linkage = FIR_EXPORTED;
+    else invalid_linkage(context, &context->parser.ahead->source_range, ident);
+    parser_expect(&context->parser, TOK_IDENT);
+    return linkage;
 }
 
 static inline enum fir_fp_flags parse_fp_flags(struct parse_context* context) {
@@ -122,19 +143,6 @@ static inline uint64_t parse_array_dim(struct parse_context* context) {
 
 static inline uint32_t parse_bitwidth(struct parse_context* context) {
     return parse_int_val(context);
-}
-
-static inline const struct fir_node* parse_no_arg_ty(struct parse_context* context) {
-    parser_next(&context->parser);
-    switch (context->parser.ahead->tag) {
-        case TOK_NORET_TY: return fir_noret_ty(context->mod);
-        case TOK_ERR_TY:   return fir_err_ty(context->mod);
-        case TOK_MEM_TY:   return fir_mem_ty(context->mod);
-        case TOK_PTR_TY:   return fir_ptr_ty(context->mod);
-        default:
-            assert(false && "invalid type tag");
-            return NULL;
-    }
 }
 
 static inline const struct fir_node* parse_int_or_float_ty(struct parse_context* context) {
@@ -198,11 +206,10 @@ static inline const struct fir_node* parse_ty(struct parse_context* context) {
         case TOK_DYNARRAY_TY: return parse_dynarray_ty(context);
         case TOK_FUNC_TY:     return parse_func_ty(context);
         case TOK_TUP_TY:      return parse_tup_ty(context);
-        case TOK_NORET_TY:
-        case TOK_ERR_TY:
-        case TOK_MEM_TY:
-        case TOK_PTR_TY:
-            return parse_no_arg_ty(context);
+        case TOK_NORET_TY:    return parser_next(&context->parser), fir_noret_ty(context->mod);
+        case TOK_ERR_TY:      return parser_next(&context->parser), fir_err_ty(context->mod);
+        case TOK_MEM_TY:      return parser_next(&context->parser), fir_mem_ty(context->mod);
+        case TOK_PTR_TY:      return parser_next(&context->parser), fir_ptr_ty(context->mod);
         case TOK_INT_TY:
         case TOK_FLOAT_TY:
             return parse_int_or_float_ty(context);
@@ -267,6 +274,9 @@ static inline union fir_node_data parse_node_data(
             data.fp_flags = parse_fp_flags(context);
         }
         parser_expect(&context->parser, TOK_RBRACKET);
+    } else if (fir_node_tag_is_nominal(tag) && parser_accept(&context->parser, TOK_LBRACKET)) {
+        data.linkage = parse_linkage(context);
+        parser_expect(&context->parser, TOK_RBRACKET);
     }
     return data;
 }
@@ -291,8 +301,13 @@ static inline const struct fir_node* parse_node_body(
     union fir_node_data data = parse_node_data(context, tag, ty);
 
     struct fir_node* nominal_node = NULL;
-    if (tag == FIR_FUNC)
-        nominal_node = fir_func(ty);
+    if (fir_node_tag_is_nominal(tag)) {
+        nominal_node = fir_node_clone(
+            context->mod, &(struct fir_node) {
+                .tag = tag,
+                .data.linkage = data.linkage
+            }, ty);
+    }
 
     bool valid_ops = true;
     size_t op_count = 0;

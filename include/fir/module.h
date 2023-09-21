@@ -78,9 +78,9 @@ FIR_SYMBOL const struct fir_node* fir_array_ty(const struct fir_node* elem_ty, s
 FIR_SYMBOL const struct fir_node* fir_dynarray_ty(const struct fir_node* elem_ty);
 
 /// Integer type. Supported bitwidths are <= 64.
-FIR_SYMBOL const struct fir_node* fir_int_ty(struct fir_mod*, uint32_t bitwidth);
+FIR_SYMBOL const struct fir_node* fir_int_ty(struct fir_mod*, size_t bitwidth);
 /// Floating-point type. Supported bitwidths are 16, 32, and 64.
-FIR_SYMBOL const struct fir_node* fir_float_ty(struct fir_mod*, uint32_t bitwidth);
+FIR_SYMBOL const struct fir_node* fir_float_ty(struct fir_mod*, size_t bitwidth);
 /// Boolean type (integer type with bitwidth 1).
 FIR_SYMBOL const struct fir_node* fir_bool_ty(struct fir_mod*);
 
@@ -110,9 +110,8 @@ FIR_SYMBOL const struct fir_node* fir_cont_ty(const struct fir_node* param_ty);
 /// Creates a function or continuation. Expects a function type as argument.
 FIR_SYMBOL struct fir_node* fir_func(const struct fir_node* func_ty);
 
-/// Creates a global variable, initialized with a bottom value of the given type.
-/// Global variables are just pointers to some global memory and are thus typed as pointers.
-FIR_SYMBOL struct fir_node* fir_global(const struct fir_node* ty);
+/// Creates a global variable, typed as a pointer.
+FIR_SYMBOL struct fir_node* fir_global(struct fir_mod*);
 
 /// Creates a continuation with the given parameter type.
 /// Shortcut for `func(func_ty(param_ty, noret_ty))`.
@@ -129,9 +128,16 @@ FIR_SYMBOL const struct fir_node* fir_top(const struct fir_node* ty);
 FIR_SYMBOL const struct fir_node* fir_bot(const struct fir_node* ty);
 
 /// Integer constant.
-FIR_SYMBOL const struct fir_node* fir_int_const(const struct fir_node* ty, uint64_t int_val);
+FIR_SYMBOL const struct fir_node* fir_int_const(const struct fir_node* ty, fir_int_val int_val);
 /// Floating-point constant.
-FIR_SYMBOL const struct fir_node* fir_float_const(const struct fir_node* ty, double float_val);
+FIR_SYMBOL const struct fir_node* fir_float_const(const struct fir_node* ty, fir_float_val float_val);
+
+/// Integer or floating-point constant equal to zero.
+FIR_SYMBOL const struct fir_node* fir_zero(const struct fir_node* ty);
+/// Integer or floating-point constant equal to one.
+FIR_SYMBOL const struct fir_node* fir_one(const struct fir_node* ty);
+/// Integer constant with all bits set.
+FIR_SYMBOL const struct fir_node* fir_all_ones(const struct fir_node* ty);
 
 /// @}
 
@@ -189,6 +195,15 @@ FIR_SYMBOL const struct fir_node* fir_cast_op(
     enum fir_node_tag tag,
     const struct fir_node* ty,
     const struct fir_node* arg);
+
+/// Constructs a bitwise not, using a XOR instruction.
+FIR_SYMBOL const struct fir_node* fir_not(const struct fir_node* arg);
+
+/// Constructs an integer negation, using a subtraction instruction.
+FIR_SYMBOL const struct fir_node* fir_ineg(const struct fir_node* arg);
+
+/// Constructs a floating-point negation, using a subtraction instruction.
+FIR_SYMBOL const struct fir_node* fir_fneg(enum fir_fp_flags, const struct fir_node* arg);
 
 /// @}
 

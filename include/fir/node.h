@@ -29,6 +29,13 @@ enum fir_node_tag {
 #undef x
 };
 
+/// Linkage for nominal nodes.
+enum fir_linkage {
+    FIR_INTERNAL, ///< The nominal node is internal to the module and is defined in it.
+    FIR_EXPORTED, ///< The nominal node is defined in the module and exported.
+    FIR_IMPORTED  ///< The nominal node is defined outside of the module and imported.
+};
+
 /// A _use_ of a node by another node.
 struct fir_use {
     size_t index;                ///< The operand index where the node is used.
@@ -36,13 +43,17 @@ struct fir_use {
     const struct fir_use* next;  ///< Next use in the list, or NULL.
 };
 
+typedef uint64_t fir_int_val;
+typedef double fir_float_val;
+
 /// Node data that is not representable via operands.
 union fir_node_data {
+    enum fir_linkage linkage;   ///< Linkage mode, for nominal nodes.
     enum fir_fp_flags fp_flags; ///< Floating-point flags, for floating-point instructions.
-    uint64_t int_val;           ///< Integer value, for integer constants.
-    double float_val;           ///< Floating-point value, for floating-point constants.
-    uint32_t bitwidth;          ///< Bitwidth, for integer or floating-point types.
-    uint64_t array_dim;         ///< Array dimension, for fixed-size array types.
+    fir_int_val int_val;        ///< Integer value, for integer constants.
+    fir_float_val float_val;    ///< Floating-point value, for floating-point constants.
+    size_t bitwidth;            ///< Bitwidth, for integer or floating-point types.
+    size_t array_dim;           ///< Array dimension, for fixed-size array types.
 };
 
 /// Members of the node structure. @see fir_node
@@ -60,7 +71,7 @@ union fir_node_data {
     const struct fir_node* ops[n];
 
 /// @struct fir_node
-/// IR node.
+/// IR node. @see FIR_NODE
 struct fir_node { FIR_NODE() };
 
 /// @name Predicates
@@ -100,6 +111,17 @@ FIR_SYMBOL bool fir_node_is_control_op(const struct fir_node*);
 FIR_SYMBOL bool fir_node_has_fp_flags(const struct fir_node*);
 FIR_SYMBOL bool fir_node_has_bitwidth(const struct fir_node*);
 
+FIR_SYMBOL bool fir_node_is_int_const(const struct fir_node*);
+FIR_SYMBOL bool fir_node_is_float_const(const struct fir_node*);
+FIR_SYMBOL bool fir_node_is_bool_ty(const struct fir_node*);
+FIR_SYMBOL bool fir_node_is_not(const struct fir_node*);
+FIR_SYMBOL bool fir_node_is_ineg(const struct fir_node*);
+FIR_SYMBOL bool fir_node_is_fneg(const struct fir_node*);
+
+FIR_SYMBOL bool fir_node_is_zero(const struct fir_node*);
+FIR_SYMBOL bool fir_node_is_one(const struct fir_node*);
+FIR_SYMBOL bool fir_node_is_all_ones(const struct fir_node*);
+
 /// @}
 
 /// Converts the given node tag to a human-readable string.
@@ -113,17 +135,27 @@ FIR_SYMBOL void fir_node_set_dbg_info(const struct fir_node*, const struct fir_d
 /// Sets the operand of a nominal node.
 FIR_SYMBOL void fir_node_set_op(struct fir_node* node, size_t op_index, const struct fir_node* op);
 
-/// Rebuilds the given structural node with new operands and type into the given module.
+/// Rebuilds the given _structural_ node with new operands and type into the given module.
 /// Constant values and other node-specific data is taken from the original node.
 FIR_SYMBOL const struct fir_node* fir_node_rebuild(
-    struct fir_mod* mod,
+    struct fir_mod*,
     const struct fir_node* node,
     const struct fir_node* ty,
     const struct fir_node* const* ops);
+
+/// Clones the given _nominal_ node with a new type into the given module.
+/// Linkage is inherited from the original nominal node.
+FIR_SYMBOL struct fir_node* fir_node_clone(
+    struct fir_mod*,
+    const struct fir_node* nominal_node,
+    const struct fir_node* ty);
 
 /// Prints a node on the given stream with the given indentation level.
 FIR_SYMBOL void fir_node_print(FILE*, const struct fir_node*, size_t indent);
 /// Prints a node on standard output.
 FIR_SYMBOL void fir_node_dump(const struct fir_node*);
+
+/// Counts the number of uses in the list.
+FIR_SYMBOL size_t fir_use_count(const struct fir_use*);
 
 #endif
