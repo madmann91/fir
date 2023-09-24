@@ -1,13 +1,13 @@
 add_library(libfir_support STATIC
     support/datatypes.c
     support/alloc.c
-    support/graph.c
     support/primes.c
     support/scanner.c
     support/parser.c)
 
 add_library(libfir_analysis STATIC
-    analysis/scope.c)
+    analysis/scope.c
+    analysis/cfg.c)
 
 add_library(libfir
     dbg_info.c
