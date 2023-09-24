@@ -6,8 +6,10 @@
 #include "support/vec.h"
 #include "support/alloc.h"
 #include "support/hash.h"
+#include "support/datatypes.h"
 
 #include <stdlib.h>
+#include <math.h>
 
 #define SMALL_OP_COUNT 8
 
@@ -76,7 +78,6 @@ static inline bool cmp_node(
 }
 
 DEF_SET(internal_node_set, const struct fir_node*, hash_node, cmp_node, PRIVATE)
-DEF_SMALL_VEC(small_op_vec, const struct fir_node*, PRIVATE)
 DEF_VEC(func_vec, struct fir_node*, PRIVATE)
 DEF_VEC(global_vec, struct fir_node*, PRIVATE)
 
@@ -87,12 +88,12 @@ struct fir_mod {
     struct global_vec globals;
     struct internal_node_set nodes;
     const struct fir_node* mem_ty;
-    const struct fir_node* err_ty;
     const struct fir_node* noret_ty;
     const struct fir_node* ptr_ty;
     const struct fir_node* unit_ty;
     const struct fir_node* unit;
     const struct fir_node* bool_ty;
+    const struct fir_node* alloc_ty;
     struct fir_use* free_uses;
 };
 
@@ -172,12 +173,12 @@ struct fir_mod* fir_mod_create(const char* name) {
     mod->cur_id = 0;
     mod->nodes   = internal_node_set_create();
     mod->mem_ty   = insert_node(mod, &(struct fir_node) { .tag = FIR_MEM_TY,   .mod = mod });
-    mod->err_ty   = insert_node(mod, &(struct fir_node) { .tag = FIR_ERR_TY,   .mod = mod });
     mod->noret_ty = insert_node(mod, &(struct fir_node) { .tag = FIR_NORET_TY, .mod = mod });
     mod->ptr_ty   = insert_node(mod, &(struct fir_node) { .tag = FIR_PTR_TY,   .mod = mod });
     mod->unit_ty  = insert_node(mod, &(struct fir_node) { .tag = FIR_TUP_TY,   .mod = mod });
     mod->unit     = insert_node(mod, &(struct fir_node) { .tag = FIR_TUP,      .ty = mod->unit_ty });
     mod->bool_ty  = fir_int_ty(mod, 1);
+    mod->alloc_ty = fir_tup_ty(mod, (const struct fir_node*[]) { fir_mem_ty(mod), fir_ptr_ty(mod) }, 2);
     return mod;
 }
 
@@ -225,7 +226,6 @@ size_t fir_mod_global_count(const struct fir_mod* mod) {
 }
 
 const struct fir_node* fir_mem_ty(struct fir_mod* mod) { return mod->mem_ty; }
-const struct fir_node* fir_err_ty(struct fir_mod* mod) { return mod->err_ty; }
 const struct fir_node* fir_noret_ty(struct fir_mod* mod) { return mod->noret_ty; }
 const struct fir_node* fir_ptr_ty(struct fir_mod* mod) { return mod->ptr_ty; }
 
@@ -340,7 +340,7 @@ struct fir_node* fir_cont(const struct fir_node* param_ty) {
 }
 
 static inline bool is_valid_pointee_ty(const struct fir_node* ty) {
-    return is_valid_ty(ty) && ty->tag != FIR_ERR_TY && ty->tag != FIR_MEM_TY;
+    return is_valid_ty(ty) && ty->tag != FIR_MEM_TY;
 }
 
 struct fir_node* fir_global(struct fir_mod* mod) {
@@ -428,10 +428,27 @@ static inline bool should_swap_ops(
     return right->tag == FIR_CONST && is_commutative(tag);
 }
 
-static inline fir_int_val eval_iarith_op(enum fir_node_tag tag, fir_int_val left_val, fir_int_val right_val) {
+static inline fir_int_val eval_iarith_op(
+    enum fir_node_tag tag,
+    size_t bitwidth,
+    fir_int_val left_val,
+    fir_int_val right_val)
+{
     if (tag == FIR_IADD) return left_val + right_val;
     if (tag == FIR_ISUB) return left_val - right_val;
     if (tag == FIR_IMUL) return left_val * right_val;
+    if (tag == FIR_UDIV) return left_val / right_val;
+    if (tag == FIR_UREM) return left_val % right_val;
+    if (tag == FIR_SDIV) {
+        return
+            ((intmax_t)sign_extend(left_val, bitwidth)) /
+            ((intmax_t)sign_extend(right_val, bitwidth));
+    }
+    if (tag == FIR_SREM) {
+        return
+            ((intmax_t)sign_extend(left_val, bitwidth)) %
+            ((intmax_t)sign_extend(right_val, bitwidth));
+    }
     assert(false && "invalid integer arithmetic operation");
     return 0;
 }
@@ -448,8 +465,12 @@ const struct fir_node* fir_iarith_op(
     // iadd(const[i], const[j]) -> const[i + j]
     // isub(const[i], const[j]) -> const[i - j]
     // imul(const[i], const[j]) -> const[i * j]
-    if (left->tag == FIR_CONST && right->tag == FIR_CONST)
-        return fir_int_const(left->ty, eval_iarith_op(tag, left->data.int_val, right->data.int_val));
+    if (left->tag == FIR_CONST && right->tag == FIR_CONST) {
+        return fir_int_const(left->ty, eval_iarith_op(tag,
+            left->ty->data.bitwidth,
+            left->data.int_val,
+            right->data.int_val));
+    }
 
     // iarith_op(x, const[i]) -> iarith_op(const[i], x)
     if (should_swap_ops(tag, left, right))
@@ -489,13 +510,17 @@ static inline double eval_farith_op(
     double right_val)
 {
     if (bitwidth == 64) {
-        if (tag == FIR_IADD) return ((double)left_val) + ((double)right_val);
-        if (tag == FIR_ISUB) return ((double)left_val) - ((double)right_val);
-        if (tag == FIR_IMUL) return ((double)left_val) * ((double)right_val);
+        if (tag == FIR_FADD) return ((double)left_val) + ((double)right_val);
+        if (tag == FIR_FSUB) return ((double)left_val) - ((double)right_val);
+        if (tag == FIR_FMUL) return ((double)left_val) * ((double)right_val);
+        if (tag == FIR_FDIV) return ((double)left_val) / ((double)right_val);
+        if (tag == FIR_FREM) return fmod((double)left_val, (double)right_val);
     } else if (bitwidth == 32) {
-        if (tag == FIR_IADD) return ((float)left_val) + ((float)right_val);
-        if (tag == FIR_ISUB) return ((float)left_val) - ((float)right_val);
-        if (tag == FIR_IMUL) return ((float)left_val) * ((float)right_val);
+        if (tag == FIR_FADD) return ((float)left_val) + ((float)right_val);
+        if (tag == FIR_FSUB) return ((float)left_val) - ((float)right_val);
+        if (tag == FIR_FMUL) return ((float)left_val) * ((float)right_val);
+        if (tag == FIR_FDIV) return ((float)left_val) / ((float)right_val);
+        if (tag == FIR_FREM) return fmodf((float)left_val, (float)right_val);
     }
     assert(false && "invalid floating-point arithmetic operation");
     return 0;
@@ -552,46 +577,6 @@ const struct fir_node* fir_farith_op(
         .op_count = 2,
         .ty = left->ty,
         .ops = { left, right }
-    });
-}
-
-const struct fir_node* fir_idiv_op(
-    enum fir_node_tag tag,
-    const struct fir_node* err,
-    const struct fir_node* left,
-    const struct fir_node* right)
-{
-    assert(err->ty->tag == FIR_ERR_TY);
-    assert(left->ty == right->ty);
-    assert(left->ty->tag == FIR_INT_TY);
-    assert(fir_node_tag_is_idiv_op(tag));
-    struct fir_mod* mod = fir_node_mod(left);
-    return insert_node(mod, (const struct fir_node*)&(struct { FIR_NODE(3) }) {
-        .tag = tag,
-        .op_count = 3,
-        .ty = fir_tup_ty(mod, (const struct fir_node*[]) { err->ty, left->ty }, 2),
-        .ops = { err, left, right }
-    });
-}
-
-const struct fir_node* fir_fdiv_op(
-    enum fir_node_tag tag,
-    enum fir_fp_flags fp_flags,
-    const struct fir_node* err,
-    const struct fir_node* left,
-    const struct fir_node* right)
-{
-    assert(err->ty->tag == FIR_ERR_TY);
-    assert(left->ty == right->ty);
-    assert(left->ty->tag == FIR_FLOAT_TY);
-    assert(fir_node_tag_is_fdiv_op(tag));
-    struct fir_mod* mod = fir_node_mod(left);
-    return insert_node(mod, (const struct fir_node*)&(struct { FIR_NODE(3) }) {
-        .tag = tag,
-        .data.fp_flags = fp_flags,
-        .op_count = 3,
-        .ty = fir_tup_ty(mod, (const struct fir_node*[]) { err->ty, left->ty }, 2),
-        .ops = { err, left, right }
     });
 }
 
@@ -758,7 +743,7 @@ static inline fir_float_val eval_stof(size_t bitwidth, fir_int_val arg_val) {
         return (float)signed_val;
     if (bitwidth == 64)
         return (double)signed_val;
-    assert(false && "invalid unsigned integer to floating-point number cast");
+    assert(false && "invalid signed integer to floating-point number cast");
     return 0.;
 }
 
@@ -767,7 +752,7 @@ static inline fir_int_val eval_ftou(size_t bitwidth, fir_float_val arg_val) {
         return (fir_int_val)(float)arg_val;
     if (bitwidth == 64)
         return (fir_int_val)(double)arg_val;
-    assert(false && "invalid floating-npoint number to unsigned integer cast");
+    assert(false && "invalid floating-point number to unsigned integer cast");
     return 0;
 }
 
@@ -776,7 +761,7 @@ static inline fir_int_val eval_ftos(size_t bitwidth, fir_float_val arg_val) {
         return (fir_int_val)(intmax_t)(float)arg_val;
     if (bitwidth == 64)
         return (fir_int_val)(intmax_t)(double)arg_val;
-    assert(false && "invalid floating-npoint number to signed integer cast");
+    assert(false && "invalid floating-point number to signed integer cast");
     return 0;
 }
 
@@ -808,6 +793,8 @@ const struct fir_node* fir_cast_op(
             return fir_int_const(ty, eval_ftou(arg->ty->data.bitwidth, arg->data.float_val));
         if (tag == FIR_FTOS)
             return fir_int_const(ty, eval_ftos(arg->ty->data.bitwidth, arg->data.float_val));
+        assert(false && "invalid cast operation");
+        return NULL;
     }
 
     return insert_node(fir_node_mod(ty), (const struct fir_node*)&(struct { FIR_NODE(1) }) {
@@ -838,13 +825,31 @@ static const struct fir_node* infer_tup_ty(
     const struct fir_node* const* elems,
     size_t elem_count)
 {
-    struct small_op_vec small_ops;
-    small_op_vec_init(&small_ops);
+    struct small_node_vec small_ops;
+    small_node_vec_init(&small_ops);
     for (size_t i = 0; i < elem_count; ++i)
-        small_op_vec_push(&small_ops, &elems[i]->ty);
+        small_node_vec_push(&small_ops, &elems[i]->ty);
     const struct fir_node* tup_ty = fir_tup_ty(mod, small_ops.elems, elem_count);
-    small_op_vec_destroy(&small_ops);
+    small_node_vec_destroy(&small_ops);
     return tup_ty;
+}
+
+static inline bool is_from_exts(
+    const struct fir_node* aggr_ty,
+    const struct fir_node*const* elems,
+    size_t elem_count)
+{
+    assert(aggr_ty->tag == FIR_TUP_TY || aggr_ty->tag == FIR_ARRAY_TY);
+    if (elem_count == 0 || elems[0]->tag != FIR_EXT || elems[0]->ops[0]->ty != aggr_ty)
+        return false;
+    for (size_t i = 0; i < elem_count; ++i) {
+        if (elems[i]->tag != FIR_EXT ||
+            elems[i]->ops[0] != elems[0]->ops[0] ||
+            !fir_node_is_int_const(elems[i]->ops[1]) ||
+            elems[i]->ops[1]->data.int_val != i)
+            return false;
+    }
+    return true;
 }
 
 const struct fir_node* fir_tup(
@@ -855,12 +860,17 @@ const struct fir_node* fir_tup(
     if (elem_count == 0)
         return fir_unit(mod);
 
+    // tup(ext(x, 0), ext(x, 1), ..., ext(x, n)) -> x
+    const struct fir_node* tup_ty = infer_tup_ty(mod, elems, elem_count);
+    if (is_from_exts(tup_ty, elems, elem_count))
+        return elems[0]->ops[0];
+
     struct small_tup { FIR_NODE(SMALL_OP_COUNT) } small_tup = {};
     struct fir_node* tup = (struct fir_node*)&small_tup;
     if (elem_count > SMALL_OP_COUNT)
         tup = alloc_node(elem_count);
     tup->tag = FIR_TUP;
-    tup->ty = infer_tup_ty(mod, elems, elem_count);
+    tup->ty = tup_ty;
     tup->op_count = elem_count;
     memcpy(tup->ops, elems, sizeof(struct fir_node*) * elem_count);
     const struct fir_node* result = insert_node(mod, tup);
@@ -877,6 +887,10 @@ const struct fir_node* fir_array(
     const struct fir_node* ty,
     const struct fir_node* const* elems)
 {
+    // array(ext(x, 0), ext(x, 1), ..., ext(x, n)) -> x
+    if (is_from_exts(ty, elems, ty->data.array_dim))
+        return elems[0]->ops[0];
+
     assert(ty->tag == FIR_ARRAY_TY);
     struct fir_mod* mod = fir_node_mod(ty);
     struct small_array { FIR_NODE(SMALL_OP_COUNT) } small_array = {};
@@ -977,13 +991,13 @@ static inline const struct fir_node* remove_ins(
     const struct fir_node* aggr,
     const struct fir_node* ins)
 {
-    struct small_op_vec stack;
-    small_op_vec_init(&stack);
+    struct small_node_vec stack;
+    small_node_vec_init(&stack);
     while (true) {
         assert(aggr->tag == FIR_INS);
         if (aggr == ins)
             break;
-        small_op_vec_push(&stack, &aggr->ops[0]);
+        small_node_vec_push(&stack, &aggr->ops[0]);
         aggr = aggr->ops[0];
     }
     const struct fir_node* result = ins->ops[0];
@@ -1002,14 +1016,14 @@ const struct fir_node* fir_ins(
     // ins(tup(x1, ..., xn), const[i], y) -> tup(x1, ...,, xi-1, y, xi+1, ..., xn)
     // ins(array(x1, ..., xn), const[i], y) -> array(x1, ...,, xi-1, y, xi+1, ..., xn)
     if ((aggr->tag == FIR_TUP || aggr->tag == FIR_ARRAY) && index->tag == FIR_CONST) {
-        struct small_op_vec small_ops;
-        small_op_vec_init(&small_ops);
+        struct small_node_vec small_ops;
+        small_node_vec_init(&small_ops);
         for (size_t i = 0; i < aggr->op_count; ++i)
-            small_op_vec_push(&small_ops, i == index->data.int_val ? &elem : &aggr->ops[i]);
+            small_node_vec_push(&small_ops, i == index->data.int_val ? &elem : &aggr->ops[i]);
         const struct fir_node* ins_aggr = aggr->tag == FIR_TUP
             ? fir_tup(fir_node_mod(aggr), small_ops.elems, small_ops.elem_count)
             : fir_array(aggr->ty, small_ops.elems);
-        small_op_vec_destroy(&small_ops);
+        small_node_vec_destroy(&small_ops);
         return ins_aggr;
     }
 
@@ -1050,6 +1064,60 @@ const struct fir_node* fir_select(
     const struct fir_node* array_ty = fir_array_ty(when_true->ty, 2);
     const struct fir_node* array = fir_array(array_ty, (const struct fir_node*[]) { when_true, when_false });
     return fir_ext(array, cond);
+}
+
+const struct fir_node* fir_alloc(
+    const struct fir_node* mem,
+    const struct fir_node* ty)
+{
+    assert(mem->ty->tag == FIR_MEM_TY);
+    struct fir_mod* mod = fir_node_mod(mem);
+    return insert_node(mod, (const struct fir_node*)&(struct { FIR_NODE(2) }) {
+        .tag = FIR_ALLOC,
+        .op_count = 2,
+        .ty = mod->alloc_ty,
+        .ops = { mem, ty }
+    });
+}
+
+const struct fir_node* fir_load(
+    const struct fir_node* mem,
+    const struct fir_node* ptr,
+    const struct fir_node* ty)
+{
+    assert(mem->ty->tag == FIR_MEM_TY);
+    assert(ptr->ty->tag == FIR_PTR_TY);
+
+    // load(store(mem, ptr, val), ptr) -> val
+    if (mem->tag == FIR_STORE && mem->ops[1] == ptr && mem->ops[2]->ty == ty)
+        return mem->ops[2];
+
+    return insert_node(fir_node_mod(mem), (const struct fir_node*)&(struct { FIR_NODE(2) }) {
+        .tag = FIR_LOAD,
+        .op_count = 2,
+        .ty = ty,
+        .ops = { mem, ptr }
+    });
+}
+
+const struct fir_node* fir_store(
+    const struct fir_node* mem,
+    const struct fir_node* ptr,
+    const struct fir_node* val)
+{
+    assert(mem->ty->tag == FIR_MEM_TY);
+    assert(ptr->ty->tag == FIR_PTR_TY);
+
+    // store(store(mem, ptr, x), ptr, y) -> store(mem, ptr, y)
+    if (mem->tag == FIR_STORE && mem->ops[1] == ptr)
+        mem = mem->ops[0];
+
+    return insert_node(fir_node_mod(mem), (const struct fir_node*)&(struct { FIR_NODE(3) }) {
+        .tag = FIR_STORE,
+        .op_count = 3,
+        .ty = mem->ty,
+        .ops = { mem, ptr, val }
+    });
 }
 
 const struct fir_node* fir_call(

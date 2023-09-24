@@ -6,6 +6,7 @@
 #include "support/str.h"
 #include "support/hash.h"
 #include "support/bits.h"
+#include "support/datatypes.h"
 
 #include <stdio.h>
 
@@ -27,7 +28,6 @@ struct delayed_op {
     struct fir_node* nominal_node;
 };
 
-DEF_SMALL_VEC(op_vec, const struct fir_node*, PRIVATE)
 DEF_VEC(delayed_op_vec, struct delayed_op, PRIVATE)
 DEF_MAP(symbol_table, struct str_view, const struct fir_node*, hash_str_view, cmp_str_view, PRIVATE)
 
@@ -185,18 +185,18 @@ static inline const struct fir_node* parse_func_ty(struct parse_context* context
 
 static inline const struct fir_node* parse_tup_ty(struct parse_context* context) {
     parser_eat(&context->parser, TOK_TUP_TY);
-    struct op_vec ops;
-    op_vec_init(&ops);
+    struct small_node_vec ops;
+    small_node_vec_init(&ops);
     parser_expect(&context->parser, TOK_LPAREN);
     while (context->parser.ahead->tag != TOK_RPAREN) {
         const struct fir_node* op = parse_ty(context);
-        op_vec_push(&ops, &op);
+        small_node_vec_push(&ops, &op);
         if (!parser_accept(&context->parser, TOK_COMMA))
             break;
     }
     parser_expect(&context->parser, TOK_RPAREN);
     const struct fir_node* tup_ty = fir_tup_ty(context->mod, ops.elems, ops.elem_count);
-    op_vec_destroy(&ops);
+    small_node_vec_destroy(&ops);
     return tup_ty;
 }
 
@@ -207,7 +207,6 @@ static inline const struct fir_node* parse_ty(struct parse_context* context) {
         case TOK_FUNC_TY:     return parse_func_ty(context);
         case TOK_TUP_TY:      return parse_tup_ty(context);
         case TOK_NORET_TY:    return parser_next(&context->parser), fir_noret_ty(context->mod);
-        case TOK_ERR_TY:      return parser_next(&context->parser), fir_err_ty(context->mod);
         case TOK_MEM_TY:      return parser_next(&context->parser), fir_mem_ty(context->mod);
         case TOK_PTR_TY:      return parser_next(&context->parser), fir_ptr_ty(context->mod);
         case TOK_INT_TY:
@@ -311,13 +310,13 @@ static inline const struct fir_node* parse_node_body(
 
     bool valid_ops = true;
     size_t op_count = 0;
-    struct op_vec ops;
-    op_vec_init(&ops);
+    struct small_node_vec ops;
+    small_node_vec_init(&ops);
     if (parser_accept(&context->parser, TOK_LPAREN)) {
         while (context->parser.ahead->tag != TOK_RPAREN) {
             const struct fir_node* op = parse_op(context, nominal_node, op_count);
             if (!nominal_node) {
-                op_vec_push(&ops, &op);
+                small_node_vec_push(&ops, &op);
                 valid_ops &= op != NULL;
             } else if (op) {
                 fir_node_set_op(nominal_node, op_count, op);
@@ -330,7 +329,7 @@ static inline const struct fir_node* parse_node_body(
     }
 
     if (nominal_node || !valid_ops) {
-        op_vec_destroy(&ops);
+        small_node_vec_destroy(&ops);
         return nominal_node;
     }
 
@@ -343,7 +342,7 @@ static inline const struct fir_node* parse_node_body(
         }, ty, ops.elems);
     assert(node->ty == ty);
 
-    op_vec_destroy(&ops);
+    small_node_vec_destroy(&ops);
     return node;
 }
 

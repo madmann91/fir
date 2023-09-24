@@ -65,8 +65,6 @@ FIR_SYMBOL bool fir_mod_parse(struct fir_mod*, const struct fir_parse_input* inp
 
 /// Type of memory tokens used to keep track of memory effects.
 FIR_SYMBOL const struct fir_node* fir_mem_ty(struct fir_mod*);
-/// Type of error tokens used to keep track of exceptions.
-FIR_SYMBOL const struct fir_node* fir_err_ty(struct fir_mod*);
 /// Special type used as the return type of continuations.
 FIR_SYMBOL const struct fir_node* fir_noret_ty(struct fir_mod*);
 /// Generic pointer type.
@@ -144,31 +142,16 @@ FIR_SYMBOL const struct fir_node* fir_all_ones(const struct fir_node* ty);
 /// @name Arithmetic or bitwise operations, comparisons, and casts
 /// @{
 
-/// Integer arithmetic operations (excluding division and remainder). @see FIR_IARITH_OP_LIST.
+/// Integer arithmetic operations. @see FIR_IARITH_OP_LIST.
 FIR_SYMBOL const struct fir_node* fir_iarith_op(
     enum fir_node_tag tag,
     const struct fir_node* left,
     const struct fir_node* right);
 
-/// Floating-point arithmetic operations (excluding division and remainder). @see FIR_FARITH_OP_LIST.
+/// Floating-point arithmetic operations. @see FIR_FARITH_OP_LIST.
 FIR_SYMBOL const struct fir_node* fir_farith_op(
     enum fir_node_tag tag,
     enum fir_fp_flags,
-    const struct fir_node* left,
-    const struct fir_node* right);
-
-/// Integer divisions and remainder operations. @see FIR_IDIV_OP_LIST.
-FIR_SYMBOL const struct fir_node* fir_idiv_op(
-    enum fir_node_tag tag,
-    const struct fir_node* err,
-    const struct fir_node* left,
-    const struct fir_node* right);
-
-/// Floating-point divisions and remainder operations. @see FIR_FDIV_OP_LIST.
-FIR_SYMBOL const struct fir_node* fir_fdiv_op(
-    enum fir_node_tag tag,
-    enum fir_fp_flags,
-    const struct fir_node* err,
     const struct fir_node* left,
     const struct fir_node* right);
 
@@ -247,6 +230,28 @@ FIR_SYMBOL const struct fir_node* fir_select(
     const struct fir_node* cond,
     const struct fir_node* when_true,
     const struct fir_node* when_false);
+
+/// @}
+
+/// @name Memory operations
+/// @{
+
+/// Allocates a piece of data local to the current function.
+FIR_SYMBOL const struct fir_node* fir_alloc(
+    const struct fir_node* mem,
+    const struct fir_node* ty);
+
+/// Loads the data located at the given address.
+FIR_SYMBOL const struct fir_node* fir_load(
+    const struct fir_node* mem,
+    const struct fir_node* ptr,
+    const struct fir_node* ty);
+
+/// Stores data at the given address.
+FIR_SYMBOL const struct fir_node* fir_store(
+    const struct fir_node* mem,
+    const struct fir_node* ptr,
+    const struct fir_node* val);
 
 /// @}
 

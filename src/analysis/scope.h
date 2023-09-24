@@ -1,8 +1,5 @@
 #pragma once
 
-#include "../support/set.h"
+#include "../support/datatypes.h"
 
-struct fir_node;
-DECL_SET(scope, const struct fir_node*, PUBLIC)
-
-struct scope scope_compute(const struct fir_node* func);
+struct node_set scope_compute(const struct fir_node* func);

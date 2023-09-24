@@ -10,7 +10,6 @@
 /// Lists all types.
 #define FIR_TYPE_LIST(x) \
     x(MEM_TY,      "mem_ty") \
-    x(ERR_TY,      "err_ty") \
     x(PTR_TY,      "ptr_ty") \
     x(NORET_TY,    "noret_ty") \
     x(INT_TY,      "int_ty") \
@@ -25,27 +24,21 @@
     x(GLOBAL, "global") \
     x(FUNC,   "func")
 
-/// List all arithmetic operations on integers, excluding division and remainder.
+/// List all arithmetic operations on integers.
 #define FIR_IARITH_OP_LIST(x) \
     x(IADD, "iadd") \
     x(ISUB, "isub") \
-    x(IMUL, "imul")
-
-/// List all arithmetic operations on floating-point numbers, excluding division and remainder.
-#define FIR_FARITH_OP_LIST(x) \
-    x(FADD, "fadd") \
-    x(FSUB, "fsub") \
-    x(FMUL, "fmul")
-
-/// List all division and remainder operations on integers.
-#define FIR_IDIV_OP_LIST(x) \
+    x(IMUL, "imul") \
     x(SDIV, "sdiv") \
     x(UDIV, "udiv") \
     x(SREM, "srem") \
     x(UREM, "urem")
 
-/// List all division and remainder operations on floating-point numbers.
-#define FIR_FDIV_OP_LIST(x) \
+/// List all arithmetic operations on floating-point numbers.
+#define FIR_FARITH_OP_LIST(x) \
+    x(FADD, "fadd") \
+    x(FSUB, "fsub") \
+    x(FMUL, "fmul") \
     x(FDIV, "fdiv") \
     x(FREM, "frem")
 
@@ -133,8 +126,6 @@
     FIR_NOMINAL_NODE_LIST(x) \
     FIR_IARITH_OP_LIST(x) \
     FIR_FARITH_OP_LIST(x) \
-    FIR_IDIV_OP_LIST(x) \
-    FIR_FDIV_OP_LIST(x) \
     FIR_ICMP_OP_LIST(x) \
     FIR_FCMP_OP_LIST(x) \
     FIR_BIT_OP_LIST(x) \

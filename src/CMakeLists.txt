@@ -1,5 +1,7 @@
 add_library(libfir_support STATIC
+    support/datatypes.c
     support/alloc.c
+    support/graph.c
     support/primes.c
     support/scanner.c
     support/parser.c)
@@ -22,6 +24,13 @@ target_include_directories(libfir_analysis PUBLIC ../include)
 
 target_compile_options(libfir PRIVATE -DFIR_EXPORT_SYMBOLS)
 target_link_libraries(libfir PRIVATE libfir_support libfir_analysis)
+
+include(CheckLibraryExists)
+check_library_exists(m sin "" LINK_LIBM)
+if (LINK_LIBM)
+    target_link_libraries(libfir PUBLIC m)
+endif()
+
 set_target_properties(libfir PROPERTIES
     PREFIX ""
     C_VISIBILITY_PRESET hidden)

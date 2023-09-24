@@ -78,12 +78,12 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod) {
     for (size_t i = 0; i < func_count; ++i) {
         fir_node_print(file, funcs[i], 0);
         fprintf(file, "\n");
-        struct scope scope = scope_compute(funcs[i]);
+        struct node_set scope = scope_compute(funcs[i]);
         FOREACH_SET(const struct fir_node*, node_ptr, scope) {
             fir_node_print(file, *node_ptr, 1);
             fprintf(file, "\n");
         }
-        scope_destroy(&scope);
+        node_set_destroy(&scope);
         fprintf(file, "\n");
     }
 }

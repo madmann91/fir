@@ -26,8 +26,6 @@ pred_func(is_iarith_op, FIR_IARITH_OP_LIST)
 pred_func(is_farith_op, FIR_FARITH_OP_LIST)
 pred_func(is_icmp_op, FIR_ICMP_OP_LIST)
 pred_func(is_fcmp_op, FIR_FCMP_OP_LIST)
-pred_func(is_idiv_op, FIR_IDIV_OP_LIST)
-pred_func(is_fdiv_op, FIR_FDIV_OP_LIST)
 pred_func(is_bit_op, FIR_BIT_OP_LIST)
 pred_func(is_cast_op, FIR_CAST_OP_LIST)
 pred_func(is_aggr_op, FIR_AGGR_OP_LIST)
@@ -38,7 +36,7 @@ pred_func(is_control_op, FIR_CONTROL_OP_LIST)
 #undef x
 
 bool fir_node_tag_has_fp_flags(enum fir_node_tag tag) {
-    return fir_node_tag_is_fdiv_op(tag) || fir_node_tag_is_farith_op(tag);
+    return fir_node_tag_is_farith_op(tag);
 }
 
 bool fir_node_tag_has_bitwidth(enum fir_node_tag tag) {
@@ -143,7 +141,6 @@ const struct fir_node* fir_node_rebuild(
     switch (node->tag) {
         case FIR_NORET_TY:    return fir_noret_ty(mod);
         case FIR_MEM_TY:      return fir_mem_ty(mod);
-        case FIR_ERR_TY:      return fir_err_ty(mod);
         case FIR_PTR_TY:      return fir_ptr_ty(mod);
         case FIR_INT_TY:      return fir_int_ty(mod, node->data.bitwidth);
         case FIR_FLOAT_TY:    return fir_float_ty(mod, node->data.bitwidth);
@@ -162,10 +159,6 @@ const struct fir_node* fir_node_rebuild(
             return fir_iarith_op(node->tag, ops[0], ops[1]);
         FIR_FARITH_OP_LIST(x)
             return fir_farith_op(node->tag, node->data.fp_flags, ops[0], ops[1]);
-        FIR_IDIV_OP_LIST(x)
-            return fir_idiv_op(node->tag, ops[0], ops[1], ops[2]);
-        FIR_FDIV_OP_LIST(x)
-            return fir_fdiv_op(node->tag, node->data.fp_flags, ops[0], ops[1], ops[2]);
         FIR_ICMP_OP_LIST(x)
             return fir_icmp_op(node->tag, ops[0], ops[1]);
         FIR_FCMP_OP_LIST(x)
