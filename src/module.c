@@ -1087,6 +1087,7 @@ const struct fir_node* fir_load(
 {
     assert(mem->ty->tag == FIR_MEM_TY);
     assert(ptr->ty->tag == FIR_PTR_TY);
+    assert(is_valid_pointee_ty(ty));
 
     // load(store(mem, ptr, val), ptr) -> val
     if (mem->tag == FIR_STORE && mem->ops[1] == ptr && mem->ops[2]->ty == ty)
@@ -1107,6 +1108,7 @@ const struct fir_node* fir_store(
 {
     assert(mem->ty->tag == FIR_MEM_TY);
     assert(ptr->ty->tag == FIR_PTR_TY);
+    assert(is_valid_pointee_ty(val->ty));
 
     // store(store(mem, ptr, x), ptr, y) -> store(mem, ptr, y)
     if (mem->tag == FIR_STORE && mem->ops[1] == ptr)
