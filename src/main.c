@@ -65,7 +65,7 @@ static inline bool compile_file(const char* file_name, const struct options* opt
         return false;
     }
     struct fir_mod* mod = fir_mod_create(file_name);
-    fir_mod_parse(mod, &(struct fir_parse_input) {
+    bool status = fir_mod_parse(mod, &(struct fir_parse_input) {
         .file_name = file_name,
         .file_data = file_data,
         .file_size = strlen(file_data),
@@ -74,7 +74,7 @@ static inline bool compile_file(const char* file_name, const struct options* opt
     free(file_data);
     fir_mod_dump(mod);
     fir_mod_destroy(mod);
-    return true;
+    return status;
 }
 
 int main(int argc, char** argv) {
