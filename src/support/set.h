@@ -7,7 +7,7 @@
 
 #define SET_DEFAULT_CAPACITY 4
 
-#define FOREACH_SET(elem_ty, elem, set) \
+#define SET_FOREACH(elem_ty, elem, set) \
     for (size_t \
         very_long_prefix_i = 0, \
         very_long_prefix_once = 0; \
@@ -17,11 +17,11 @@
             very_long_prefix_once == 0 && htable_is_bucket_occupied(&(set).htable, very_long_prefix_i); \
             very_long_prefix_once = 1) \
 
-#define DEF_SET(name, elem_ty, hash, cmp, linkage) \
-    DECL_SET(name, elem_ty, linkage) \
-    IMPL_SET(name, elem_ty, hash, cmp, linkage)
+#define SET_DEFINE(name, elem_ty, hash, cmp, linkage) \
+    SET_DECL(name, elem_ty, linkage) \
+    SET_IMPL(name, elem_ty, hash, cmp, linkage)
 
-#define DECL_SET(name, elem_ty, linkage) \
+#define SET_DECL(name, elem_ty, linkage) \
     struct name { \
         struct htable htable; \
     }; \
@@ -32,7 +32,7 @@
     LINKAGE(linkage) bool name##_insert(struct name*, elem_ty const*); \
     LINKAGE(linkage) elem_ty const* name##_find(const struct name*, elem_ty const*);
 
-#define IMPL_SET(name, elem_ty, hash, cmp, linkage) \
+#define SET_IMPL(name, elem_ty, hash, cmp, linkage) \
     LINKAGE(linkage) struct name name##_create_with_capacity(size_t capacity) { \
         return (struct name) { \
             .htable = htable_create(sizeof(elem_ty), 0, capacity) \

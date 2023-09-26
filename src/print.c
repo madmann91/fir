@@ -2,6 +2,7 @@
 #include "fir/module.h"
 
 #include "analysis/scope.h"
+#include "analysis/cfg.h"
 
 #include <inttypes.h>
 
@@ -78,12 +79,15 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod) {
     for (size_t i = 0; i < func_count; ++i) {
         fir_node_print(file, funcs[i], 0);
         fprintf(file, "\n");
-        struct node_set scope = scope_compute(funcs[i]);
-        FOREACH_SET(const struct fir_node*, node_ptr, scope) {
+        struct scope scope = scope_create(funcs[i]);
+        struct cfg cfg = cfg_create(&scope);
+        SET_FOREACH(const struct fir_node*, node_ptr, scope.nodes) {
             fir_node_print(file, *node_ptr, 1);
             fprintf(file, "\n");
         }
-        node_set_destroy(&scope);
+        node_graph_dump(&cfg.graph);
+        scope_destroy(&scope);
+        cfg_destroy(&cfg);
         fprintf(file, "\n");
     }
 }

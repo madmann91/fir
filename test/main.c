@@ -24,7 +24,7 @@ struct test {
     int read_pipe;
 };
 
-DEF_VEC(test_vec, struct test, PRIVATE)
+VEC_DEFINE(test_vec, struct test, PRIVATE)
 
 static struct test_vec tests = {};
 
@@ -48,7 +48,7 @@ void register_test(const char* name, void (*test_func) (struct test_context*)) {
 }
 
 static inline struct test* find_test_by_pid(pid_t pid) {
-    FOREACH_VEC(struct test, test, tests) {
+    VEC_FOREACH(struct test, test, tests) {
         if (test->pid == pid)
             return test;
     }
@@ -78,7 +78,7 @@ static void start_test(struct test* test) {
 }
 
 static void print_tests() {
-    FOREACH_VEC(struct test, test, tests) {
+    VEC_FOREACH(struct test, test, tests) {
         printf("%s\n", test->name);
     }
 }
@@ -146,7 +146,7 @@ static pcre2_code* compile_regex(const char* pattern) {
 
 static void filter_tests(int argc, char** argv, const struct options* options) {
     if (!options->enable_filtering) {
-        FOREACH_VEC(struct test, test, tests) { test->enabled = true; }
+        VEC_FOREACH(struct test, test, tests) { test->enabled = true; }
         return;
     }
 
@@ -159,7 +159,7 @@ static void filter_tests(int argc, char** argv, const struct options* options) {
             if (!code)
                 continue;
             pcre2_match_data* match_data = pcre2_match_data_create_from_pattern(code, NULL);
-            FOREACH_VEC(struct test, test, tests) {
+            VEC_FOREACH(struct test, test, tests) {
                 test->enabled =
                     pcre2_match(code, (PCRE2_SPTR8)test->name, strlen(test->name), 0, 0, match_data, NULL) >= 0;
             }
@@ -169,7 +169,7 @@ static void filter_tests(int argc, char** argv, const struct options* options) {
 #else
         {
 #endif
-            FOREACH_VEC(struct test, test, tests) {
+            VEC_FOREACH(struct test, test, tests) {
                 test->enabled = !strcmp(test->name, argv[i]);
             }
         }
@@ -194,7 +194,7 @@ int main(int argc, char** argv) {
     filter_tests(argc, argv, &options);
 
     size_t enabled_tests = 0;
-    FOREACH_VEC(struct test, test, tests) {
+    VEC_FOREACH(struct test, test, tests) {
         enabled_tests += test->enabled ? 1 : 0;
     }
 
@@ -208,7 +208,7 @@ int main(int argc, char** argv) {
     fflush(stdout);
 
     size_t max_width = 0;
-    FOREACH_VEC(struct test, test, tests) {
+    VEC_FOREACH(struct test, test, tests) {
         if (!test->enabled)
             continue;
         size_t width = strlen(test->name);

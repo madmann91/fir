@@ -118,6 +118,12 @@ FIR_SYMBOL bool fir_node_is_zero(const struct fir_node*);
 FIR_SYMBOL bool fir_node_is_one(const struct fir_node*);
 FIR_SYMBOL bool fir_node_is_all_ones(const struct fir_node*);
 
+FIR_SYMBOL bool fir_node_is_select(const struct fir_node*);
+FIR_SYMBOL bool fir_node_is_choice(const struct fir_node*);
+FIR_SYMBOL bool fir_node_is_jump(const struct fir_node*);
+FIR_SYMBOL bool fir_node_is_branch(const struct fir_node*);
+FIR_SYMBOL bool fir_node_is_switch(const struct fir_node*);
+
 /// @}
 
 /// Converts the given node tag to a human-readable string.

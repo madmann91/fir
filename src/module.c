@@ -77,9 +77,9 @@ static inline bool cmp_node(
     return true;
 }
 
-DEF_SET(internal_node_set, const struct fir_node*, hash_node, cmp_node, PRIVATE)
-DEF_VEC(func_vec, struct fir_node*, PRIVATE)
-DEF_VEC(global_vec, struct fir_node*, PRIVATE)
+SET_DEFINE(internal_node_set, const struct fir_node*, hash_node, cmp_node, PRIVATE)
+VEC_DEFINE(func_vec, struct fir_node*, PRIVATE)
+VEC_DEFINE(global_vec, struct fir_node*, PRIVATE)
 
 struct fir_mod {
     char* name;
@@ -184,13 +184,13 @@ struct fir_mod* fir_mod_create(const char* name) {
 
 void fir_mod_destroy(struct fir_mod* mod) {
     free(mod->name);
-    FOREACH_SET(struct fir_node*, node_ptr, mod->nodes) {
+    SET_FOREACH(struct fir_node*, node_ptr, mod->nodes) {
         free_node((struct fir_node*)*node_ptr);
     }
-    FOREACH_VEC(struct fir_node*, func_ptr, mod->funcs) {
+    VEC_FOREACH(struct fir_node*, func_ptr, mod->funcs) {
         free_node((struct fir_node*)*func_ptr);
     }
-    FOREACH_VEC(struct fir_node*, global_ptr, mod->globals) {
+    VEC_FOREACH(struct fir_node*, global_ptr, mod->globals) {
         free_node((struct fir_node*)*global_ptr);
     }
     internal_node_set_destroy(&mod->nodes);
@@ -1138,10 +1138,22 @@ const struct fir_node* fir_call(
 
 const struct fir_node* fir_branch(
     const struct fir_node* cond,
+    const struct fir_node* arg,
     const struct fir_node* jump_true,
     const struct fir_node* jump_false)
 {
-    return fir_call(fir_select(cond, jump_true, jump_false), fir_unit(fir_node_mod(cond)));
+    return fir_switch(cond, arg, (const struct fir_node*[]) { jump_false, jump_true }, 2);
+}
+
+const struct fir_node* fir_switch(
+    const struct fir_node* index,
+    const struct fir_node* arg,
+    const struct fir_node* const* targets,
+    size_t target_count)
+{
+    assert(target_count > 0);
+    const struct fir_node* target_array = fir_array(fir_array_ty(targets[0]->ty, target_count), targets);
+    return fir_call(fir_ext(target_array, index), arg);
 }
 
 const struct fir_node* fir_param(const struct fir_node* func) {

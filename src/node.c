@@ -108,6 +108,30 @@ bool fir_node_is_all_ones(const struct fir_node* node) {
         node->data.int_val == make_bitmask(node->ty->data.bitwidth);
 }
 
+bool fir_node_is_choice(const struct fir_node* node) {
+    return
+        node->tag == FIR_EXT &&
+        node->ops[0]->tag == FIR_ARRAY &&
+        node->ops[0]->ty->tag == FIR_ARRAY_TY &&
+        fir_node_is_bool_ty(node->ops[1]->ty);
+}
+
+bool fir_node_is_select(const struct fir_node* node) {
+    return fir_node_is_choice(node) && node->ops[0]->ty->data.array_dim == 2;
+}
+
+bool fir_node_is_jump(const struct fir_node* node) {
+    return node->tag == FIR_CALL && node->ty->tag == FIR_NORET_TY;
+}
+
+bool fir_node_is_branch(const struct fir_node* node) {
+    return fir_node_is_jump(node) && fir_node_is_select(node->ops[0]);
+}
+
+bool fir_node_is_switch(const struct fir_node* node) {
+    return fir_node_is_jump(node) && fir_node_is_choice(node->ops[0]);
+}
+
 const char* fir_node_tag_to_string(enum fir_node_tag tag) {
     switch (tag) {
 #define x(tag, str) case FIR_##tag: return str;

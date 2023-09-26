@@ -7,7 +7,7 @@
 
 #define MAP_DEFAULT_CAPACITY 4
 
-#define FOREACH_MAP_KEY(key_ty, key, map) \
+#define MAP_FOREACH_KEY(key_ty, key, map) \
     for (size_t \
         very_long_prefix_i = 0, \
         very_long_prefix_once = 0; \
@@ -17,17 +17,17 @@
             very_long_prefix_once == 0 && htable_is_bucket_occupied(&(map).htable, very_long_prefix_i); \
             very_long_prefix_once = 1) \
 
-#define FOREACH_MAP(key_ty, key, val_ty, val, map) \
-    FOREACH_MAP_KEY(key_ty, key, map) \
+#define MAP_FOREACH(key_ty, key, val_ty, val, map) \
+    MAP_FOREACH_KEY(key_ty, key, map) \
         for (val_ty const* val = &((val_ty const*)(map).htable.vals)[very_long_prefix_i]; \
             very_long_prefix_once == 0; \
             very_long_prefix_once = 1)
 
-#define DEF_MAP(name, key_ty, val_ty, hash, cmp, linkage) \
-    DECL_MAP(name, key_ty, val_ty, linkage) \
-    IMPL_MAP(name, key_ty, val_ty, hash, cmp, linkage)
+#define MAP_DEFINE(name, key_ty, val_ty, hash, cmp, linkage) \
+    MAP_DECL(name, key_ty, val_ty, linkage) \
+    MAP_IMPL(name, key_ty, val_ty, hash, cmp, linkage)
 
-#define DECL_MAP(name, key_ty, val_ty, linkage) \
+#define MAP_DECL(name, key_ty, val_ty, linkage) \
     struct name { \
         struct htable htable; \
     }; \
@@ -38,7 +38,7 @@
     LINKAGE(linkage) bool name##_insert(struct name*, key_ty const*, val_ty const*); \
     LINKAGE(linkage) val_ty const* name##_find(const struct name*, key_ty const*);
 
-#define IMPL_MAP(name, key_ty, val_ty, hash, cmp, linkage) \
+#define MAP_IMPL(name, key_ty, val_ty, hash, cmp, linkage) \
     LINKAGE(linkage) struct name name##_create_with_capacity(size_t capacity) { \
         return (struct name) { \
             .htable = htable_create(sizeof(key_ty), sizeof(val_ty), capacity) \

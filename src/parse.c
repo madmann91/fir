@@ -28,8 +28,8 @@ struct delayed_op {
     struct fir_node* nominal_node;
 };
 
-DEF_VEC(delayed_op_vec, struct delayed_op, PRIVATE)
-DEF_MAP(symbol_table, struct str_view, const struct fir_node*, hash_str_view, cmp_str_view, PRIVATE)
+VEC_DEFINE(delayed_op_vec, struct delayed_op, PRIVATE)
+MAP_DEFINE(symbol_table, struct str_view, const struct fir_node*, hash_str_view, cmp_str_view, PRIVATE)
 
 struct parse_context {
     struct fir_mod* mod;
@@ -382,7 +382,7 @@ bool fir_mod_parse(struct fir_mod* mod, const struct fir_parse_input* input) {
     while (context.parser.ahead->tag != TOK_EOF)
         parse_node(&context);
 
-    FOREACH_VEC(const struct delayed_op, delayed_op, context.delayed_ops) {
+    VEC_FOREACH(const struct delayed_op, delayed_op, context.delayed_ops) {
         const struct fir_node* const* op = symbol_table_find(&context.symbol_table, &delayed_op->op_name);
         if (op)
             fir_node_set_op(delayed_op->nominal_node, delayed_op->op_index, *op);

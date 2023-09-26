@@ -10,7 +10,11 @@
 #include <stdio.h>
 #include <assert.h>
 
-#define DECL_GRAPH(name, key_t, linkage) \
+#define GRAPH_DEFINE(name, key_t, hash, cmp, print, linkage) \
+    GRAPH_DECL(name, key_t, linkage) \
+    GRAPH_IMPL(name, key_t, hash, cmp, print, linkage)
+
+#define GRAPH_DECL(name, key_t, linkage) \
     struct name##_edge; \
     struct name##_node { \
         key_t data; \
@@ -23,8 +27,8 @@
         struct name##_edge* next_in; \
         struct name##_edge* next_out; \
     }; \
-    DECL_MAP(name##_node_map, key_t, struct name##_node*, linkage) \
-    DECL_SET(name##_edge_set, struct name##_edge*, linkage) \
+    MAP_DECL(name##_node_map, key_t, struct name##_node*, linkage) \
+    SET_DECL(name##_edge_set, struct name##_edge*, linkage) \
     struct name { \
         struct name##_node_map nodes; \
         struct name##_edge_set edges; \
@@ -33,9 +37,10 @@
     LINKAGE(linkage) void name##_destroy(struct name*); \
     LINKAGE(linkage) struct name##_node* name##_insert(struct name*, key_t const*); \
     LINKAGE(linkage) struct name##_edge* name##_connect(struct name*, struct name##_node*, struct name##_node*); \
-    LINKAGE(linkage) void name##_print(FILE*, const struct name*);
+    LINKAGE(linkage) void name##_print(FILE*, const struct name*); \
+    LINKAGE(linkage) void name##_dump(const struct name*);
 
-#define IMPL_GRAPH(name, key_t, hash, cmp, print, linkage) \
+#define GRAPH_IMPL(name, key_t, hash, cmp, print, linkage) \
     LINKAGE(linkage) uint32_t name##_hash_edge(struct name##_edge* const* edge_ptr) { \
         uint32_t h = hash_init(); \
         h = hash_uint64(h, (uintptr_t)(*edge_ptr)->from); \
@@ -50,8 +55,8 @@
             (*edge_ptr)->from == (*other_ptr)->from && \
             (*edge_ptr)->to == (*other_ptr)->to; \
     } \
-    IMPL_MAP(name##_node_map, key_t, struct name##_node*, hash, cmp, linkage) \
-    IMPL_SET(name##_edge_set, struct name##_edge*, name##_hash_edge, name##_cmp_edge, linkage) \
+    MAP_IMPL(name##_node_map, key_t, struct name##_node*, hash, cmp, linkage) \
+    SET_IMPL(name##_edge_set, struct name##_edge*, name##_hash_edge, name##_cmp_edge, linkage) \
     LINKAGE(linkage) struct name name##_create(void) { \
         return (struct name) { \
             .nodes = name##_node_map_create(), \
@@ -59,12 +64,12 @@
         }; \
     } \
     LINKAGE(linkage) void name##_destroy(struct name* graph) { \
-        FOREACH_MAP(key_t, key_ptr, struct name##_node*, node_ptr, graph->nodes) { \
+        MAP_FOREACH(key_t, key_ptr, struct name##_node*, node_ptr, graph->nodes) { \
             (void)key_ptr; \
             free(*node_ptr); \
         } \
         name##_node_map_destroy(&graph->nodes); \
-        FOREACH_SET(struct name##_edge*, edge_ptr, graph->edges) { \
+        SET_FOREACH(struct name##_edge*, edge_ptr, graph->edges) { \
             free(*edge_ptr); \
         } \
         name##_edge_set_destroy(&graph->edges); \
@@ -100,7 +105,7 @@
     } \
     LINKAGE(linkage) void name##_print(FILE* file, const struct name* graph) { \
         fprintf(file, "digraph {\n"); \
-        FOREACH_SET(const struct name##_edge*, edge_ptr, graph->edges) { \
+        SET_FOREACH(const struct name##_edge*, edge_ptr, graph->edges) { \
             const struct name##_edge* edge = *edge_ptr; \
             fprintf(file, "    "); \
             print(file, &edge->from->data); \
@@ -109,4 +114,8 @@
             fprintf(file, "\n"); \
         } \
         fprintf(file, "}\n"); \
+    } \
+    LINKAGE(linkage) void name##_dump(const struct name* graph) { \
+        name##_print(stdout, graph); \
+        fflush(stdout); \
     }

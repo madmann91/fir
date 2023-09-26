@@ -19,8 +19,8 @@ static inline bool cmp_str_view(const struct str_view* str_view, const struct st
     return str_view_is_equal(*str_view, *other);
 }
 
-DEF_SET(str_view_set, struct str_view, hash_str_view, cmp_str_view, PRIVATE)
-DEF_VEC(dbg_info_vec, struct fir_dbg_info*, PRIVATE)
+SET_DEFINE(str_view_set, struct str_view, hash_str_view, cmp_str_view, PRIVATE)
+VEC_DEFINE(dbg_info_vec, struct fir_dbg_info*, PRIVATE)
 
 struct fir_dbg_info_pool {
     struct str_view_set strings;
@@ -35,11 +35,11 @@ struct fir_dbg_info_pool* fir_dbg_info_pool_create(void) {
 }
 
 void fir_dbg_info_pool_destroy(struct fir_dbg_info_pool* pool) {
-    FOREACH_SET(struct str_view, str_view, pool->strings) {
+    SET_FOREACH(struct str_view, str_view, pool->strings) {
         free((char*)str_view->data);
     }
     str_view_set_destroy(&pool->strings);
-    FOREACH_VEC(struct fir_dbg_info*, elem_ptr, pool->dbg_info) {
+    VEC_FOREACH(struct fir_dbg_info*, elem_ptr, pool->dbg_info) {
         free(*elem_ptr);
     }
     dbg_info_vec_destroy(&pool->dbg_info);

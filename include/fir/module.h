@@ -231,6 +231,13 @@ FIR_SYMBOL const struct fir_node* fir_select(
     const struct fir_node* when_true,
     const struct fir_node* when_false);
 
+/// Builds a n-ary selection out of an extract and an array.
+/// Shortcut for `ext(array(x1, ..., xn), index)`.
+FIR_SYMBOL const struct fir_node* fir_choose(
+    const struct fir_node* index,
+    const struct fir_node* const* elems,
+    size_t elem_count);
+
 /// @}
 
 /// @name Memory operations
@@ -264,11 +271,21 @@ FIR_SYMBOL const struct fir_node* fir_call(
     const struct fir_node* arg);
 
 /// Branches to either continuation based on the condition.
-/// Shortcut for `call(select(cond, jump_true, jump_false), tup())`.
+/// Shortcut for `call(ext(array(jump_false, jump_true), cond), arg)`.
 FIR_SYMBOL const struct fir_node* fir_branch(
     const struct fir_node* cond,
+    const struct fir_node* arg,
     const struct fir_node* jump_true,
     const struct fir_node* jump_false);
+
+/// Branches to a continuation based on the given index.
+/// This is a more general version of `fir_branch`, as it supports more than 2 jump targets.
+/// Shortcut for `call(ext(array(target1, ..., targetn), index), arg)`.
+FIR_SYMBOL const struct fir_node* fir_switch(
+    const struct fir_node* cond,
+    const struct fir_node* arg,
+    const struct fir_node* const* targets,
+    size_t target_count);
 
 /// Obtains the parameter of a function.
 FIR_SYMBOL const struct fir_node* fir_param(const struct fir_node* func);

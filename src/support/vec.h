@@ -6,16 +6,16 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define VEC_SMALL_CAPACITY 4
+#define SMALL_VEC_CAPACITY 4
 
-#define FOREACH_VEC(elem_ty, elem, vec) \
+#define VEC_FOREACH(elem_ty, elem, vec) \
     for (elem_ty* elem = (vec).elems; elem != (vec).elems + (vec).elem_count; ++elem)
 
-#define DEF_VEC(name, elem_ty, linkage) \
-    DECL_VEC(name, elem_ty, linkage) \
-    IMPL_VEC(name, elem_ty, linkage)
+#define VEC_DEFINE(name, elem_ty, linkage) \
+    VEC_DECL(name, elem_ty, linkage) \
+    VEC_IMPL(name, elem_ty, linkage)
 
-#define DECL_VEC(name, elem_ty, linkage) \
+#define VEC_DECL(name, elem_ty, linkage) \
     struct name { \
         elem_ty* elems; \
         size_t capacity; \
@@ -29,7 +29,7 @@
     LINKAGE(linkage) void name##_pop(struct name*); \
     LINKAGE(linkage) void name##_clear(struct name*);
 
-#define IMPL_VEC(name, elem_ty, linkage) \
+#define VEC_IMPL(name, elem_ty, linkage) \
     LINKAGE(linkage) struct name name##_create_with_capacity(size_t init_capacity) { \
         return (struct name) { \
             .elems = xmalloc(sizeof(elem_ty) * init_capacity), \
@@ -64,13 +64,13 @@
         vec->elem_count = 0; \
     }
 
-#define DEF_SMALL_VEC(name, elem_ty, linkage) \
-    DECL_SMALL_VEC(name, elem_ty, linkage) \
-    IMPL_SMALL_VEC(name, elem_ty, linkage)
+#define SMALL_VEC_DEFINE(name, elem_ty, linkage) \
+    SMALL_VEC_DECL(name, elem_ty, linkage) \
+    SMALL_VEC_IMPL(name, elem_ty, linkage)
 
-#define DECL_SMALL_VEC(name, elem_ty, linkage) \
+#define SMALL_VEC_DECL(name, elem_ty, linkage) \
     struct name { \
-        elem_ty small_elems[VEC_SMALL_CAPACITY]; \
+        elem_ty small_elems[SMALL_VEC_CAPACITY]; \
         elem_ty* elems; \
         size_t capacity; \
         size_t elem_count; \
@@ -82,11 +82,11 @@
     LINKAGE(linkage) void name##_pop(struct name*); \
     LINKAGE(linkage) void name##_clear(struct name*);
 
-#define IMPL_SMALL_VEC(name, elem_ty, linkage) \
+#define SMALL_VEC_IMPL(name, elem_ty, linkage) \
     LINKAGE(linkage) void name##_init(struct name* vec) { \
         vec->elem_count = 0; \
         vec->elems = vec->small_elems; \
-        vec->capacity = VEC_SMALL_CAPACITY; \
+        vec->capacity = SMALL_VEC_CAPACITY; \
     } \
     LINKAGE(linkage) void name##_destroy(struct name* vec) { \
         if (vec->elems != vec->small_elems) \
