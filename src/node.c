@@ -108,7 +108,7 @@ bool fir_node_is_all_ones(const struct fir_node* node) {
         node->data.int_val == make_bitmask(node->ty->data.bitwidth);
 }
 
-bool fir_node_is_choice(const struct fir_node* node) {
+bool fir_node_is_choose(const struct fir_node* node) {
     return
         node->tag == FIR_EXT &&
         node->ops[0]->tag == FIR_ARRAY &&
@@ -117,7 +117,7 @@ bool fir_node_is_choice(const struct fir_node* node) {
 }
 
 bool fir_node_is_select(const struct fir_node* node) {
-    return fir_node_is_choice(node) && node->ops[0]->ty->data.array_dim == 2;
+    return fir_node_is_choose(node) && node->ops[0]->ty->data.array_dim == 2;
 }
 
 bool fir_node_is_jump(const struct fir_node* node) {
@@ -129,7 +129,7 @@ bool fir_node_is_branch(const struct fir_node* node) {
 }
 
 bool fir_node_is_switch(const struct fir_node* node) {
-    return fir_node_is_jump(node) && fir_node_is_choice(node->ops[0]);
+    return fir_node_is_jump(node) && fir_node_is_choose(node->ops[0]);
 }
 
 const char* fir_node_tag_to_string(enum fir_node_tag tag) {

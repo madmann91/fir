@@ -14,7 +14,6 @@
 struct scanner {
     const char* data;
     size_t bytes_left;
-    size_t bytes_read;
     struct fir_source_pos source_pos;
 };
 

@@ -21,3 +21,4 @@ STRIP_FROM_PATH        = ../include
 HTML_COLORSTYLE        = LIGHT
 GENERATE_TREEVIEW      = YES
 GENERATE_LATEX         = NO
+WARN_AS_ERROR          = YES

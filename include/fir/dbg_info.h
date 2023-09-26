@@ -14,22 +14,25 @@
 /// that needs it, and managing the lifetime of said information. To simplify memory management for
 /// debug information, this module offers a debug information pool that stores strings uniquely.
 
-/// Row and column position in a source file. Rows and column numbers start at 1.
+/// Position in a source file.
 struct fir_source_pos {
-    uint32_t row, col;
+    uint32_t row;   ///< Row number, starting at 1.
+    uint32_t col;   ///< Column number, starting at 1.
+    uint64_t bytes; ///< Number of bytes corresponding to the position, starting at 0.
 };
 
 /// A range of characters in a source file.
 struct fir_source_range {
-    struct fir_source_pos begin, end;
+    struct fir_source_pos begin;  ///< Beginning of the range, included.
+    struct fir_source_pos end;    ///< End of the range, excluded.
 };
 
 /// Debug information that can be attached to a node.
 struct fir_dbg_info {
     const char* name;       ///< Object name.
-    const char* file_name;  ///< File name, or NULL.
+    const char* file_name;  ///< File name, or `NULL`.
                                       
-    /// Source file range that corresponds to the object, ignored when file_name is NULL.
+    /// Source file range that corresponds to the object, ignored when file_name is `NULL`.
     struct fir_source_range source_range;
 };
 
@@ -50,7 +53,7 @@ FIR_SYMBOL const struct fir_dbg_info* fir_dbg_info(
     const char* file_name,
     struct fir_source_range source_range);
 
-/// Same as `fir_dbg_info`, but with explicit string lengths.
+/// Same as @ref fir_dbg_info, but with explicit string lengths.
 FIR_SYMBOL const struct fir_dbg_info* fir_dbg_info_with_length(
     struct fir_dbg_info_pool*,
     const char* name,

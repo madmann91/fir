@@ -11,14 +11,14 @@
 /// @file
 ///
 /// The module acts as a container for all IR nodes. Most nodes are hash-consed, which means that
-/// they are stored uniquely into a hash map, identified by their tag, type, data, and operands. Such
-/// nodes are called _structural nodes_ (identified by their structure) and are completely immutable.
-/// Some nodes are mutable, like functions or globals, and are referred to as _nominal nodes_
-/// (identified by their name). This means, for instance, that calling `fir_int_ty(mod, 32)` twice
-/// will return the same pointer, whereas calling `fir_func(ty)` twice will result in two different
+/// they are stored uniquely into a hash map, identified by their tag, type, data, and operands.
+/// Such nodes are called _structural nodes_ (identified by their structure) and are completely
+/// immutable. Some nodes are mutable, like functions or globals, and are referred to as _nominal
+/// nodes_ (identified by their name). This means, for instance, that calling @ref fir_int_ty twice
+/// will return the same pointer, whereas calling @ref fir_func twice will result in two different
 /// functions. The API reflects this by returning `const` nodes for structural nodes, and
-/// non-`const` nodes for nominal ones. The operands of a nominal nodes must be set via `fir_set_op`,
-/// or otherwise the users will not be updated.
+/// non-`const` nodes for nominal ones. The operands of a nominal nodes must be set via @ref
+/// fir_node_set_op, or otherwise the users will not be updated.
 
 /// @struct fir_mod
 /// IR module.
@@ -45,19 +45,19 @@ FIR_SYMBOL void fir_mod_print(FILE*, const struct fir_mod*);
 /// Prints the given module on the standard output.
 FIR_SYMBOL void fir_mod_dump(const struct fir_mod*);
 
-/// Input passed to `fir_mod_parse`.
+/// Input passed to @ref fir_mod_parse.
 struct fir_parse_input {
     const char* file_name; ///< Name of the file being parsed, for error messages.
-    const char* file_data; ///< File data, which must be NULL-terminated.
-    size_t file_size;      ///< File size, excluding NULL terminator.
-    FILE* error_log;       ///< Where errors will be reported, or NULL to disable error reporting.
+    const char* file_data; ///< File data, which must be `NULL`-terminated.
+    size_t file_size;      ///< File size, excluding the `NULL` terminator.
+    FILE* error_log;       ///< Where errors will be reported, or `NULL` to disable error reporting.
 
-    /// Where to store debug information, or NULL to discard debug information.
+    /// Where to store debug information, or `NULL` to discard debug information.
     struct fir_dbg_info_pool* dbg_pool;
 };
 
 /// Parses a module from the given input.
-/// @return true on success, otherwise false.
+/// @return `true` on success, otherwise `false`.
 FIR_SYMBOL bool fir_mod_parse(struct fir_mod*, const struct fir_parse_input* input);
 
 /// @name Types
@@ -272,6 +272,7 @@ FIR_SYMBOL const struct fir_node* fir_call(
 
 /// Branches to either continuation based on the condition.
 /// Shortcut for `call(ext(array(jump_false, jump_true), cond), arg)`.
+/// @see fir_select
 FIR_SYMBOL const struct fir_node* fir_branch(
     const struct fir_node* cond,
     const struct fir_node* arg,
@@ -279,8 +280,9 @@ FIR_SYMBOL const struct fir_node* fir_branch(
     const struct fir_node* jump_false);
 
 /// Branches to a continuation based on the given index.
-/// This is a more general version of `fir_branch`, as it supports more than 2 jump targets.
+/// This is a more general version of @ref fir_branch, as it supports more than 2 jump targets.
 /// Shortcut for `call(ext(array(target1, ..., targetn), index), arg)`.
+/// @see fir_choose
 FIR_SYMBOL const struct fir_node* fir_switch(
     const struct fir_node* cond,
     const struct fir_node* arg,
