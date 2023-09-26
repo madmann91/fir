@@ -9,13 +9,13 @@ static inline const struct fir_node* func_entry(const struct fir_node* func) {
     return func->ops[0]->ops[0];
 }
 
-static inline struct const_node_span jump_targets(const struct fir_node* node) {
+static inline struct node_cspan jump_targets(const struct fir_node* node) {
     assert(fir_node_is_jump(node));
     if (fir_node_is_choice(node->ops[0])) {
         const struct fir_node* array = node->ops[0]->ops[0];
-        return (struct const_node_span) { .elems = array->ops, .elem_count = array->op_count };
+        return (struct node_cspan) { .elems = array->ops, .elem_count = array->op_count };
     }
-    return (struct const_node_span) { .elems = &node->ops[0], .elem_count = 1 };
+    return (struct node_cspan) { .elems = &node->ops[0], .elem_count = 1 };
 }
 
 struct cfg cfg_create(const struct scope* scope) {
@@ -29,8 +29,8 @@ struct cfg cfg_create(const struct scope* scope) {
             continue;
 
         struct node_graph_node* from = node_graph_insert(&graph, &func);
-        struct const_node_span targets = jump_targets(func->ops[0]);
-        CONST_SPAN_FOREACH(const struct fir_node*, target_ptr, targets) {
+        struct node_cspan targets = jump_targets(func->ops[0]);
+        CSPAN_FOREACH(const struct fir_node*, target_ptr, targets) {
             if (scope_contains(scope, *target_ptr)) {
                 struct node_graph_node* to = node_graph_insert(&graph, target_ptr);
                 node_graph_connect(&graph, from, to);
