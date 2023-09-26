@@ -6,16 +6,13 @@
 #include <string.h>
 
 #define SET_DEFAULT_CAPACITY 4
+#define SET_PREFIX set_very_long_prefix_
 
 #define SET_FOREACH(elem_ty, elem, set) \
-    for (size_t \
-        very_long_prefix_i = 0, \
-        very_long_prefix_once = 0; \
-        very_long_prefix_i < (set).htable.capacity; \
-        ++very_long_prefix_i, very_long_prefix_once = 0) \
-        for (elem_ty const* elem = &((elem_ty const*)(set).htable.keys)[very_long_prefix_i]; \
-            very_long_prefix_once == 0 && htable_is_bucket_occupied(&(set).htable, very_long_prefix_i); \
-            very_long_prefix_once = 1) \
+    for (size_t SET_PREFIX##i = 0; SET_PREFIX##i < (set).htable.capacity; ++SET_PREFIX##i) \
+        if (htable_is_bucket_occupied(&(set).htable, SET_PREFIX##i)) \
+            for (bool SET_PREFIX##once = true; SET_PREFIX##once; SET_PREFIX##once = false) \
+                for (elem_ty const* elem = &((elem_ty const*)(set).htable.keys)[SET_PREFIX##i]; SET_PREFIX##once; SET_PREFIX##once = false) \
 
 #define SET_DEFINE(name, elem_ty, hash, cmp, linkage) \
     SET_DECL(name, elem_ty, linkage) \

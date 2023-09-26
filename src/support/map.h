@@ -6,22 +6,17 @@
 #include <string.h>
 
 #define MAP_DEFAULT_CAPACITY 4
+#define MAP_PREFIX map_very_long_prefix_
 
 #define MAP_FOREACH_KEY(key_ty, key, map) \
-    for (size_t \
-        very_long_prefix_i = 0, \
-        very_long_prefix_once = 0; \
-        very_long_prefix_i < (map).htable.capacity; \
-        ++very_long_prefix_i, very_long_prefix_once = 0) \
-        for (key_ty const* key = &((key_ty const*)(map).htable.keys)[very_long_prefix_i]; \
-            very_long_prefix_once == 0 && htable_is_bucket_occupied(&(map).htable, very_long_prefix_i); \
-            very_long_prefix_once = 1) \
+    for (size_t MAP_PREFIX##i = 0; MAP_PREFIX##i < (map).htable.capacity; ++MAP_PREFIX##i) \
+        if (htable_is_bucket_occupied(&(map).htable, MAP_PREFIX##i)) \
+            for (bool MAP_PREFIX##once = true; MAP_PREFIX##once; MAP_PREFIX##once = false) \
+                for (key_ty const* key = &((key_ty const*)(map).htable.keys)[MAP_PREFIX##i]; MAP_PREFIX##once; MAP_PREFIX##once = false) \
 
 #define MAP_FOREACH(key_ty, key, val_ty, val, map) \
     MAP_FOREACH_KEY(key_ty, key, map) \
-        for (val_ty const* val = &((val_ty const*)(map).htable.vals)[very_long_prefix_i]; \
-            very_long_prefix_once == 0; \
-            very_long_prefix_once = 1)
+        for (val_ty const* val = &((val_ty const*)(map).htable.vals)[MAP_PREFIX##i]; MAP_PREFIX##once; MAP_PREFIX##once = false) \
 
 #define MAP_DEFINE(name, key_ty, val_ty, hash, cmp, linkage) \
     MAP_DECL(name, key_ty, val_ty, linkage) \
