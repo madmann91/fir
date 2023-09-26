@@ -187,8 +187,8 @@ FIR_SYMBOL bool fir_node_is_all_ones(const struct fir_node*);
 /// @see fir_select
 FIR_SYMBOL bool fir_node_is_select(const struct fir_node*);
 /// @return `true` if the given node is a n-ary choice.
-/// @see fir_choose
-FIR_SYMBOL bool fir_node_is_choose(const struct fir_node*);
+/// @see fir_choice
+FIR_SYMBOL bool fir_node_is_choice(const struct fir_node*);
 /// @return `true` if the given node is a jump (a call to a continuation).
 FIR_SYMBOL bool fir_node_is_jump(const struct fir_node*);
 /// @return `true` if the given node is a conditional jump.

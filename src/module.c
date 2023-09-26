@@ -891,6 +891,11 @@ const struct fir_node* fir_array(
     if (is_from_exts(ty, elems, ty->data.array_dim))
         return elems[0]->ops[0];
 
+#ifndef NDEBUG
+    for (size_t i = 1; i < ty->data.array_dim; ++i)
+        assert(elems[i]->ty == elems[0]->ty);
+#endif
+
     assert(ty->tag == FIR_ARRAY_TY);
     struct fir_mod* mod = fir_node_mod(ty);
     struct small_array { FIR_NODE(SMALL_OP_COUNT) } small_array = {};
@@ -1060,10 +1065,18 @@ const struct fir_node* fir_select(
     const struct fir_node* when_true,
     const struct fir_node* when_false)
 {
-    assert(when_true->ty == when_false->ty);
-    const struct fir_node* array_ty = fir_array_ty(when_true->ty, 2);
-    const struct fir_node* array = fir_array(array_ty, (const struct fir_node*[]) { when_true, when_false });
-    return fir_ext(array, cond);
+    return fir_choice(cond, (const struct fir_node*[]) { when_false, when_true }, 2);
+}
+
+const struct fir_node* fir_choice(
+    const struct fir_node* index,
+    const struct fir_node* const* elems,
+    size_t elem_count)
+{
+    assert(elem_count > 0);
+    const struct fir_node* array_ty = fir_array_ty(elems[0]->ty, elem_count);
+    const struct fir_node* array = fir_array(array_ty, elems);
+    return fir_ext(array, index);
 }
 
 const struct fir_node* fir_alloc(
@@ -1152,8 +1165,7 @@ const struct fir_node* fir_switch(
     size_t target_count)
 {
     assert(target_count > 0);
-    const struct fir_node* target_array = fir_array(fir_array_ty(targets[0]->ty, target_count), targets);
-    return fir_call(fir_ext(target_array, index), arg);
+    return fir_call(fir_choice(index, targets, target_count), arg);
 }
 
 const struct fir_node* fir_param(const struct fir_node* func) {

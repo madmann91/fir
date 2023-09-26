@@ -11,7 +11,7 @@ static inline const struct fir_node* func_entry(const struct fir_node* func) {
 
 static inline struct const_node_span jump_targets(const struct fir_node* node) {
     assert(fir_node_is_jump(node));
-    if (fir_node_is_choose(node->ops[0])) {
+    if (fir_node_is_choice(node->ops[0])) {
         const struct fir_node* array = node->ops[0]->ops[0];
         return (struct const_node_span) { .elems = array->ops, .elem_count = array->op_count };
     }

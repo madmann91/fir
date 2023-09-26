@@ -233,7 +233,7 @@ FIR_SYMBOL const struct fir_node* fir_select(
 
 /// Builds a n-ary selection out of an extract and an array.
 /// Shortcut for `ext(array(x1, ..., xn), index)`.
-FIR_SYMBOL const struct fir_node* fir_choose(
+FIR_SYMBOL const struct fir_node* fir_choice(
     const struct fir_node* index,
     const struct fir_node* const* elems,
     size_t elem_count);
@@ -282,7 +282,7 @@ FIR_SYMBOL const struct fir_node* fir_branch(
 /// Branches to a continuation based on the given index.
 /// This is a more general version of @ref fir_branch, as it supports more than 2 jump targets.
 /// Shortcut for `call(ext(array(target1, ..., targetn), index), arg)`.
-/// @see fir_choose
+/// @see fir_choice
 FIR_SYMBOL const struct fir_node* fir_switch(
     const struct fir_node* cond,
     const struct fir_node* arg,
