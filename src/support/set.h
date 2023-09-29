@@ -21,15 +21,19 @@
 #define SET_DECL(name, elem_ty, linkage) \
     struct name { \
         struct htable htable; \
+        size_t elem_count; \
     }; \
     LINKAGE(linkage) struct name name##_create_with_capacity(size_t); \
     LINKAGE(linkage) struct name name##_create(void); \
     LINKAGE(linkage) void name##_destroy(struct name*); \
-    LINKAGE(linkage) void name##_rehash(struct name*); \
     LINKAGE(linkage) bool name##_insert(struct name*, elem_ty const*); \
-    LINKAGE(linkage) elem_ty const* name##_find(const struct name*, elem_ty const*);
+    LINKAGE(linkage) elem_ty const* name##_find(const struct name*, elem_ty const*); \
+    LINKAGE(linkage) bool name##_remove(struct name*, elem_ty const*);
 
 #define SET_IMPL(name, elem_ty, hash, cmp, linkage) \
+    static inline bool name##_cmp_wrapper(const void* left, const void* right) { \
+        return cmp((elem_ty const*)left, (elem_ty const*)right); \
+    } \
     LINKAGE(linkage) struct name name##_create_with_capacity(size_t capacity) { \
         return (struct name) { \
             .htable = htable_create(sizeof(elem_ty), 0, capacity) \
@@ -41,45 +45,25 @@
     LINKAGE(linkage) void name##_destroy(struct name* set) { \
         htable_destroy(&set->htable); \
     } \
-    LINKAGE(linkage) void name##_rehash(struct name*); \
     LINKAGE(linkage) bool name##_insert(struct name* set, elem_ty const* elem) { \
-        struct htable* htable = &set->htable; \
-        uint32_t h = hash(elem) | HTABLE_OCCUPIED_FLAG; \
-        size_t idx = htable_first_bucket(htable, h); \
-        for (; htable_is_bucket_occupied(htable, idx); idx = htable_next_bucket(htable, idx)) { \
-            if (htable->hashes[idx] == h && cmp(((elem_ty*)htable->keys) + idx, elem)) \
-                return false; \
+        if (htable_insert(&set->htable, elem, NULL, sizeof(elem_ty), 0, hash(elem), name##_cmp_wrapper)) { \
+            if (htable_needs_rehash(&set->htable, set->elem_count)) \
+                htable_grow(&set->htable, sizeof(elem_ty), 0); \
+            set->elem_count++; \
+            return true; \
         } \
-        htable->elem_count++; \
-        htable->hashes[idx] = h; \
-        memcpy(((elem_ty*)htable->keys) + idx, elem, sizeof(elem_ty)); \
-        if (htable_needs_rehash(htable)) \
-            name##_rehash(set); \
-        return true; \
+        return false; \
     } \
     LINKAGE(linkage) elem_ty const* name##_find(const struct name* set, elem_ty const* elem) { \
-        const struct htable* htable = &set->htable; \
-        uint32_t h = hash(elem) | HTABLE_OCCUPIED_FLAG; \
-        size_t idx = htable_first_bucket(htable, h); \
-        for (; htable_is_bucket_occupied(htable, idx); idx = htable_next_bucket(htable, idx)) { \
-            if (htable->hashes[idx] == h && cmp(((elem_ty*)htable->keys) + idx, elem)) \
-                return ((elem_ty*)htable->keys) + idx; \
-        } \
-        return NULL; \
+        size_t idx; \
+        if (!htable_find(&set->htable, &idx, elem, sizeof(elem_ty), hash(elem), name##_cmp_wrapper)) \
+           return NULL; \
+        return ((elem_ty const*)set->htable.keys) + idx; \
     } \
-    LINKAGE(linkage) void name##_rehash(struct name* set) { \
-        struct name copy = name##_create_with_capacity(htable_rehashed_capacity(&set->htable)); \
-        for (size_t i = 0; i < set->htable.capacity; ++i) { \
-            if (!htable_is_bucket_occupied(&set->htable, i)) \
-                continue; \
-            uint32_t h = set->htable.hashes[i]; \
-            size_t idx = htable_first_bucket(&copy.htable, h); \
-            while (htable_is_bucket_occupied(&copy.htable, idx)) \
-                idx = htable_next_bucket(&copy.htable, idx); \
-            copy.htable.hashes[idx] = h; \
-            copy.htable.elem_count++; \
-            memcpy(((elem_ty*)copy.htable.keys) + idx, ((elem_ty*)set->htable.keys) + i, sizeof(elem_ty)); \
+    LINKAGE(linkage) bool name##_remove(struct name* set, elem_ty const* elem) { \
+        if (htable_remove(&set->htable, elem, sizeof(elem_ty), 0, hash(elem), name##_cmp_wrapper)) { \
+            set->elem_count--; \
+            return true; \
         } \
-        name##_destroy(set); \
-        *set = copy; \
+        return false; \
     }

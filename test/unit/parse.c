@@ -20,7 +20,7 @@ TEST(parse) {
         .file_size = strlen(data),
         .error_log = stderr
     }));
-    struct fir_node** funcs = fir_mod_funcs(mod);
+    struct fir_node* const* funcs = fir_mod_funcs(mod);
     REQUIRE(fir_mod_func_count(mod) == 1);
     const struct fir_node* int32_ty = fir_int_ty(mod, 32);
     const struct fir_node* tup_ty = fir_tup_ty(mod, (const struct fir_node*[]) { int32_ty, int32_ty }, 2);
@@ -67,7 +67,7 @@ TEST(parse_const) {
         .file_size = strlen(data),
         .error_log = stderr
     }));
-    struct fir_node** funcs = fir_mod_funcs(mod);
+    struct fir_node* const* funcs = fir_mod_funcs(mod);
     REQUIRE(fir_mod_func_count(mod) == 5);
 
     const struct fir_node* float32_ty = fir_float_ty(mod, 32);
@@ -136,7 +136,7 @@ TEST(parse_fp_flags) {
         .file_size = strlen(data),
         .error_log = stderr
     }));
-    struct fir_node** funcs = fir_mod_funcs(mod);
+    struct fir_node* const* funcs = fir_mod_funcs(mod);
     REQUIRE(fir_mod_func_count(mod) == 2);
 
     enum fir_fp_flags fp_flags = FIR_FP_NO_SIGNED_ZERO | FIR_FP_ASSOCIATIVE;

@@ -9,10 +9,12 @@ static void usage(void) {
     printf(
         "usage: fir [options] file.fir ...\n"
         "options:\n"
-        "    -h    --help   Shows this message.\n");
+        "    -h    --help   Shows this message.\n"
+        "          --no-cleanup  Do not clean up the module after loading it.\n");
 }
 
 struct options {
+    bool no_cleanup;
 };
 
 static bool parse_options(int argc, char** argv, struct options* options) {
@@ -21,6 +23,8 @@ static bool parse_options(int argc, char** argv, struct options* options) {
             if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
                 usage();
                 return false;
+            } else if (!strcmp(argv[i], "--no-cleanup")) {
+                options->no_cleanup = true;
             } else {
                 fprintf(stderr, "invalid option '%s'\n", argv[i]);
                 return false;
@@ -72,13 +76,15 @@ static inline bool compile_file(const char* file_name, const struct options* opt
         .error_log = stderr
     });
     free(file_data);
+    if (!options->no_cleanup)
+        fir_mod_cleanup(mod);
     fir_mod_dump(mod);
     fir_mod_destroy(mod);
     return status;
 }
 
 int main(int argc, char** argv) {
-    struct options options;
+    struct options options = {};
     if (!parse_options(argc, argv, &options))
         return 1;
 

@@ -31,10 +31,17 @@ FIR_SYMBOL struct fir_mod* fir_mod_create(const char* name);
 /// Destroys the given module. This releases memory holding all the nodes in the module.
 FIR_SYMBOL void fir_mod_destroy(struct fir_mod*);
 
+/// Cleans up the module. This performs dead code elimination on the entire module,
+/// and updates the uses of each node correspondingly. The complexity of this function is linear in
+/// the number of live nodes.
+/// @warning The memory used by dead nodes is reclaimed: Any pointer to dead code will no longer
+/// point to valid memory after a call to this function. Types remain valid and are _not_ reclaimed.
+FIR_SYMBOL void fir_mod_cleanup(struct fir_mod*);
+
 /// Returns the functions of the module.
-FIR_SYMBOL struct fir_node** fir_mod_funcs(const struct fir_mod*);
+FIR_SYMBOL struct fir_node* const* fir_mod_funcs(const struct fir_mod*);
 /// Returns the global variables of the module.
-FIR_SYMBOL struct fir_node** fir_mod_globals(const struct fir_mod*);
+FIR_SYMBOL struct fir_node* const* fir_mod_globals(const struct fir_mod*);
 /// Returns the number of functions in the module.
 FIR_SYMBOL size_t fir_mod_func_count(const struct fir_mod*);
 /// Returns the number of global variables in the module.
@@ -47,7 +54,7 @@ FIR_SYMBOL void fir_mod_dump(const struct fir_mod*);
 
 /// Input passed to @ref fir_mod_parse.
 struct fir_parse_input {
-    const char* file_name; ///< Name of the file being parsed, for error messages.
+    const char* file_name; ///< Name of the file being parsed, appearing in error messages.
     const char* file_data; ///< File data, which must be `NULL`-terminated.
     size_t file_size;      ///< File size, excluding the `NULL` terminator.
     FILE* error_log;       ///< Where errors will be reported, or `NULL` to disable error reporting.

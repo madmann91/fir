@@ -66,7 +66,7 @@ union fir_node_data {
     size_t array_dim;           ///< Array dimension, for fixed-size array types.
 };
 
-/// Members of the node structure. @see fir_node
+/// Members of the @ref fir_node structure.
 #define FIR_NODE(n) \
     uint64_t id; \
     enum fir_node_tag tag; \

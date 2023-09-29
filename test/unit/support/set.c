@@ -4,15 +4,22 @@
 static inline uint32_t hash_int(const int* i) { return *i; }
 static inline bool cmp_int(const int* i, const int* j) { return *i == *j; }
 
-SET_DEFINE(foo_set, int, hash_int, cmp_int, PRIVATE)
+SET_DEFINE(int_set, int, hash_int, cmp_int, PRIVATE)
 
 TEST(set) {
-    struct foo_set foo_set = foo_set_create();
-    for (int i = 0; i < 100; ++i)
-        REQUIRE(foo_set_insert(&foo_set, &i));
-    for (int i = 0; i < 100; ++i) {
-        REQUIRE(foo_set_find(&foo_set, &i));
-        REQUIRE(*foo_set_find(&foo_set, &i) == i);
+    const int n = 100;
+    struct int_set int_set = int_set_create();
+    for (int i = 0; i < n; ++i)
+        REQUIRE(int_set_insert(&int_set, &i));
+    REQUIRE(int_set.elem_count == (size_t)n);
+    for (int i = 0; i < n; ++i) {
+        REQUIRE(int_set_find(&int_set, &i));
+        REQUIRE(*int_set_find(&int_set, &i) == i);
     }
-    foo_set_destroy(&foo_set);
+    for (int i = 0; i < n; ++i)
+        REQUIRE(int_set_remove(&int_set, &i));
+    REQUIRE(int_set.elem_count == 0);
+    for (int i = 0; i < n; ++i)
+        REQUIRE(!int_set_find(&int_set, &i));
+    int_set_destroy(&int_set);
 }

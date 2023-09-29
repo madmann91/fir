@@ -25,15 +25,19 @@
 #define MAP_DECL(name, key_ty, val_ty, linkage) \
     struct name { \
         struct htable htable; \
+        size_t elem_count; \
     }; \
     LINKAGE(linkage) struct name name##_create_with_capacity(size_t); \
     LINKAGE(linkage) struct name name##_create(void); \
     LINKAGE(linkage) void name##_destroy(struct name*); \
-    LINKAGE(linkage) void name##_rehash(struct name*); \
     LINKAGE(linkage) bool name##_insert(struct name*, key_ty const*, val_ty const*); \
-    LINKAGE(linkage) val_ty const* name##_find(const struct name*, key_ty const*);
+    LINKAGE(linkage) val_ty const* name##_find(const struct name*, key_ty const*); \
+    LINKAGE(linkage) bool name##_remove(struct name*, key_ty const*);
 
 #define MAP_IMPL(name, key_ty, val_ty, hash, cmp, linkage) \
+    static inline bool name##_cmp_wrapper(const void* left, const void* right) { \
+        return cmp((key_ty const*)left, (key_ty const*)right); \
+    } \
     LINKAGE(linkage) struct name name##_create_with_capacity(size_t capacity) { \
         return (struct name) { \
             .htable = htable_create(sizeof(key_ty), sizeof(val_ty), capacity) \
@@ -45,47 +49,25 @@
     LINKAGE(linkage) void name##_destroy(struct name* map) { \
         htable_destroy(&map->htable); \
     } \
-    LINKAGE(linkage) void name##_rehash(struct name*); \
     LINKAGE(linkage) bool name##_insert(struct name* map, key_ty const* key, val_ty const* val) { \
-        struct htable* htable = &map->htable; \
-        uint32_t h = hash(key) | HTABLE_OCCUPIED_FLAG; \
-        size_t idx = htable_first_bucket(htable, h); \
-        for (; htable_is_bucket_occupied(htable, idx); idx = htable_next_bucket(htable, idx)) { \
-            if (htable->hashes[idx] == h && cmp(((key_ty*)htable->keys) + idx, key)) \
-                return false; \
+        if (htable_insert(&map->htable, key, val, sizeof(key_ty), sizeof(val_ty), hash(key), name##_cmp_wrapper)) { \
+            if (htable_needs_rehash(&map->htable, map->elem_count)) \
+                htable_grow(&map->htable, sizeof(key_ty), sizeof(val_ty)); \
+            map->elem_count++; \
+            return true; \
         } \
-        htable->elem_count++; \
-        htable->hashes[idx] = h; \
-        memcpy(((key_ty*)htable->keys) + idx, key, sizeof(key_ty)); \
-        memcpy(((val_ty*)htable->vals) + idx, val, sizeof(val_ty)); \
-        if (htable_needs_rehash(htable)) \
-            name##_rehash(map); \
-        return true; \
+        return false; \
     } \
     LINKAGE(linkage) val_ty const* name##_find(const struct name* map, key_ty const* key) { \
-        const struct htable* htable = &map->htable; \
-        uint32_t h = hash(key) | HTABLE_OCCUPIED_FLAG; \
-        size_t idx = htable_first_bucket(htable, h); \
-        for (; htable_is_bucket_occupied(htable, idx); idx = htable_next_bucket(htable, idx)) { \
-            if (htable->hashes[idx] == h && cmp(((key_ty*)htable->keys) + idx, key)) \
-                return ((val_ty*)htable->vals) + idx; \
-        } \
-        return NULL; \
+        size_t idx; \
+        if (!htable_find(&map->htable, &idx, key, sizeof(key_ty), hash(key), name##_cmp_wrapper)) \
+           return NULL; \
+        return ((val_ty const*)map->htable.vals) + idx; \
     } \
-    LINKAGE(linkage) void name##_rehash(struct name* map) { \
-        struct name copy = name##_create_with_capacity(htable_rehashed_capacity(&map->htable)); \
-        for (size_t i = 0; i < map->htable.capacity; ++i) { \
-            if (!htable_is_bucket_occupied(&map->htable, i)) \
-                continue; \
-            uint32_t h = map->htable.hashes[i]; \
-            size_t idx = htable_first_bucket(&copy.htable, h); \
-            while (htable_is_bucket_occupied(&copy.htable, idx)) \
-                idx = htable_next_bucket(&copy.htable, idx); \
-            copy.htable.hashes[idx] = h; \
-            copy.htable.elem_count++; \
-            memcpy(((key_ty*)copy.htable.keys) + idx, ((key_ty*)map->htable.keys) + i, sizeof(key_ty)); \
-            memcpy(((val_ty*)copy.htable.vals) + idx, ((val_ty*)map->htable.vals) + i, sizeof(val_ty)); \
+    LINKAGE(linkage) bool name##_remove(struct name* map, key_ty const* key) { \
+        if (htable_remove(&map->htable, key, sizeof(key_ty), sizeof(val_ty), hash(key), name##_cmp_wrapper)) { \
+            map->elem_count--; \
+            return true; \
         } \
-        name##_destroy(map); \
-        *map = copy; \
+        return false; \
     }

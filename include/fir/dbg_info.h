@@ -18,7 +18,7 @@
 struct fir_source_pos {
     uint32_t row;   ///< Row number, starting at 1.
     uint32_t col;   ///< Column number, starting at 1.
-    uint64_t bytes; ///< Number of bytes corresponding to the position, starting at 0.
+    size_t bytes;   ///< Number of bytes corresponding to the position, starting at 0.
 };
 
 /// A range of characters in a source file.

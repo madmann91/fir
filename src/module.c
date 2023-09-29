@@ -155,6 +155,12 @@ static inline const struct fir_node* insert_node(struct fir_mod* mod, const stru
     assert(!fir_node_tag_is_nominal(node->tag));
     assert(fir_node_mod(node) == mod);
     assert(node->uses == NULL);
+
+#ifndef NDEBUG
+    for (size_t i = 0; i < node->op_count; ++i)
+        assert(fir_node_mod(node->ops[i]) == mod);
+#endif
+
     const struct fir_node* const* found = internal_node_set_find(&mod->nodes, &node);
     if (found)
         return *found;
@@ -163,7 +169,9 @@ static inline const struct fir_node* insert_node(struct fir_mod* mod, const stru
     for (size_t i = 0; i < node->op_count; ++i)
         record_use(new_node, i);
     new_node->id = mod->cur_id++;
-    internal_node_set_insert(&mod->nodes, (const struct fir_node* const*)&new_node);
+
+    [[maybe_unused]] bool was_inserted = internal_node_set_insert(&mod->nodes, (const struct fir_node* const*)&new_node);
+    assert(was_inserted);
     return new_node;
 }
 
@@ -200,6 +208,100 @@ void fir_mod_destroy(struct fir_mod* mod) {
     free(mod);
 }
 
+static void visit_node(
+    const struct fir_node* node,
+    struct node_vec* stack,
+    struct node_set* visited_nodes)
+{
+    node_vec_push(stack, &node);
+    while (stack->elem_count > 0) {
+        const struct fir_node* top = stack->elems[stack->elem_count - 1];
+        node_vec_pop(stack);
+        if (!node_set_insert(visited_nodes, &top))
+            continue;
+
+        for (size_t i = 0; i < top->op_count; ++i)
+            node_vec_push(stack, &top->ops[i]);
+    }
+}
+
+static struct node_set collect_live_nodes(struct fir_mod* mod) {
+    struct node_set live_nodes = node_set_create();
+    struct node_vec stack = node_vec_create();
+    VEC_FOREACH(struct fir_node*, func_ptr, mod->funcs) {
+        if ((*func_ptr)->data.linkage == FIR_EXPORTED)
+            visit_node(*func_ptr, &stack, &live_nodes);
+    }
+    VEC_FOREACH(struct fir_node*, global_ptr, mod->globals) {
+        if ((*global_ptr)->data.linkage == FIR_EXPORTED)
+            visit_node(*global_ptr, &stack, &live_nodes);
+    }
+    node_vec_destroy(&stack);
+    return live_nodes;
+}
+
+static void fix_uses(struct fir_mod* mod, const struct node_set* live_nodes) {
+    SET_FOREACH(const struct fir_node*, node_ptr, mod->nodes) {
+        if (fir_node_is_ty(*node_ptr) || !node_set_find(live_nodes, node_ptr))
+            continue;
+        struct fir_node* node = (struct fir_node*)*node_ptr;
+        struct fir_use* use = (struct fir_use*)node->uses;
+        const struct fir_use** prev = &node->uses;
+        while (true) {
+            while (use && !node_set_find(live_nodes, &use->user)) {
+                struct fir_use* next = (struct fir_use*)use->next;
+                use->next = mod->free_uses;
+                mod->free_uses = use;
+                use = next;
+            }
+            *prev = use;
+            if (!use)
+                break;
+            prev = &use->next;
+            use = (struct fir_use*)use->next;
+        }
+    }
+}
+
+#define cleanup_nominals(name) \
+    static void cleanup_##name##s(struct name##_vec* vec, const struct node_set* live_nodes) { \
+        size_t name##_count = 0; \
+        for (size_t i = 0; i < vec->elem_count; ++i) { \
+            if (node_set_find(live_nodes, (const struct fir_node*const*)&vec->elems[i])) \
+                vec->elems[name##_count++] = vec->elems[i]; \
+            else \
+                free_node(vec->elems[i]); \
+        } \
+        name##_vec_resize(vec, name##_count); \
+    }
+
+cleanup_nominals(func)
+cleanup_nominals(global)
+
+#undef cleanup_nominals
+
+void fir_mod_cleanup(struct fir_mod* mod) {
+    struct node_set live_nodes = collect_live_nodes(mod);
+    fix_uses(mod, &live_nodes);
+    cleanup_funcs(&mod->funcs, &live_nodes);
+    cleanup_globals(&mod->globals, &live_nodes);
+
+    struct node_vec dead_nodes = node_vec_create();
+    SET_FOREACH(const struct fir_node*, node_ptr, mod->nodes) {
+        if (!fir_node_is_ty(*node_ptr) && !node_set_find(&live_nodes, node_ptr))
+            node_vec_push(&dead_nodes, node_ptr);
+    }
+
+    VEC_FOREACH(const struct fir_node*, node_ptr, dead_nodes) {
+        [[maybe_unused]] bool was_removed = internal_node_set_remove(&mod->nodes, node_ptr);
+        assert(was_removed);
+        free_node((struct fir_node*)*node_ptr);
+    }
+
+    node_vec_destroy(&dead_nodes);
+    node_set_destroy(&live_nodes);
+}
+
 void fir_node_set_op(struct fir_node* node, size_t op_index, const struct fir_node* op) {
     assert(op_index < node->op_count);
     if (node->ops[op_index])
@@ -209,11 +311,11 @@ void fir_node_set_op(struct fir_node* node, size_t op_index, const struct fir_no
         record_use(node, op_index);
 }
 
-struct fir_node** fir_mod_funcs(const struct fir_mod* mod) {
+struct fir_node* const* fir_mod_funcs(const struct fir_mod* mod) {
     return mod->funcs.elems;
 }
 
-struct fir_node** fir_mod_globals(const struct fir_mod* mod) {
+struct fir_node* const* fir_mod_globals(const struct fir_mod* mod) {
     return mod->globals.elems;
 }
 

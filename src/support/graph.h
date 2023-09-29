@@ -29,6 +29,7 @@
     }; \
     MAP_DECL(name##_node_map, key_t, struct name##_node*, linkage) \
     SET_DECL(name##_edge_set, struct name##_edge*, linkage) \
+    VEC_DECL(name##_node_vec, struct name##_node*, linkage) \
     struct name { \
         struct name##_node_map nodes; \
         struct name##_edge_set edges; \
@@ -37,6 +38,8 @@
     LINKAGE(linkage) void name##_destroy(struct name*); \
     LINKAGE(linkage) struct name##_node* name##_insert(struct name*, key_t const*); \
     LINKAGE(linkage) struct name##_edge* name##_connect(struct name*, struct name##_node*, struct name##_node*); \
+    LINKAGE(linkage) struct name##_node_vec name##_post_order(struct name*, const struct name##_node*const*, size_t); \
+    LINKAGE(linkage) struct name##_node_vec name##_depth_first_order(struct name*, const struct name##_node*const*, size_t); \
     LINKAGE(linkage) void name##_print(FILE*, const struct name*); \
     LINKAGE(linkage) void name##_dump(const struct name*);
 
@@ -57,6 +60,7 @@
     } \
     MAP_IMPL(name##_node_map, key_t, struct name##_node*, hash, cmp, linkage) \
     SET_IMPL(name##_edge_set, struct name##_edge*, name##_hash_edge, name##_cmp_edge, linkage) \
+    VEC_IMPL(name##_node_vec, struct name##_node*, linkage) \
     LINKAGE(linkage) struct name name##_create(void) { \
         return (struct name) { \
             .nodes = name##_node_map_create(), \

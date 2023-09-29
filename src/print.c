@@ -66,8 +66,8 @@ void fir_node_dump(const struct fir_node* node) {
 }
 
 void fir_mod_print(FILE* file, const struct fir_mod* mod) {
-    struct fir_node** globals = fir_mod_globals(mod);
-    struct fir_node** funcs = fir_mod_funcs(mod);
+    struct fir_node* const* globals = fir_mod_globals(mod);
+    struct fir_node* const* funcs = fir_mod_funcs(mod);
     size_t func_count = fir_mod_func_count(mod);
     size_t global_count = fir_mod_global_count(mod);
 
@@ -77,6 +77,9 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod) {
     }
 
     for (size_t i = 0; i < func_count; ++i) {
+        if (funcs[i]->ty->ops[1]->tag == FIR_NORET_TY)
+            continue;
+
         fir_node_print(file, funcs[i], 0);
         fprintf(file, "\n");
         struct scope scope = scope_create(funcs[i]);
