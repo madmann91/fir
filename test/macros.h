@@ -1,8 +1,18 @@
 #pragma once
 
+#include <stddef.h>
+
+#ifdef TEST_DISABLE_FORK
+#include <setjmp.h>
+#endif
+
 struct test_context {
+#ifndef TEST_DISABLE_FORK
     int write_pipe;
-    unsigned asserts_passed;
+#else
+    jmp_buf buf;
+#endif
+    size_t passed_asserts;
 };
 
 #define TEST(name) \
@@ -15,7 +25,7 @@ struct test_context {
         if (!(x)) \
             fail_test(context, #x, __FILE__, __LINE__); \
         else \
-            context->asserts_passed++; \
+            context->passed_asserts++; \
     } while (false)
 
 [[noreturn]]

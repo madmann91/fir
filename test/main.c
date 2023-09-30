@@ -1,44 +1,34 @@
 #include "macros.h"
+#include "test.h"
 
-#include "support/vec.h"
 #include "support/term.h"
 
-#include <stdlib.h>
 #include <stdio.h>
-#include <stdbool.h>
 
+#ifdef _WIN32
+#include <io.h>
+#define isatty _isatty
+#define fileno _fileno
+#else
 #include <unistd.h>
-#include <signal.h>
-#include <sys/wait.h>
+#endif
 
-#ifdef ENABLE_REGEX
+#ifndef TEST_DISABLE_REGEX
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>
 #endif
 
-struct test {
-    const char* name;
-    void (*test_func) (struct test_context*);
-    bool enabled;
-    pid_t pid;
-    int read_pipe;
+struct options {
+    bool enable_filtering;
+    bool disable_colors;
+#ifndef TEST_DISABLE_REGEX
+    bool regex_match;
+#endif
 };
 
-VEC_DEFINE(test_vec, struct test, PRIVATE)
+VEC_IMPL(test_vec, struct test, PUBLIC)
 
-static struct test_vec tests = {};
-
-void fail_test(
-    struct test_context* context,
-    const char* msg,
-    const char* file,
-    unsigned line)
-{
-    write(context->write_pipe, context, sizeof(struct test_context));
-    close(context->write_pipe);
-    fprintf(stderr, "Assertion '%s' failed (%s:%u)\n", msg, file, line);
-    abort();
-}
+struct test_vec tests = {};
 
 void register_test(const char* name, void (*test_func) (struct test_context*)) {
     test_vec_push(&tests, &(struct test) {
@@ -47,34 +37,16 @@ void register_test(const char* name, void (*test_func) (struct test_context*)) {
     });
 }
 
-static inline struct test* find_test_by_pid(pid_t pid) {
-    VEC_FOREACH(struct test, test, tests) {
-        if (test->pid == pid)
-            return test;
-    }
-    return NULL;
-}
-
-static void start_test(struct test* test) {
-    int pipes[2];
-    pipe(pipes);
-
-    pid_t pid = fork();
-    if (pid == 0) {
-        close(pipes[0]);
-        struct test_context context = {
-            .write_pipe = pipes[1]
-        };
-        test->test_func(&context);
-        write(context.write_pipe, &context, sizeof(struct test_context));
-        close(context.write_pipe);
-        test_vec_destroy(&tests);
-        exit(0);
-    }
-
-    close(pipes[1]);
-    test->pid = pid;
-    test->read_pipe = pipes[0];
+void usage(void) {
+    printf(
+        "usage: testdriver [options] filters ...\n"
+        "options:\n"
+        "   -h    --help       Shows this message.\n"
+#ifndef TEST_DISABLE_REGEX
+        "         --regex      Allow the use of PERL-style regular expressions in filters.\n"
+#endif
+        "         --no-color   Turns of the use of color in the output.\n"
+        "         --list       Lists all tests and exit.\n");
 }
 
 static void print_tests() {
@@ -83,27 +55,7 @@ static void print_tests() {
     }
 }
 
-static void usage() {
-    printf(
-        "usage: testdriver [options] filters ...\n"
-        "options:\n"
-        "   -h    --help       Shows this message.\n"
-#ifdef ENABLE_REGEX
-        "         --regex      Allow the use of PERL-style regular expressions in filters.\n"
-#endif
-        "         --no-color   Turns of the use of color in the output.\n"
-        "         --list       Lists all tests and exit.\n");
-}
-
-struct options {
-    bool enable_filtering;
-    bool disable_colors;
-#ifdef ENABLE_REGEX
-    bool regex_match;
-#endif
-};
-
-static bool parse_options(int argc, char** argv, struct options* options) {
+bool parse_options(int argc, char** argv, struct options* options) {
     for (int i = 1; i < argc; ++i) {
         if (argv[i][0] == '-') {
             if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
@@ -114,7 +66,7 @@ static bool parse_options(int argc, char** argv, struct options* options) {
                 return false;
             } else if (!strcmp(argv[i], "--no-color")) {
                 options->disable_colors = true;
-#ifdef ENABLE_REGEX
+#ifndef TEST_DISABLE_REGEX
             } else if (!strcmp(argv[i], "--regex")) {
                 options->regex_match = true;
 #endif
@@ -129,7 +81,24 @@ static bool parse_options(int argc, char** argv, struct options* options) {
     return true;
 }
 
-#ifdef ENABLE_REGEX
+static const char* color_code(bool success) {
+    return success
+        ? TERM2(TERM_FG_GREEN, TERM_BOLD)
+        : TERM2(TERM_FG_RED, TERM_BOLD);
+}
+
+static size_t find_longest_test_name(void) {
+    size_t max_width = 0;
+    VEC_FOREACH(struct test, test, tests) {
+        if (!test->enabled)
+            continue;
+        size_t width = strlen(test->name);
+        max_width = max_width < width ? width : max_width;
+    }
+    return max_width;
+}
+
+#ifndef TEST_DISABLE_REGEX
 static pcre2_code* compile_regex(const char* pattern) {
     int err;
     PCRE2_SIZE err_off;
@@ -144,16 +113,16 @@ static pcre2_code* compile_regex(const char* pattern) {
 }
 #endif
 
-static void filter_tests(int argc, char** argv, const struct options* options) {
+static size_t filter_tests(int argc, char** argv, const struct options* options) {
     if (!options->enable_filtering) {
         VEC_FOREACH(struct test, test, tests) { test->enabled = true; }
-        return;
+        return tests.elem_count;
     }
 
     for (int i = 1; i < argc; ++i) {
         if (argv[i][0] == '-')
             continue;
-#ifdef ENABLE_REGEX
+#ifndef TEST_DISABLE_REGEX
         if (options->regex_match) {
             pcre2_code* code = compile_regex(argv[i]);
             if (!code)
@@ -174,83 +143,55 @@ static void filter_tests(int argc, char** argv, const struct options* options) {
             }
         }
     }
-}
-
-static const char* color_code(bool success) {
-    return success
-        ? TERM2(TERM_FG_GREEN, TERM_BOLD)
-        : TERM2(TERM_FG_RED, TERM_BOLD);
-}
-
-int main(int argc, char** argv) {
-    size_t passed = 0;
-    size_t failed = 0;
-    size_t asserts_passed = 0;
-
-    struct options options = { .disable_colors = !isatty(fileno(stdout)) };
-    if (!parse_options(argc, argv, &options))
-        return 1;
-
-    filter_tests(argc, argv, &options);
 
     size_t enabled_tests = 0;
     VEC_FOREACH(struct test, test, tests) {
         enabled_tests += test->enabled ? 1 : 0;
     }
+    return enabled_tests;
+}
 
+int main(int argc, char** argv) {
+    struct options options = { .disable_colors = !isatty(fileno(stdout)) };
+    if (!parse_options(argc, argv, &options))
+        return 1;
+
+    size_t enabled_tests = filter_tests(argc, argv, &options);
     if (enabled_tests == 0) {
         fprintf(stderr, "no tests match filters\n");
         return 1;
     }
 
     printf("running %zu test(s):\n\n", enabled_tests);
-    // Must flush to avoid flushing previously-buffered content in the forked children
     fflush(stdout);
 
-    size_t max_width = 0;
+    run_tests();
+
+    size_t max_width = find_longest_test_name();
+    size_t passed_tests = 0;
+    size_t passed_asserts = 0;
     VEC_FOREACH(struct test, test, tests) {
         if (!test->enabled)
             continue;
-        size_t width = strlen(test->name);
-        max_width = max_width < width ? width : max_width;
-        start_test(test);
-    }
 
-    for (size_t i = 0; i < enabled_tests; ++i) {
-        int status;
-        pid_t test_pid = wait(&status);
-
-        struct test* test = find_test_by_pid(test_pid);
-        if (!test)
-            continue;
-
-        bool success = false;
-        if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
-            success = true;
-
-        passed += success ? 1 : 0;
-        failed += success ? 0 : 1;
-
-        const char* msg = success ? "[PASSED]" : "[FAILED]";
-        const char* color = color_code(success);
-        if (WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV)
-            msg = "[SEGFAULT]";
+        const char* msg =
+            test->status == TEST_PASSED ? "[PASSED]" :
+            test->status == TEST_FAILED ? "[FAILED]" :
+            test->status == TEST_SEGFAULT ? "[SEGFAULT]" :
+            "[UNKNOWN]";
         printf(" %*s .............................. %s%s%s\n",
             (int)max_width, test->name,
-            options.disable_colors ? "" : color, msg,
+            options.disable_colors ? "" : color_code(test->status == TEST_PASSED), msg,
             options.disable_colors ? "" : TERM1(TERM_RESET));
-
-        struct test_context context;
-        read(test->read_pipe, &context, sizeof(struct test_context));
-        close(test->read_pipe);
-
-        asserts_passed += context.asserts_passed;
+        passed_asserts += test->passed_asserts;
+        passed_tests += test->status == TEST_PASSED ? 1 : 0;
     }
-    test_vec_destroy(&tests);
 
+    bool failed = passed_tests != enabled_tests;
     printf("\n%s%zu/%zu test(s) passed, %zu assertion(s) passed%s\n",
         options.disable_colors ? "" : color_code(failed == 0),
-        passed, passed + failed, asserts_passed,
+        passed_tests, tests.elem_count, passed_asserts,
         options.disable_colors ? "" : TERM1(TERM_RESET));
+    test_vec_destroy(&tests);
     return failed == 0 ? 0 : 1;
 }

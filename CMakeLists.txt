@@ -3,6 +3,8 @@ project(fir VERSION 0.0.1)
 
 option(BUILD_SHARED_LIBS "Build a shared library." ON)
 option(BUILD_TOOLS "Build tools." ON)
+option(TEST_DISABLE_FORK "Disable fork() in testing framework." OFF)
+option(TEST_DISABLE_REGEX "Disable regular expressions when filtering tests." OFF)
 
 add_compile_options(
     $<$<C_COMPILER_ID:GNU,Clang>:-Wall>
