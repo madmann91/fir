@@ -8,7 +8,8 @@ jobs:
     strategy:
       matrix:
         build-type: [Debug, Release]
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
+        compiler: [gcc, clang]
 
     steps:
       - uses: actions/checkout@v2
@@ -22,6 +23,7 @@ jobs:
         run: |
           cmake \
             -DCMAKE_BUILD_TYPE=${{matrix.build-type}} \
+            -DCMAKE_C_COMPILER=${{matrix.compiler}} \
             -DBUILD_TESTING=ON \
             -DTEST_DISABLE_FORK=ON \
             -DTEST_DISABLE_REGEX=ON \
