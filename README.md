@@ -31,3 +31,7 @@ or, alternatively, when trying to debug memory leaks or other memory errors with
 The project supports doxygen for the publicly visible API. This can be generated either by calling
 doxygen from the `doc` directory or by typing `make doc` using the CMake-generated Makefile (see
 instructions above to build using CMake).
+
+## License
+
+This project is distributed under the [MIT license](LICENSE.txt).
