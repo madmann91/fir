@@ -31,7 +31,7 @@ static void print_node(FILE* file, const struct fir_node* node) {
     else if (node->tag == FIR_CONST && node->ty->tag == FIR_FLOAT_TY)
         fprintf(file, "[%a]", node->data.float_val);
     else if (node->tag == FIR_ARRAY_TY)
-        fprintf(file, "[%"PRIu64"]", node->data.array_dim);
+        fprintf(file, "[%zu]", node->data.array_dim);
     else if (fir_node_has_fp_flags(node))
         print_fp_flags(file, node->data.fp_flags);
     if (node->op_count == 0)
