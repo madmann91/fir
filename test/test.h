@@ -3,6 +3,7 @@
 #include "support/vec.h"
 
 #include <stddef.h>
+#include <stdbool.h>
 
 struct options;
 struct test_context;
