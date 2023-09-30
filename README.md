@@ -1,3 +1,5 @@
+![Workflow status](https://github.com/madmann91/fir/actions/workflows/build-and-test.yml/badge.svg)
+
 # Fir
 
 Fir is a functional IR with a graph-based design written completely in C. A particularity of this IR
