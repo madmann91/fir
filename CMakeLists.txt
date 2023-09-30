@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
-project(fir VERSION 1.0)
+project(fir VERSION 0.0.1)
 
 option(BUILD_SHARED_LIBS "Build a shared library." ON)
+option(BUILD_TOOLS "Build tools." ON)
 
 add_compile_options(
     $<$<C_COMPILER_ID:GNU,Clang>:-Wall>
@@ -14,6 +15,9 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 add_subdirectory(src)
+if (BUILD_TOOLS)
+    add_subdirectory(tools)
+endif()
 
 find_package(Doxygen QUIET)
 if (DOXYGEN_FOUND)

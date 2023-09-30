@@ -10,19 +10,25 @@ add_library(libfir_analysis STATIC
     analysis/cfg.c)
 
 add_library(libfir
+    platform.c
     dbg_info.c
     node.c
     module.c
     parse.c
     print.c)
 
-add_executable(fir main.c)
-
 target_include_directories(libfir PUBLIC ../include)
 target_include_directories(libfir_support PUBLIC ../include)
 target_include_directories(libfir_analysis PUBLIC ../include)
 
-target_compile_options(libfir PRIVATE -DFIR_EXPORT_SYMBOLS)
+string(TIMESTAMP timestamp "%Y%m%d")
+
+target_compile_options(libfir PRIVATE
+    -DFIR_EXPORT_SYMBOLS
+    -DFIR_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+    -DFIR_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+    -DFIR_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+    -DFIR_VERSION_TIMESTAMP=${timestamp})
 target_link_libraries(libfir PRIVATE libfir_support libfir_analysis)
 
 include(CheckLibraryExists)
@@ -39,5 +45,3 @@ set_target_properties(libfir_support libfir_analysis PROPERTIES
     PREFIX ""
     POSITION_INDEPENDENT_CODE ON
     C_VISIBILITY_PRESET hidden)
-
-target_link_libraries(fir PRIVATE libfir)

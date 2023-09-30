@@ -4,13 +4,24 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 static void usage(void) {
     printf(
         "usage: fir [options] file.fir ...\n"
         "options:\n"
-        "    -h    --help   Shows this message.\n"
+        "    -h    --help        Shows this message.\n"
+        "          --version     Shows version information.\n"
         "          --no-cleanup  Do not clean up the module after loading it.\n");
+}
+
+static void version(void) {
+    printf("fir %"PRIu32".%"PRIu32".%"PRIu32" %"PRIu32"\n",
+        fir_version_major(),
+        fir_version_minor(),
+        fir_version_patch(),
+        fir_version_timestamp());
+    printf("Distributed under the MIT license. See LICENSE.txt for copyright information.\n");
 }
 
 struct options {
@@ -18,10 +29,14 @@ struct options {
 };
 
 static bool parse_options(int argc, char** argv, struct options* options) {
+    size_t file_count = 0;
     for (int i = 1; i < argc; ++i) {
         if (argv[i][0] == '-') {
             if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
                 usage();
+                return false;
+            } else if (!strcmp(argv[i], "--version")) {
+                version();
                 return false;
             } else if (!strcmp(argv[i], "--no-cleanup")) {
                 options->no_cleanup = true;
@@ -29,7 +44,13 @@ static bool parse_options(int argc, char** argv, struct options* options) {
                 fprintf(stderr, "invalid option '%s'\n", argv[i]);
                 return false;
             }
+        } else {
+            file_count++;
         }
+    }
+    if (file_count == 0) {
+        fprintf(stderr, "no input file\n");
+        return false;
     }
     return true;
 }
