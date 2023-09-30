@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdbool.h>
 
 #ifdef TEST_DISABLE_FORK
 #include <setjmp.h>
