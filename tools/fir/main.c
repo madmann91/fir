@@ -1,6 +1,8 @@
 #include <fir/module.h>
 #include <fir/version.h>
 
+#include "support/io.h"
+
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
@@ -56,36 +58,9 @@ static bool parse_options(int argc, char** argv, struct options* options) {
     return true;
 }
 
-static inline char* read_file(const char* file_name) {
-    FILE* file = fopen(file_name, "rb");
-    if (!file)
-        return NULL;
-
-    size_t capacity = 1024;
-    char* data = malloc(capacity);
-    size_t size = 0;
-
-    while (true) {
-        size_t to_read = capacity - size;
-        if (to_read == 0) {
-            capacity += capacity >> 1;
-            data = realloc(data, capacity);
-            to_read = capacity - size;
-        }
-        size_t read = fread(data + size, 1, to_read, file);
-        size += read;
-        if (read < to_read)
-            break;
-    }
-    fclose(file);
-
-    data = realloc(data, size + 1);
-    data[size] = 0;
-    return data;
-}
-
 static inline bool compile_file(const char* file_name, const struct options* options) {
-    char* file_data = read_file(file_name);
+    size_t file_size = 0;
+    char* file_data = read_file(file_name, &file_size);
     if (!file_data) {
         fprintf(stderr, "cannot open file '%s'\n", file_name);
         return false;
@@ -94,7 +69,7 @@ static inline bool compile_file(const char* file_name, const struct options* opt
     bool status = fir_mod_parse(mod, &(struct fir_parse_input) {
         .file_name = file_name,
         .file_data = file_data,
-        .file_size = strlen(file_data),
+        .file_size = file_size,
         .error_log = stderr
     });
     free(file_data);
