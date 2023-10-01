@@ -43,12 +43,12 @@ bool parser_accept(struct parser* parser, enum token_tag tag) {
 
 bool parser_expect(struct parser* parser, enum token_tag tag) {
     if (!parser_accept(parser, tag)) {
+        struct str_view str = token_str(parser->scanner.data, parser->ahead);
         parser_error(parser,
             &parser->ahead->source_range,
             "expected '%s', but got '%.*s'",
             token_tag_to_string(tag),
-            (int)parser->ahead->str.length,
-            parser->ahead->str.data);
+            (int)str.length, str.data);
         return false;
     }
     return true;

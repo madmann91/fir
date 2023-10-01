@@ -66,10 +66,6 @@ static inline struct token make_token(
 {
     return (struct token) {
         .tag = tag,
-        .str = {
-            .data = scanner->data + begin_pos.bytes,
-            .length = scanner->source_pos.bytes - begin_pos.bytes
-        },
         .source_range = {
             .begin = begin_pos,
             .end = scanner->source_pos
@@ -115,12 +111,12 @@ static inline struct token parse_literal(
 
     struct token token = make_token(scanner, begin_pos, is_float ? TOK_FLOAT : TOK_INT);
     if (is_float) {
-        token.float_val = copysign(strtod(token.str.data, NULL), has_minus ? -1.0 : 1.0);
+        token.float_val = copysign(strtod(token_str(scanner->data, &token).data, NULL), has_minus ? -1.0 : 1.0);
     } else if (has_minus) {
-        long long int signed_int = -strtoll(token.str.data + prefix_len, NULL, base);
+        long long int signed_int = -strtoll(token_str(scanner->data, &token).data + prefix_len, NULL, base);
         token.int_val = (uint64_t)signed_int;
     } else {
-        token.int_val = strtoull(token.str.data + prefix_len, NULL, base);
+        token.int_val = strtoull(token_str(scanner->data, &token).data + prefix_len, NULL, base);
     }
     return token;
 }
@@ -162,7 +158,7 @@ struct token scanner_advance(struct scanner* scanner) {
             while (!is_eof(scanner) && (isalnum(cur_char(scanner)) || cur_char(scanner) == '_'))
                 eat_char(scanner);
             struct token token = make_token(scanner, begin_pos, TOK_IDENT);
-            enum token_tag keyword_tag = find_keyword(token.str);
+            enum token_tag keyword_tag = find_keyword(token_str(scanner->data, &token));
             if (keyword_tag != TOK_ERR)
                 token.tag = keyword_tag;
             return token;
@@ -174,6 +170,13 @@ struct token scanner_advance(struct scanner* scanner) {
         eat_char(scanner);
         return make_token(scanner, begin_pos, TOK_ERR);
     }
+}
+
+struct str_view token_str(const char* data, const struct token* token) {
+    return (struct str_view) {
+        .data   = data + token->source_range.begin.bytes,
+        .length = token->source_range.end.bytes - token->source_range.begin.bytes
+    };
 }
 
 const char* token_tag_to_string(enum token_tag tag) {

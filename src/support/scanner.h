@@ -40,16 +40,17 @@ enum token_tag {
 
 struct token {
     enum token_tag tag;
-    struct str_view str;
+    struct fir_source_range source_range;
     union {
         uint64_t int_val;
         double float_val;
     };
-    struct fir_source_range source_range;
 };
 
 struct scanner scanner_create(const char* data, size_t size);
 struct token scanner_advance(struct scanner*);
+
+struct str_view token_str(const char* data, const struct token*);
 
 const char* token_tag_to_string(enum token_tag);
 bool token_tag_is_node_tag(enum token_tag);

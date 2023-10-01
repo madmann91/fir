@@ -113,7 +113,7 @@ static inline double parse_float_val(struct parse_context* context) {
 
 static inline enum fir_linkage parse_linkage(struct parse_context* context) {
     enum fir_linkage linkage = FIR_INTERNAL;
-    struct str_view ident = context->parser.ahead->str;
+    struct str_view ident = token_str(context->parser.scanner.data, context->parser.ahead);
     if (str_view_is_equal(ident, str_view("internal")))      linkage = FIR_INTERNAL;
     else if (str_view_is_equal(ident, str_view("imported"))) linkage = FIR_IMPORTED;
     else if (str_view_is_equal(ident, str_view("exported"))) linkage = FIR_EXPORTED;
@@ -125,7 +125,7 @@ static inline enum fir_linkage parse_linkage(struct parse_context* context) {
 static inline enum fir_fp_flags parse_fp_flags(struct parse_context* context) {
     enum fir_fp_flags fp_flags = FIR_FP_STRICT;
     while (parser_accept(&context->parser, TOK_PLUS)) {
-        struct str_view ident = context->parser.ahead->str;
+        struct str_view ident = token_str(context->parser.scanner.data, context->parser.ahead);
         if (str_view_is_equal(ident, str_view("fo")))       fp_flags |= FIR_FP_FINITE_ONLY;
         else if (str_view_is_equal(ident, str_view("nsz"))) fp_flags |= FIR_FP_NO_SIGNED_ZERO;
         else if (str_view_is_equal(ident, str_view("a")))   fp_flags |= FIR_FP_ASSOCIATIVE;
@@ -214,11 +214,11 @@ static inline const struct fir_node* parse_ty(struct parse_context* context) {
             return parse_int_or_float_ty(context);
         default:
         {
-            struct str_view token_str = context->parser.ahead->str;
+            struct str_view str = token_str(context->parser.scanner.data, context->parser.ahead);
             parser_error(&context->parser,
                 &context->parser.ahead->source_range,
                 "expected type, but got '%.*s'",
-                (int)token_str.length, token_str.data);
+                (int)str.length, str.data);
             parser_next(&context->parser);
             return NULL;
         }
@@ -226,7 +226,7 @@ static inline const struct fir_node* parse_ty(struct parse_context* context) {
 }
 
 static inline struct str_view parse_ident(struct parse_context* context) {
-    struct str_view ident = context->parser.ahead->str;
+    struct str_view ident = token_str(context->parser.scanner.data, context->parser.ahead);
     parser_expect(&context->parser, TOK_IDENT);
     return ident;
 }
