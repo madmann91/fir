@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-/// \file
+/// @file
 ///
 /// Floating-point flags determine the set of optimizations that are allowed on floating-point
 /// operations. The strictest level allows no optimization that would break the semantics of the
