@@ -11,8 +11,9 @@ target_include_directories(unit_tests PRIVATE ../src .)
 target_link_libraries(unit_tests PRIVATE libfir libfir_support)
 
 if (WIN32 OR TEST_DISABLE_FORK)
-    message(STATUS "Building tests with process isolation enabled")
     target_compile_definitions(unit_tests PRIVATE -DTEST_DISABLE_FORK)
+else()
+    message(STATUS "Building tests with process isolation enabled")
 endif()
 
 # PCRE2 does not come with a configuration file. This crude hack auto-detects its presence on most
