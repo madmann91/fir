@@ -1,4 +1,5 @@
 #include <fir/module.h>
+#include <fir/version.h>
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -21,7 +22,7 @@ static void version(void) {
         fir_version_minor(),
         fir_version_patch(),
         fir_version_timestamp());
-    printf("Distributed under the MIT license. See LICENSE.txt for copyright information.\n");
+    printf("See LICENSE.txt for licensing and copyright information.\n");
 }
 
 struct options {

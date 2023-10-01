@@ -10,7 +10,7 @@ add_library(libfir_analysis STATIC
     analysis/cfg.c)
 
 add_library(libfir
-    platform.c
+    version.c
     dbg_info.c
     node.c
     module.c
@@ -18,8 +18,8 @@ add_library(libfir
     print.c)
 
 target_include_directories(libfir PUBLIC ../include)
-target_include_directories(libfir_support PUBLIC ../include)
-target_include_directories(libfir_analysis PUBLIC ../include)
+target_include_directories(libfir_support PUBLIC ../include ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(libfir_analysis PUBLIC libfir_support)
 
 string(TIMESTAMP timestamp "%Y%m%d")
 
