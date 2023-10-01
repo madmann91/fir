@@ -19,12 +19,12 @@
     x(DYNARRAY_TY, "dynarray_ty") \
     x(FUNC_TY,     "func_ty")
 
-/// List all nominal nodes. @see module.h
+/// Lists all nominal nodes. @see module.h
 #define FIR_NOMINAL_NODE_LIST(x) \
     x(GLOBAL, "global") \
     x(FUNC,   "func")
 
-/// List all arithmetic operations on integers.
+/// Lists all arithmetic operations on integers.
 #define FIR_IARITH_OP_LIST(x) \
     x(IADD, "iadd") \
     x(ISUB, "isub") \
@@ -34,7 +34,7 @@
     x(SREM, "srem") \
     x(UREM, "urem")
 
-/// List all arithmetic operations on floating-point numbers.
+/// Lists all arithmetic operations on floating-point numbers.
 #define FIR_FARITH_OP_LIST(x) \
     x(FADD, "fadd") \
     x(FSUB, "fsub") \
@@ -42,7 +42,7 @@
     x(FDIV, "fdiv") \
     x(FREM, "frem")
 
-/// List all integer comparison instructions.
+/// Lists all integer comparison instructions.
 #define FIR_ICMP_OP_LIST(x) \
     x(ICMPEQ, "icmpeq") \
     x(ICMPNE, "icmpne") \
@@ -55,7 +55,7 @@
     x(SCMPLT, "scmplt") \
     x(SCMPLE, "scmple")
 
-/// List all floating-point comparison instructions.
+/// Lists all floating-point comparison instructions.
 #define FIR_FCMP_OP_LIST(x) \
     x(FCMPORD, "fcmpord") \
     x(FCMPUNO, "fcmpuno") \
@@ -72,13 +72,19 @@
     x(FCMPULT, "fcmpult") \
     x(FCMPULE, "fcmpule")
 
-/// List all bitwise instructions.
+/// Lists all bitwise instructions.
 #define FIR_BIT_OP_LIST(x) \
     x(AND, "and") \
     x(OR,  "or") \
     x(XOR, "xor")
 
-/// List all cast instructions.
+/// Lists all shift instructions.
+#define FIR_SHIFT_OP_LIST(x) \
+    x(SHL,  "shl") \
+    x(ASHR, "ashr") \
+    x(LSHR, "lshr")
+
+/// Lists all cast instructions.
 #define FIR_CAST_OP_LIST(x) \
     x(BITCAST, "bitcast") \
     x(UTOF,    "utof") \
@@ -91,7 +97,7 @@
     x(ITRUNC,  "itrunc") \
     x(FTRUNC,  "ftrunc")
 
-/// List all aggregate operations.
+/// Lists all aggregate operations.
 #define FIR_AGGR_OP_LIST(x) \
     x(TUP,    "tup") \
     x(ARRAY,  "array") \
@@ -99,13 +105,13 @@
     x(EXT,    "ext") \
     x(ADDROF, "addrof")
 
-/// List all memory operations.
+/// Lists all memory operations.
 #define FIR_MEM_OP_LIST(x) \
     x(ALLOC, "alloc") \
     x(LOAD,  "load") \
     x(STORE, "store")
 
-/// List all control-flow and function-related operations.
+/// Lists all control-flow and function-related operations.
 #define FIR_CONTROL_OP_LIST(x) \
     x(PARAM, "param") \
     x(START, "start") \
@@ -113,13 +119,13 @@
     x(LOOP, "loop") \
     x(IF,   "if")
 
-/// List all constants.
+/// Lists all constants.
 #define FIR_CONST_LIST(x) \
     x(TOP, "top") \
     x(BOT, "bot") \
     x(CONST, "const")
 
-/// List all IR nodes.
+/// Lists all IR nodes.
 #define FIR_NODE_LIST(x) \
     FIR_TYPE_LIST(x) \
     FIR_CONST_LIST(x) \
@@ -129,6 +135,7 @@
     FIR_ICMP_OP_LIST(x) \
     FIR_FCMP_OP_LIST(x) \
     FIR_BIT_OP_LIST(x) \
+    FIR_SHIFT_OP_LIST(x) \
     FIR_CAST_OP_LIST(x) \
     FIR_AGGR_OP_LIST(x) \
     FIR_MEM_OP_LIST(x) \

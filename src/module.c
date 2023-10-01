@@ -13,6 +13,9 @@
 
 #define SMALL_OP_COUNT 8
 
+typedef int64_t signed_int_val;
+static_assert(sizeof(signed_int_val) == sizeof(fir_int_val));
+
 static uint32_t hash_node_data(uint32_t h, const struct fir_node* node) {
     if (fir_node_is_nominal(node))
         h = hash_uint32(h, node->data.linkage);
@@ -543,13 +546,13 @@ static inline fir_int_val eval_iarith_op(
     if (tag == FIR_UREM) return left_val % right_val;
     if (tag == FIR_SDIV) {
         return
-            ((intmax_t)sign_extend(left_val, bitwidth)) /
-            ((intmax_t)sign_extend(right_val, bitwidth));
+            ((signed_int_val)sign_extend(left_val, bitwidth)) /
+            ((signed_int_val)sign_extend(right_val, bitwidth));
     }
     if (tag == FIR_SREM) {
         return
-            ((intmax_t)sign_extend(left_val, bitwidth)) %
-            ((intmax_t)sign_extend(right_val, bitwidth));
+            ((signed_int_val)sign_extend(left_val, bitwidth)) %
+            ((signed_int_val)sign_extend(right_val, bitwidth));
     }
     assert(false && "invalid integer arithmetic operation");
     return 0;
@@ -586,16 +589,29 @@ const struct fir_node* fir_iarith_op(
     if (fir_node_is_zero(right) && tag == FIR_ISUB)
         return left;
 
+    const bool is_div_or_rem = tag == FIR_SDIV || tag == FIR_SREM || tag == FIR_UDIV || tag == FIR_UREM;
+
     // iadd(const[0], x) -> x
     // imul(const[0], x) -> const[0]
+    // sdiv(const[0], x) -> const[0]
+    // udiv(const[0], x) -> const[0]
+    // srem(const[0], x) -> const[0]
+    // urem(const[0], x) -> const[0]
     if (fir_node_is_zero(left)) {
         if (tag == FIR_IADD) return right;
-        if (tag == FIR_IMUL) return left;
+        if (tag == FIR_IMUL || is_div_or_rem) return left;
     }
 
     // imul(const[1], x) -> x
     if (fir_node_is_one(left) && tag == FIR_IMUL)
         return right;
+
+    // sdiv(x, const[1]) -> x
+    // udiv(x, const[1]) -> x
+    // srem(x, const[1]) -> x
+    // urem(x, const[1]) -> x
+    if (fir_node_is_one(right) && is_div_or_rem)
+        return left;
 
     return insert_node(fir_node_mod(left), (const struct fir_node*)&(struct { FIR_NODE(2) }) {
         .tag = tag,
@@ -664,14 +680,21 @@ const struct fir_node* fir_farith_op(
 
     // fadd(const[0], x) -> x
     // fmul(const[0], x) -> const[0]
+    // fdiv(const[0], x) -> const[0]
+    // frem(const[0], x) -> const[0]
     if (fir_node_is_zero(left)) {
         if (tag == FIR_FADD) return right;
-        if (tag == FIR_FMUL && is_finite_only) return left;
+        if ((tag == FIR_FMUL || tag == FIR_FDIV || tag == FIR_FREM) && is_finite_only) return left;
     }
 
     // fmul(const[1], x) -> x
     if (fir_node_is_one(left) && tag == FIR_FMUL)
         return right;
+
+    // fdiv(x, const[1]) -> x
+    // frem(x, const[1]) -> x
+    if (fir_node_is_one(right) && (tag == FIR_FDIV || tag == FIR_FREM))
+        return left;
 
     return insert_node(fir_node_mod(left), (const struct fir_node*)&(struct { FIR_NODE(2) }) {
         .tag = tag,
@@ -765,6 +788,56 @@ const struct fir_node* fir_bit_op(
         if (tag == FIR_AND) return right;
         if (tag == FIR_OR) return left;
     }
+
+    return insert_node(fir_node_mod(left), (const struct fir_node*)&(struct { FIR_NODE(2) }) {
+        .tag = tag,
+        .op_count = 2,
+        .ty = left->ty,
+        .ops = { left, right }
+    });
+}
+
+static inline fir_int_val eval_shift_op(
+    enum fir_node_tag tag,
+    size_t bitwidth,
+    fir_int_val left,
+    fir_int_val right)
+{
+    if (tag == FIR_SHL)  return left << right;
+    if (tag == FIR_LSHR) return left >> right;
+    if (tag == FIR_ASHR) return ((signed_int_val)sign_extend(left, bitwidth)) >> right;
+    assert("invalid shift operation");
+    return 0;
+}
+
+const struct fir_node* fir_shift_op(
+    enum fir_node_tag tag,
+    const struct fir_node* left,
+    const struct fir_node* right)
+{
+    assert(fir_node_tag_is_shift_op(tag));
+    assert(right->ty->tag == FIR_INT_TY);
+    assert(left->ty->tag == FIR_INT_TY);
+
+    // shl (const[i], const[j]) -> const[i << j]
+    // ashr(const[i], const[j]) -> const[i >>(arith) j]
+    // lshr(const[i], const[j]) -> const[i >>(logic) j]
+    if (left->tag == FIR_CONST && right->tag == FIR_CONST) {
+        fir_int_val int_val = eval_shift_op(tag,
+            left->ty->data.bitwidth,
+            left->data.int_val,
+            right->data.int_val);
+        return fir_int_const(left->ty, int_val);
+    }
+
+    // shl(x, const[0]) -> x
+    // ashr(x, const[0]) -> x
+    // lshr(x, const[0]) -> x
+    // shl(const[0], x) -> const[0]
+    // ashr(const[0], x) -> const[0]
+    // lshr(const[0], x) -> const[0]
+    if (fir_node_is_zero(right) || fir_node_is_zero(left))
+        return left;
 
     return insert_node(fir_node_mod(left), (const struct fir_node*)&(struct { FIR_NODE(2) }) {
         .tag = tag,

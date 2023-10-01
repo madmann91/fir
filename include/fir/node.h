@@ -108,6 +108,9 @@ FIR_SYMBOL bool fir_node_tag_is_fcmp_op(enum fir_node_tag);
 /// @return `true` if the given node tag represents a bitwise operation.
 /// @see FIR_BIT_OP_LIST
 FIR_SYMBOL bool fir_node_tag_is_bit_op(enum fir_node_tag);
+/// @return `true` if the given node tag represents a bitshift operation.
+/// @see FIR_SHIFT_OP_LIST
+FIR_SYMBOL bool fir_node_tag_is_shift_op(enum fir_node_tag);
 /// @return `true` if the given node tag represents a cast.
 /// @see FIR_CAST_OP_LIST
 FIR_SYMBOL bool fir_node_tag_is_cast_op(enum fir_node_tag);
@@ -140,6 +143,8 @@ FIR_SYMBOL bool fir_node_is_icmp_op(const struct fir_node*);
 FIR_SYMBOL bool fir_node_is_fcmp_op(const struct fir_node*);
 /// @see fir_node_tag_is_bit_op
 FIR_SYMBOL bool fir_node_is_bit_op(const struct fir_node*);
+/// @see fir_node_tag_is_shift_op
+FIR_SYMBOL bool fir_node_is_shift_op(const struct fir_node*);
 /// @see fir_node_tag_is_cast_op
 FIR_SYMBOL bool fir_node_is_cast_op(const struct fir_node*);
 /// @see fir_node_tag_is_aggr_op
