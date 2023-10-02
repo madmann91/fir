@@ -1,5 +1,6 @@
 add_library(libfir_support STATIC
     support/io.c
+    support/mem_pool.c
     support/datatypes.c
     support/alloc.c
     support/primes.c
