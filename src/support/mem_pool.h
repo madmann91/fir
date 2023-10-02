@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdalign.h>
 
 struct mem_block;
 

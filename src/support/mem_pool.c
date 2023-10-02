@@ -1,7 +1,6 @@
 #include "mem_pool.h"
 #include "alloc.h"
 
-#include <stdalign.h>
 #include <stdlib.h>
 
 #define MIN_BLOCK_CAPACITY 1024
