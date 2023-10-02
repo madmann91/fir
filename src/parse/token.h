@@ -4,18 +4,10 @@
 #include "fir/node_list.h"
 #include "fir/node.h"
 
-#include "str.h"
+#include "support/str.h"
 
-#include <stdio.h>
 #include <stdbool.h>
-#include <assert.h>
-#include <ctype.h>
-
-struct scanner {
-    const char* data;
-    size_t bytes_left;
-    struct fir_source_pos source_pos;
-};
+#include <stdint.h>
 
 enum token_tag {
 #define x(tag, str) TOK_##tag = FIR_##tag,
@@ -47,11 +39,8 @@ struct token {
     };
 };
 
-struct scanner scanner_create(const char* data, size_t size);
-struct token scanner_advance(struct scanner*);
-
-struct str_view token_str(const char* data, const struct token*);
-
 const char* token_tag_to_string(enum token_tag);
 bool token_tag_is_node_tag(enum token_tag);
 bool token_tag_is_ty(enum token_tag);
+
+struct str_view token_str(const char* data, const struct token*);

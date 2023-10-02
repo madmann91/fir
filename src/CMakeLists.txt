@@ -3,9 +3,7 @@ add_library(libfir_support STATIC
     support/mem_pool.c
     support/datatypes.c
     support/alloc.c
-    support/primes.c
-    support/scanner.c
-    support/parser.c)
+    support/primes.c)
 
 add_library(libfir_analysis STATIC
     analysis/scope.c
@@ -16,7 +14,9 @@ add_library(libfir
     dbg_info.c
     node.c
     module.c
-    parse.c
+    parse/parse.c
+    parse/lexer.c
+    parse/token.c
     print.c)
 
 target_include_directories(libfir PUBLIC ../include)
