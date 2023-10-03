@@ -238,5 +238,10 @@ FIR_SYMBOL void fir_node_dump(const struct fir_node*);
 
 /// Counts the number of uses in the list.
 FIR_SYMBOL size_t fir_use_count(const struct fir_use*);
+/// Finds the given use in the list.
+FIR_SYMBOL const struct fir_use* fir_find_use(
+    const struct fir_use*,
+    const struct fir_node* user,
+    size_t index);
 
 #endif

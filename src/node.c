@@ -228,3 +228,16 @@ size_t fir_use_count(const struct fir_use* use) {
     for (; use; use = use->next, use_count++);
     return use_count;
 }
+
+const struct fir_use* fir_find_use(
+    const struct fir_use* use,
+    const struct fir_node* user,
+    size_t index)
+{
+    while (use) {
+        if (use->user == user && use->index == index)
+            return use;
+        use = use->next;
+    }
+    return NULL;
+}
