@@ -240,7 +240,7 @@ FIR_SYMBOL void fir_node_dump(const struct fir_node*);
 FIR_SYMBOL size_t fir_use_count(const struct fir_use*);
 /// Finds a use matching the a user and index in the given list.
 /// @return A pointer to the matching use if it exists, otherwise `NULL`.
-FIR_SYMBOL const struct fir_use* fir_find_use(
+FIR_SYMBOL const struct fir_use* fir_use_find(
     const struct fir_use*,
     const struct fir_node* user,
     size_t index);

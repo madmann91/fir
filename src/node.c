@@ -229,7 +229,7 @@ size_t fir_use_count(const struct fir_use* use) {
     return use_count;
 }
 
-const struct fir_use* fir_find_use(
+const struct fir_use* fir_use_find(
     const struct fir_use* use,
     const struct fir_node* user,
     size_t index)
