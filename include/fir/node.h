@@ -236,13 +236,21 @@ FIR_SYMBOL void fir_node_print(FILE*, const struct fir_node*, size_t indent);
 /// Prints a node on standard output.
 FIR_SYMBOL void fir_node_dump(const struct fir_node*);
 
+/// @name Uses
+/// @{
+
 /// Counts the number of uses in the list.
 FIR_SYMBOL size_t fir_use_count(const struct fir_use*);
-/// Finds a use matching the a user and index in the given list.
+/// Counts the number of uses in the list, stops when the given count is reached.
+/// @note This is typically used to check whether a node is used more than once, twice, ...
+FIR_SYMBOL size_t fir_use_count_up_to(const struct fir_use*, size_t max_count);
+/// Finds a use matching a user and index in the given list.
 /// @return A pointer to the matching use if it exists, otherwise `NULL`.
 FIR_SYMBOL const struct fir_use* fir_use_find(
     const struct fir_use*,
     const struct fir_node* user,
     size_t index);
+
+/// @}
 
 #endif

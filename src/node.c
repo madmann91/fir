@@ -229,6 +229,12 @@ size_t fir_use_count(const struct fir_use* use) {
     return use_count;
 }
 
+size_t fir_use_count_up_to(const struct fir_use* use, size_t max_count) {
+    size_t use_count = 0;
+    for (; use && use_count < max_count; use = use->next, use_count++);
+    return use_count;
+}
+
 const struct fir_use* fir_use_find(
     const struct fir_use* use,
     const struct fir_node* user,
