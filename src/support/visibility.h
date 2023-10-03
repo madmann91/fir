@@ -1,5 +1,5 @@
 #pragma once
 
-#define LINKAGE(linkage) linkage##_LINKAGE
-#define PUBLIC_LINKAGE
-#define PRIVATE_LINKAGE static inline
+#define VISIBILITY(vis) vis##_VISIBILITY
+#define PUBLIC_VISIBILITY
+#define PRIVATE_VISIBILITY static inline
