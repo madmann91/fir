@@ -4,6 +4,14 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#ifdef _WIN32
+#include <io.h>
+#define isatty _isatty
+#define fileno _fileno
+#else
+#include <unistd.h>
+#endif
+
 char* read_file(const char* file_name, size_t* size) {
     FILE* file = fopen(file_name, "rb");
     if (!file)
@@ -30,4 +38,8 @@ char* read_file(const char* file_name, size_t* size) {
     data = xrealloc(data, *size + 1);
     data[*size] = 0;
     return data;
+}
+
+bool is_terminal(FILE* file) {
+    return isatty(fileno(file));
 }

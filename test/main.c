@@ -2,16 +2,9 @@
 #include "test.h"
 
 #include "support/term.h"
+#include "support/io.h"
 
 #include <stdio.h>
-
-#ifdef _WIN32
-#include <io.h>
-#define isatty _isatty
-#define fileno _fileno
-#else
-#include <unistd.h>
-#endif
 
 #ifndef TEST_DISABLE_REGEX
 #define PCRE2_CODE_UNIT_WIDTH 8
@@ -152,7 +145,7 @@ static size_t filter_tests(int argc, char** argv, const struct options* options)
 }
 
 int main(int argc, char** argv) {
-    struct options options = { .disable_colors = !isatty(fileno(stdout)) };
+    struct options options = { .disable_colors = !is_terminal(stdout) };
     if (!parse_options(argc, argv, &options))
         return 1;
 
