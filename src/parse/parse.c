@@ -45,7 +45,7 @@ struct parser {
     struct delayed_op_vec delayed_ops;
     struct lexer lexer;
     struct token ahead[TOKEN_LOOKAHEAD];
-    struct log* log;
+    struct log log;
 };
 
 static inline void next_token(struct parser* parser) {
@@ -70,7 +70,7 @@ static inline bool accept_token(struct parser* parser, enum token_tag tag) {
 static inline bool expect_token(struct parser* parser, enum token_tag tag) {
     if (!accept_token(parser, tag)) {
         struct str_view str = token_str(parser->lexer.data, parser->ahead);
-        log_error(parser->log,
+        log_error(&parser->log,
             &parser->ahead->source_range,
             "expected '%s', but got '%.*s'",
             token_tag_to_string(tag),
@@ -82,7 +82,7 @@ static inline bool expect_token(struct parser* parser, enum token_tag tag) {
 
 static inline void invalid_token(struct parser* parser, const char* msg) {
     struct str_view str = token_str(parser->lexer.data, parser->ahead);
-    log_error(parser->log,
+    log_error(&parser->log,
         &parser->ahead->source_range,
         "expected %s, but got '%.*s'",
         msg, (int)str.length, str.data);
@@ -94,7 +94,7 @@ static inline void unknown_identifier(
     const struct fir_source_range* ident_range,
     struct str_view ident)
 {
-    log_error(parser->log,
+    log_error(&parser->log,
         ident_range,
         "unknown identifier '%.*s'",
         (int)ident.length, ident.data);
@@ -105,7 +105,7 @@ static inline void invalid_fp_flag(
     const struct fir_source_range* source_range,
     struct str_view fp_flag)
 {
-    log_error(parser->log, source_range,
+    log_error(&parser->log, source_range,
         "invalid floating-point flag '%.*s'",
         (int)fp_flag.length, fp_flag.data);
 }
@@ -115,7 +115,7 @@ static inline void invalid_linkage(
     const struct fir_source_range* source_range,
     struct str_view linkage)
 {
-    log_error(parser->log, source_range,
+    log_error(&parser->log, source_range,
         "invalid linkage '%.*s'",
         (int)linkage.length, linkage.data);
 }
@@ -366,7 +366,7 @@ static inline const struct fir_node* parse_node(struct parser* parser) {
     const struct fir_node* body = parse_node_body(parser, ty);
     if (body) {
         if (!symbol_table_insert(&parser->symbol_table, &ident, &body)) {
-            log_error(parser->log,
+            log_error(&parser->log,
                 &ident_range,
                 "identifier '%.*s' already exists",
                 (int)ident.length, ident.data);
@@ -379,15 +379,21 @@ bool fir_mod_parse(struct fir_mod* mod, const struct fir_parse_input* input) {
     bool disable_colors = input->error_log ? !is_terminal(input->error_log) : true;
     struct parser parser = {
         .mod = mod,
-        .log = log_create(input->error_log, disable_colors, SIZE_MAX),
+        .log = {
+            .file = input->error_log,
+            .disable_colors = disable_colors,
+            .max_errors = SIZE_MAX,
+            .source_name = input->file_name,
+            .source_data = {
+                .data = input->file_data,
+                .length = input->file_size
+            }
+        },
         .dbg_pool = input->dbg_pool,
         .delayed_ops = delayed_op_vec_create(),
         .symbol_table = symbol_table_create(),
         .lexer = lexer_create(input->file_data, input->file_size)
     };
-
-    log_set_source(parser.log, input->file_name,
-        (struct str_view) { input->file_data, input->file_size });
 
     for (size_t i = 0; i < TOKEN_LOOKAHEAD; ++i)
         next_token(&parser);
@@ -403,10 +409,7 @@ bool fir_mod_parse(struct fir_mod* mod, const struct fir_parse_input* input) {
             unknown_identifier(&parser, &delayed_op->source_range, delayed_op->op_name);
     }
 
-    size_t error_count = log_error_count(parser.log);
-
     delayed_op_vec_destroy(&parser.delayed_ops);
     symbol_table_destroy(&parser.symbol_table);
-    log_destroy(parser.log);
-    return error_count == 0;
+    return parser.log.error_count == 0;
 }

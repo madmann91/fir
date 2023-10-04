@@ -12,48 +12,11 @@
 #define RANGE_STYLE TERM2(TERM_FG_WHITE, TERM_BOLD)
 #define WITH_STYLE(x, y) (log->disable_colors ? (y) : x y TERM1(TERM_RESET))
 
-struct log {
-    FILE* file;
-    bool disable_colors;
-    size_t max_errors;
-    size_t error_count;
-    const char* source_name;
-    struct str_view source_data;
-};
-
 enum msg_tag {
     MSG_ERR,
     MSG_WARN,
     MSG_NOTE
 };
-
-struct log* log_create(FILE* file, bool disable_colors, size_t max_errors) {
-    struct log* log = xmalloc(sizeof(struct log));
-    log->file = file;
-    log->disable_colors = disable_colors;
-    log->max_errors = max_errors;
-    log->source_name = NULL;
-    log->source_data = (struct str_view) {};
-    log->error_count = 0;
-    return log;
-}
-
-void log_destroy(struct log* log) {
-    free(log);
-}
-
-size_t log_error_count(const struct log* log) {
-    return log->error_count;
-}
-
-void log_reset(struct log* log) {
-    log->error_count = 0;
-}
-
-void log_set_source(struct log* log, const char* source_name, struct str_view source_data) {
-    log->source_name = source_name;
-    log->source_data = source_data;
-}
 
 static inline void log_msg(
     enum msg_tag tag,
