@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#define TOKEN_LOOKAHEAD 4
+#define TOKEN_LOOKAHEAD 1
 
 static inline uint32_t hash_str_view(const struct str_view* str_view) {
     uint32_t h = hash_init();

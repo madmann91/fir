@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <ctype.h>
 
-struct lexer lexer_create(char* data, size_t size) {
+struct lexer lexer_create(const char* data, size_t size) {
     return (struct lexer) {
         .data = data,
         .bytes_left = size,
