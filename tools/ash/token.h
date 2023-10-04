@@ -2,8 +2,11 @@
 
 #include <fir/dbg_info.h>
 
+#include "support/str.h"
+
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #define KEYWORD_LIST(x) \
     x(FUNC, "func") \
@@ -27,6 +30,14 @@
     x(RBRACKET, "]") \
     x(LBRACE, "{") \
     x(RBRACE, "}") \
+    x(EQ, "=") \
+    x(CMP_EQ, "==") \
+    x(CMP_GT, ">") \
+    x(CMP_GE, ">=") \
+    x(CMP_LT, "<") \
+    x(CMP_LE, "<=") \
+    x(INC, "++") \
+    x(DEC, "--") \
     x(ADD, "+") \
     x(SUB, "-") \
     x(MUL, "*") \
@@ -35,6 +46,8 @@
     x(AND, "&") \
     x(OR, "|") \
     x(XOR, "^") \
+    x(LOGIC_AND, "&&") \
+    x(LOGIC_OR, "||") \
     x(LSHIFT, "<<") \
     x(RSHIFT, ">>") \
     x(ADD_EQ, "+=") \
@@ -53,21 +66,27 @@
     KEYWORD_LIST(x) \
     x(IDENT, "<identifier>") \
     x(EOF, "<end-of-file>") \
-    x(ERROR, "<invalid token>") \
+    x(ERR, "<invalid token>") \
     x(INT, "<integer literal>") \
     x(FLOAT, "<floating-point literal>")
 
 enum token_tag {
-#define x(tag, ...) TOKEN_##tag,
+#define x(tag, ...) TOK_##tag,
     TOKEN_LIST(x)
 #undef x
 };
 
 struct token {
     enum token_tag tag;
-    struct fir_source_range range;
+    struct fir_source_range source_range;
     union {
         uintmax_t int_val;
         double float_val;
     };
 };
+
+const char* token_tag_to_string(enum token_tag);
+bool token_tag_is_symbol(enum token_tag);
+bool token_tag_is_keyword(enum token_tag);
+
+struct str_view token_str(const char* data, const struct token*);

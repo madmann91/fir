@@ -75,8 +75,8 @@ static inline struct token make_token(
     };
 }
 
-static inline enum token_tag find_keyword(struct str_view view) {
-#define x(tag, str) if (str_view_is_equal(view, str_view(str))) return TOK_##tag;
+static inline enum token_tag find_keyword(struct str_view ident) {
+#define x(tag, str) if (str_view_is_equal(ident, str_view(str))) return TOK_##tag;
     FIR_NODE_LIST(x)
 #undef x
     return TOK_ERR;
@@ -126,8 +126,8 @@ static inline struct token parse_literal(
 struct token lexer_advance(struct lexer* lexer) {
     while (true) {
         eat_spaces(lexer);
-        struct fir_source_pos begin_pos = lexer->source_pos;
 
+        struct fir_source_pos begin_pos = lexer->source_pos;
         if (is_eof(lexer))
             return make_token(lexer, begin_pos, TOK_EOF);
 
@@ -139,11 +139,13 @@ struct token lexer_advance(struct lexer* lexer) {
         if (accept_char(lexer, '}')) return make_token(lexer, begin_pos, TOK_RBRACKET);
         if (accept_char(lexer, ',')) return make_token(lexer, begin_pos, TOK_COMMA);
         if (accept_char(lexer, '=')) return make_token(lexer, begin_pos, TOK_EQ);
+
         if (accept_char(lexer, '-')) {
             if (!is_eof(lexer) && isdigit(cur_char(lexer)))
                 return parse_literal(lexer, lexer->source_pos, true);
             return make_token(lexer, begin_pos, TOK_MINUS);
         }
+
         if (accept_char(lexer, '+')) {
             if (!is_eof(lexer) && isdigit(cur_char(lexer)))
                 return parse_literal(lexer, lexer->source_pos, false);
