@@ -46,7 +46,6 @@ struct parser {
     struct lexer lexer;
     struct token ahead[TOKEN_LOOKAHEAD];
     struct log* log;
-    const char* file_name;
 };
 
 static inline void next_token(struct parser* parser) {
@@ -382,7 +381,6 @@ bool fir_mod_parse(struct fir_mod* mod, const struct fir_parse_input* input) {
         .mod = mod,
         .log = log_create(input->error_log, disable_colors, SIZE_MAX),
         .dbg_pool = input->dbg_pool,
-        .file_name = input->file_name,
         .delayed_ops = delayed_op_vec_create(),
         .symbol_table = symbol_table_create(),
         .lexer = lexer_create(input->file_data, input->file_size)
