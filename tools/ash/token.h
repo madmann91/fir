@@ -8,7 +8,21 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#define PRIM_TYPE_LIST(x) \
+    x(BOOL, "bool") \
+    x(I8,   "i8") \
+    x(I16,  "i16") \
+    x(I32,  "i32") \
+    x(I64,  "i64") \
+    x(U8,   "u8") \
+    x(U16,  "u16") \
+    x(U32,  "u32") \
+    x(U64,  "u64") \
+    x(F32,  "f32") \
+    x(F64,  "f64")
+
 #define KEYWORD_LIST(x) \
+    PRIM_TYPE_LIST(x) \
     x(FUNC, "func") \
     x(VAR, "var") \
     x(CONST, "const") \
@@ -24,6 +38,8 @@
     x(COLON, ":") \
     x(COMMA, ",") \
     x(DOT, ".") \
+    x(THIN_ARROW, "->") \
+    x(FAT_ARROW, "=>") \
     x(LPAREN, "(") \
     x(RPAREN, ")") \
     x(LBRACKET, "[") \

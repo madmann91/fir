@@ -124,6 +124,8 @@ struct token lexer_advance(struct lexer* lexer) {
         if (accept_char(lexer, '-')) {
             if (accept_char(lexer, '-'))
                 return make_token(lexer, begin_pos, TOK_DEC);
+            if (accept_char(lexer, '>'))
+                return make_token(lexer, begin_pos, TOK_THIN_ARROW);
             if (accept_char(lexer, '='))
                 return make_token(lexer, begin_pos, TOK_SUB_EQ);
             return make_token(lexer, begin_pos, TOK_SUB);

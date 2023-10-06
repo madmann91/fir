@@ -3,6 +3,7 @@
 #include "token.h"
 
 #include <stdbool.h>
+#include <stdio.h>
 
 #define BINARY_EXPR_LIST(x) \
     x(ADD, "+") \
@@ -30,8 +31,7 @@ enum ast_tag {
     AST_PROGRAM,
 
     // Types
-    AST_INT_TYPE,
-    AST_FLOAT_TYPE,
+    AST_PRIM_TYPE,
     AST_TUPLE_TYPE,
 
     // Declarations
@@ -41,7 +41,6 @@ enum ast_tag {
 
     // Patterns
     AST_IDENT_PATTERN,
-    AST_TYPED_PATTERN,
     AST_TUPLE_PATTERN,
 
     // Expressions
@@ -56,11 +55,17 @@ enum ast_tag {
 #undef y
 };
 
+enum prim_type_tag {
+#define x(tag, ...) PRIM_TYPE_##tag = TOK_##tag,
+    PRIM_TYPE_LIST(x)
+#undef x
+};
+
 struct type;
 
 struct ast {
     enum ast_tag tag;
-    struct fir_source_range range;
+    struct fir_source_range source_range;
     const struct type* type;
     struct ast* next;
     union {
@@ -68,8 +73,8 @@ struct ast {
             struct ast* decls;
         } program;
         struct {
-            size_t bitwidth;
-        } int_type, float_type;
+            enum prim_type_tag tag;
+        } prim_type;
         struct {
             const char* name;
             struct ast* param;
@@ -77,8 +82,16 @@ struct ast {
             struct ast* body;
         } func_decl;
         struct {
+            struct ast* pattern;
+            struct ast* init;
+        } const_decl, var_decl;
+        struct {
             const char* name;
-        } ident_pattern, ident_expr;
+            struct ast* type;
+        } ident_pattern;
+        struct {
+            const char* name;
+        } ident_expr;
         struct {
             struct ast* pattern;
             struct ast* type;
@@ -95,6 +108,9 @@ struct ast {
         } unary_expr;
     };
 };
+
+void ast_print(FILE*, const struct ast*);
+void ast_dump(const struct ast*);
 
 const char* unary_expr_tag_to_string(enum ast_tag);
 const char* binary_expr_tag_to_string(enum ast_tag);
