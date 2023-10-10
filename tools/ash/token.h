@@ -31,7 +31,9 @@
     x(WHILE, "while") \
     x(RETURN, "return") \
     x(BREAK, "break") \
-    x(CONTINUE, "continue")
+    x(CONTINUE, "continue") \
+    x(TRUE, "true") \
+    x(FALSE, "false")
 
 #define SYMBOL_LIST(x) \
     x(SEMICOLON, ";") \

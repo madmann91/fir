@@ -29,10 +29,13 @@
 enum ast_tag {
     AST_ERROR,
     AST_PROGRAM,
+    AST_LITERAL,
+    AST_IDENT,
 
     // Types
     AST_PRIM_TYPE,
-    AST_TUPLE_TYPE,
+    AST_FIELD_TYPE,
+    AST_RECORD_TYPE,
 
     // Declarations
     AST_FUNC_DECL,
@@ -40,12 +43,13 @@ enum ast_tag {
     AST_CONST_DECL,
 
     // Patterns
-    AST_IDENT_PATTERN,
-    AST_TUPLE_PATTERN,
+    AST_TYPED_PATTERN,
+    AST_FIELD_PATTERN,
+    AST_RECORD_PATTERN,
 
     // Expressions
-    AST_IDENT_EXPR,
-    AST_TUPLE_EXPR,
+    AST_FIELD_EXPR,
+    AST_RECORD_EXPR,
 #define x(tag, ...) AST_##tag##_EXPR,
 #define y(tag, ...) AST_ASSIGN_##tag##_EXPR,
     UNARY_EXPR_LIST(x)
@@ -61,6 +65,21 @@ enum prim_type_tag {
 #undef x
 };
 
+enum literal_tag {
+    LITERAL_BOOL,
+    LITERAL_INT,
+    LITERAL_FLOAT
+};
+
+struct literal {
+    enum literal_tag tag;
+    union {
+        uintmax_t int_val;
+        double float_val;
+        bool bool_val;
+    };
+};
+
 struct type;
 
 struct ast {
@@ -73,10 +92,14 @@ struct ast {
             struct ast* decls;
         } program;
         struct {
+            const char* name;
+        } ident;
+        struct literal literal;
+        struct {
             enum prim_type_tag tag;
         } prim_type;
         struct {
-            const char* name;
+            struct ast* name;
             struct ast* param;
             struct ast* ret_type;
             struct ast* body;
@@ -86,19 +109,16 @@ struct ast {
             struct ast* init;
         } const_decl, var_decl;
         struct {
-            const char* name;
-            struct ast* type;
-        } ident_pattern;
-        struct {
-            const char* name;
-        } ident_expr;
-        struct {
             struct ast* pattern;
             struct ast* type;
         } typed_pattern;
         struct {
-            struct ast* args;
-        } tuple_pattern, tuple_expr, tuple_type;
+            struct ast* fields;
+        } record_pattern, record_expr, record_type;
+        struct {
+            struct ast* name;
+            struct ast* arg;
+        } field_pattern, field_expr, field_type;
         struct {
             struct ast* left;
             struct ast* right;

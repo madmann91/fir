@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "ast.h"
 
 #include "support/io.h"
 #include "support/str.h"
@@ -59,6 +60,7 @@ static bool compile_file(const char* file_name, const struct options* options) {
     struct mem_pool mem_pool = mem_pool_create();
 
     struct ast* program = parse_file(file_data, file_size, &mem_pool, &log);
+    ast_dump(program);
 
     mem_pool_destroy(&mem_pool);
     free(file_data);
