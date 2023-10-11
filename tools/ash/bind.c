@@ -1,4 +1,5 @@
 #include "bind.h"
+#include "ast.h"
 
 #include "support/log.h"
 #include "support/map.h"
@@ -86,6 +87,7 @@ static bool insert_symbol(
     }
     return true;
 }
+
 static void bind(struct name_binder* name_binder, struct ast* ast) {
     switch (ast->tag) {
         case AST_ERROR:

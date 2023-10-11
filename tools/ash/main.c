@@ -1,6 +1,8 @@
 #include "parser.h"
 #include "bind.h"
 #include "ast.h"
+#include "check.h"
+#include "types.h"
 
 #include "support/io.h"
 #include "support/str.h"
@@ -60,13 +62,32 @@ static bool compile_file(const char* file_name, const struct options* options) {
     };
     struct mem_pool mem_pool = mem_pool_create();
 
+    bool status = true;
+    struct type_set* type_set = NULL;
     struct ast* program = parse_file(file_data, file_size, &mem_pool, &log);
-    ast_dump(program);
-    bind_program(program, &log);
+    if (log.error_count != 0)
+        goto error;
 
+    bind_program(program, &log);
+    if (log.error_count != 0)
+        goto error;
+
+    type_set = type_set_create();
+    check_program(program, type_set, &log);
+    if (log.error_count != 0)
+        goto error;
+
+    ast_dump(program);
+    goto done;
+
+error:
+    status = false;
+done:
+    if (type_set)
+        type_set_destroy(type_set);
     mem_pool_destroy(&mem_pool);
     free(file_data);
-    return true;
+    return status;
 }
 
 int main(int argc, char** argv) {

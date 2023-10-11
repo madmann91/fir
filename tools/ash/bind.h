@@ -1,7 +1,6 @@
 #pragma once
 
-#include "ast.h"
-
+struct ast;
 struct log;
 
 void bind_program(struct ast*, struct log*);
