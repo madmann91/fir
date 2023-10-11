@@ -24,6 +24,9 @@ struct log {
 
 void log_msg(enum msg_tag, struct log*, const struct fir_source_range*, const char*, va_list);
 
+[[gnu::format(printf, 3, 4)]]
 void log_error(struct log*, const struct fir_source_range*, const char* fmt, ...);
+[[gnu::format(printf, 3, 4)]]
 void log_warn(struct log*, const struct fir_source_range*, const char* fmt, ...);
+[[gnu::format(printf, 3, 4)]]
 void log_note(struct log*, const struct fir_source_range*, const char* fmt, ...);

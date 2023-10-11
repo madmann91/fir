@@ -43,7 +43,7 @@ bool token_tag_is_ty(enum token_tag tag) {
     return token_tag_is_node_tag(tag) && fir_node_tag_is_ty((enum fir_node_tag)tag);
 }
 
-struct str_view token_str(const char* data, const struct token* token) {
+struct str_view token_str_view(const char* data, const struct token* token) {
     return (struct str_view) {
         .data   = data + token->source_range.begin.bytes,
         .length = token->source_range.end.bytes - token->source_range.begin.bytes

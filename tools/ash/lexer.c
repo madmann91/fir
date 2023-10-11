@@ -108,14 +108,14 @@ static inline struct token parse_literal(struct lexer* lexer) {
     bool is_float = has_exp || has_dot;
     struct token token = make_token(lexer, &begin_pos, is_float ? TOK_FLOAT : TOK_INT);
     if (is_float)
-        token.float_val = strtod(token_str(lexer->data, &token).data, NULL);
+        token.float_val = strtod(token_str_view(lexer->data, &token).data, NULL);
     else
-        token.int_val = strtoumax(token_str(lexer->data, &token).data + prefix_len, NULL, base);
+        token.int_val = strtoumax(token_str_view(lexer->data, &token).data + prefix_len, NULL, base);
     return token;
 }
 
 static inline enum token_tag find_keyword(struct str_view ident) {
-#define x(tag, str) if (str_view_is_equal(ident, str_view(str))) return TOK_##tag;
+#define x(tag, str) if (str_view_cmp(ident, str_view_create(str))) return TOK_##tag;
     KEYWORD_LIST(x)
 #undef x
     return TOK_ERR;
@@ -238,7 +238,7 @@ struct token lexer_advance(struct lexer* lexer) {
             while (!is_eof(lexer) && (isalnum(cur_char(lexer)) || cur_char(lexer) == '_'))
                 eat_char(lexer);
             struct token token = make_token(lexer, &begin_pos, TOK_IDENT);
-            enum token_tag keyword_tag = find_keyword(token_str(lexer->data, &token));
+            enum token_tag keyword_tag = find_keyword(token_str_view(lexer->data, &token));
             if (keyword_tag != TOK_ERR)
                 token.tag = keyword_tag;
             return token;

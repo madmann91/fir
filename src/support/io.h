@@ -4,5 +4,5 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-char* read_file(const char* file_name, size_t* size);
-bool is_terminal(FILE*);
+[[nodiscard]] char* read_file(const char* file_name, size_t* size);
+[[nodiscard]] bool is_terminal(FILE*);

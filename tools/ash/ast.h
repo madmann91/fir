@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #define BINARY_EXPR_LIST(x) \
+    x(ASSIGN, "=") \
     x(ADD, "+") \
     x(SUB, "-") \
     x(MUL, "*") \
@@ -30,38 +31,45 @@ enum ast_tag {
     AST_ERROR,
     AST_PROGRAM,
     AST_LITERAL,
-    AST_IDENT,
-
-    // Types
-    AST_PRIM_TYPE,
-    AST_FIELD_TYPE,
-    AST_RECORD_TYPE,
 
     // Declarations
     AST_FUNC_DECL,
     AST_VAR_DECL,
     AST_CONST_DECL,
 
+    // Types
+    AST_PRIM_TYPE,
+    AST_FIELD_TYPE,
+    AST_RECORD_TYPE,
+
     // Patterns
-    AST_TYPED_PATTERN,
+    AST_IDENT_PATTERN,
     AST_FIELD_PATTERN,
     AST_RECORD_PATTERN,
 
     // Expressions
+    AST_IDENT_EXPR,
     AST_FIELD_EXPR,
     AST_RECORD_EXPR,
-#define x(tag, ...) AST_##tag##_EXPR,
-#define y(tag, ...) AST_ASSIGN_##tag##_EXPR,
-    UNARY_EXPR_LIST(x)
-    BINARY_EXPR_LIST(x)
-    BINARY_EXPR_LIST(y)
-#undef x
-#undef y
+    AST_UNARY_EXPR,
+    AST_BINARY_EXPR,
 };
 
 enum prim_type_tag {
 #define x(tag, ...) PRIM_TYPE_##tag = TOK_##tag,
     PRIM_TYPE_LIST(x)
+#undef x
+};
+
+enum binary_expr_tag {
+#define x(tag, ...) BINARY_EXPR_##tag,
+    BINARY_EXPR_LIST(x)
+#undef x
+};
+
+enum unary_expr_tag {
+#define x(tag, ...) UNARY_EXPR_##tag,
+    UNARY_EXPR_LIST(x)
 #undef x
 };
 
@@ -91,16 +99,21 @@ struct ast {
         struct {
             struct ast* decls;
         } program;
+        struct literal literal;
         struct {
             const char* name;
-        } ident;
-        struct literal literal;
+            struct ast* bound_to;
+        } ident_expr;
+        struct {
+            const char* name;
+            struct ast* type;
+        } ident_pattern;
         struct {
             enum prim_type_tag tag;
         } prim_type;
         struct {
-            struct ast* name;
-            struct ast* param;
+            const char* name;
+            struct ast* params;
             struct ast* ret_type;
             struct ast* body;
         } func_decl;
@@ -109,21 +122,20 @@ struct ast {
             struct ast* init;
         } const_decl, var_decl;
         struct {
-            struct ast* pattern;
-            struct ast* type;
-        } typed_pattern;
+            const char* name;
+            struct ast* arg;
+        } field_pattern, field_expr, field_type;
         struct {
             struct ast* fields;
         } record_pattern, record_expr, record_type;
         struct {
-            struct ast* name;
-            struct ast* arg;
-        } field_pattern, field_expr, field_type;
-        struct {
+            enum binary_expr_tag tag;
+            bool is_assign;
             struct ast* left;
             struct ast* right;
         } binary_expr;
         struct {
+            enum unary_expr_tag tag;
             struct ast* arg;
         } unary_expr;
     };
@@ -132,5 +144,5 @@ struct ast {
 void ast_print(FILE*, const struct ast*);
 void ast_dump(const struct ast*);
 
-const char* unary_expr_tag_to_string(enum ast_tag);
-const char* binary_expr_tag_to_string(enum ast_tag);
+const char* unary_expr_tag_to_string(enum unary_expr_tag);
+const char* binary_expr_tag_to_string(enum binary_expr_tag);

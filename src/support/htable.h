@@ -20,7 +20,7 @@ struct htable {
 #define HTABLE_OCCUPIED_FLAG UINT32_C(0x80000000)
 #define HTABLE_MAX_LOAD_FACTOR 70 //%
 
-static inline struct htable htable_create(size_t key_size, size_t val_size, size_t init_capacity) {
+[[nodiscard]] static inline struct htable htable_create(size_t key_size, size_t val_size, size_t init_capacity) {
     init_capacity = next_prime(init_capacity);
     char* vals = val_size > 0 ? xmalloc(val_size * init_capacity) : NULL;
     return (struct htable) {
@@ -48,6 +48,10 @@ static inline bool htable_is_bucket_occupied(const struct htable* htable, size_t
 
 static inline bool htable_needs_rehash(const struct htable* htable, size_t elem_count) {
     return elem_count * 100 >= htable->capacity * HTABLE_MAX_LOAD_FACTOR;
+}
+
+static inline void htable_clear(struct htable* htable) {
+    memset(htable->hashes, 0, sizeof(uint32_t) * htable->capacity);
 }
 
 static inline void htable_rehash(

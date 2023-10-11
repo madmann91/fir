@@ -21,8 +21,8 @@
         size_t capacity; \
         size_t elem_count; \
     }; \
-    VISIBILITY(vis) struct name name##_create_with_capacity(size_t); \
-    VISIBILITY(vis) struct name name##_create(void); \
+    [[nodiscard]] VISIBILITY(vis) struct name name##_create_with_capacity(size_t); \
+    [[nodiscard]] VISIBILITY(vis) struct name name##_create(void); \
     VISIBILITY(vis) void name##_destroy(struct name*); \
     VISIBILITY(vis) void name##_resize(struct name*, size_t); \
     VISIBILITY(vis) void name##_push(struct name*, elem_ty const*); \

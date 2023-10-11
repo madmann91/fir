@@ -2,6 +2,6 @@
 
 #include <stddef.h>
 
-void* xmalloc(size_t);
-void* xcalloc(size_t, size_t);
-void* xrealloc(void*, size_t);
+[[nodiscard]] void* xmalloc(size_t);
+[[nodiscard]] void* xcalloc(size_t, size_t);
+[[nodiscard]] void* xrealloc(void*, size_t);

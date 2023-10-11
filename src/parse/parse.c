@@ -17,14 +17,11 @@
 #define TOKEN_LOOKAHEAD 1
 
 static inline uint32_t hash_str_view(const struct str_view* str_view) {
-    uint32_t h = hash_init();
-    for (size_t i = 0; i < str_view->length; ++i)
-        h = hash_uint8(h, str_view->data[i]);
-    return h;
+    return str_view_hash(hash_init(), *str_view);
 }
 
 static inline bool cmp_str_view(const struct str_view* str_view, const struct str_view* other) {
-    return str_view_is_equal(*str_view, *other);
+    return str_view_cmp(*str_view, *other);
 }
 
 MAP_DEFINE(symbol_table, struct str_view, const struct fir_node*, hash_str_view, cmp_str_view, PRIVATE)
@@ -69,23 +66,23 @@ static inline bool accept_token(struct parser* parser, enum token_tag tag) {
 
 static inline bool expect_token(struct parser* parser, enum token_tag tag) {
     if (!accept_token(parser, tag)) {
-        struct str_view str = token_str(parser->lexer.data, parser->ahead);
+        struct str_view str_view = token_str_view(parser->lexer.data, parser->ahead);
         log_error(&parser->log,
             &parser->ahead->source_range,
             "expected '%s', but got '%.*s'",
             token_tag_to_string(tag),
-            (int)str.length, str.data);
+            (int)str_view.length, str_view.data);
         return false;
     }
     return true;
 }
 
 static inline void invalid_token(struct parser* parser, const char* msg) {
-    struct str_view str = token_str(parser->lexer.data, parser->ahead);
+    struct str_view str_view = token_str_view(parser->lexer.data, parser->ahead);
     log_error(&parser->log,
         &parser->ahead->source_range,
         "expected %s, but got '%.*s'",
-        msg, (int)str.length, str.data);
+        msg, (int)str_view.length, str_view.data);
     next_token(parser);
 }
 
@@ -136,10 +133,10 @@ static inline double parse_float_val(struct parser* parser) {
 
 static inline enum fir_linkage parse_linkage(struct parser* parser) {
     enum fir_linkage linkage = FIR_INTERNAL;
-    struct str_view ident = token_str(parser->lexer.data, parser->ahead);
-    if (str_view_is_equal(ident, str_view("internal")))      linkage = FIR_INTERNAL;
-    else if (str_view_is_equal(ident, str_view("imported"))) linkage = FIR_IMPORTED;
-    else if (str_view_is_equal(ident, str_view("exported"))) linkage = FIR_EXPORTED;
+    struct str_view ident = token_str_view(parser->lexer.data, parser->ahead);
+    if (str_view_cmp(ident, str_view_create("internal")))      linkage = FIR_INTERNAL;
+    else if (str_view_cmp(ident, str_view_create("imported"))) linkage = FIR_IMPORTED;
+    else if (str_view_cmp(ident, str_view_create("exported"))) linkage = FIR_EXPORTED;
     else invalid_linkage(parser, &parser->ahead->source_range, ident);
     expect_token(parser, TOK_IDENT);
     return linkage;
@@ -148,11 +145,11 @@ static inline enum fir_linkage parse_linkage(struct parser* parser) {
 static inline enum fir_fp_flags parse_fp_flags(struct parser* parser) {
     enum fir_fp_flags fp_flags = FIR_FP_STRICT;
     while (accept_token(parser, TOK_PLUS)) {
-        struct str_view ident = token_str(parser->lexer.data, parser->ahead);
-        if (str_view_is_equal(ident, str_view("fo")))       fp_flags |= FIR_FP_FINITE_ONLY;
-        else if (str_view_is_equal(ident, str_view("nsz"))) fp_flags |= FIR_FP_NO_SIGNED_ZERO;
-        else if (str_view_is_equal(ident, str_view("a")))   fp_flags |= FIR_FP_ASSOCIATIVE;
-        else if (str_view_is_equal(ident, str_view("d")))   fp_flags |= FIR_FP_DISTRIBUTIVE;
+        struct str_view ident = token_str_view(parser->lexer.data, parser->ahead);
+        if (str_view_cmp(ident, str_view_create("fo")))       fp_flags |= FIR_FP_FINITE_ONLY;
+        else if (str_view_cmp(ident, str_view_create("nsz"))) fp_flags |= FIR_FP_NO_SIGNED_ZERO;
+        else if (str_view_cmp(ident, str_view_create("a")))   fp_flags |= FIR_FP_ASSOCIATIVE;
+        else if (str_view_cmp(ident, str_view_create("d")))   fp_flags |= FIR_FP_DISTRIBUTIVE;
         else invalid_fp_flag(parser, &parser->ahead->source_range, ident);
         expect_token(parser, TOK_IDENT);
     }
@@ -241,7 +238,7 @@ static inline const struct fir_node* parse_ty(struct parser* parser) {
 }
 
 static inline struct str_view parse_ident(struct parser* parser) {
-    struct str_view ident = token_str(parser->lexer.data, parser->ahead);
+    struct str_view ident = token_str_view(parser->lexer.data, parser->ahead);
     expect_token(parser, TOK_IDENT);
     return ident;
 }

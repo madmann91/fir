@@ -23,9 +23,10 @@
         struct htable htable; \
         size_t elem_count; \
     }; \
-    VISIBILITY(vis) struct name name##_create_with_capacity(size_t); \
-    VISIBILITY(vis) struct name name##_create(void); \
+    [[nodiscard]] VISIBILITY(vis) struct name name##_create_with_capacity(size_t); \
+    [[nodiscard]] VISIBILITY(vis) struct name name##_create(void); \
     VISIBILITY(vis) void name##_destroy(struct name*); \
+    VISIBILITY(vis) void name##_clear(struct name*); \
     VISIBILITY(vis) bool name##_insert(struct name*, elem_ty const*); \
     VISIBILITY(vis) elem_ty const* name##_find(const struct name*, elem_ty const*); \
     VISIBILITY(vis) bool name##_remove(struct name*, elem_ty const*);
@@ -44,6 +45,10 @@
     } \
     VISIBILITY(vis) void name##_destroy(struct name* set) { \
         htable_destroy(&set->htable); \
+    } \
+    VISIBILITY(vis) void name##_clear(struct name* set) { \
+        htable_clear(&set->htable); \
+        set->elem_count = 0; \
     } \
     VISIBILITY(vis) bool name##_insert(struct name* set, elem_ty const* elem) { \
         if (htable_insert(&set->htable, elem, NULL, sizeof(elem_ty), 0, hash(elem), name##_cmp_wrapper)) { \

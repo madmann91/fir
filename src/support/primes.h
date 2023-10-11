@@ -21,5 +21,5 @@
     f(524287) \
     f(MAX_PRIME)
 
-size_t next_prime(size_t);
-size_t mod_prime(size_t, size_t);
+[[nodiscard]] size_t next_prime(size_t);
+[[nodiscard]] size_t mod_prime(size_t, size_t);

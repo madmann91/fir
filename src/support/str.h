@@ -1,6 +1,7 @@
 #pragma once
 
 #include "alloc.h"
+#include "hash.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -18,26 +19,31 @@ struct str {
     size_t capacity;
 };
 
-static inline struct str_view str_view(const char* str) {
+[[nodiscard]] static inline struct str_view str_view_create(const char* str) {
     return (struct str_view) { .data = str, .length = strlen(str) };
 }
 
-static inline bool str_view_is_equal(struct str_view str_view, struct str_view other)
-{
+[[nodiscard]] static inline bool str_view_cmp(struct str_view str_view, struct str_view other) {
     return
         str_view.length == other.length &&
         !memcmp(str_view.data, other.data, str_view.length);
 }
 
-static inline struct str str_create(void) {
+[[nodiscard]] static inline uint32_t str_view_hash(uint32_t h, struct str_view str_view) {
+    for (size_t i = 0; i < str_view.length; ++i)
+        h = hash_uint8(h, str_view.data[i]);
+    return h;
+}
+
+[[nodiscard]] static inline struct str str_create(void) {
     return (struct str) {};
 }
 
-static inline struct str_view str_to_view(const struct str* str) {
+[[nodiscard]] static inline struct str_view str_to_view(const struct str* str) {
     return (struct str_view) { .data = str->data, .length = str->length };
 }
 
-static inline struct str str_copy(struct str_view view) {
+[[nodiscard]] static inline struct str str_copy(struct str_view view) {
     char* copy = xmalloc(view.length);
     memcpy(copy, view.data, view.length);
     return (struct str) {

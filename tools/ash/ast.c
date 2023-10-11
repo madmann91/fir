@@ -45,7 +45,7 @@ void ast_print(FILE* file, const struct ast* ast) {
             fprintf(file, "<ERROR>");
             break;
         case AST_PROGRAM:
-            print_many(file, "", "", "", ast->program.decls);
+            print_many(file, "", "\n", "", ast->program.decls);
             break;
         case AST_LITERAL:
             print_literal(file, &ast->literal);
@@ -53,34 +53,31 @@ void ast_print(FILE* file, const struct ast* ast) {
         case AST_PRIM_TYPE:
             print_prim_type(file, ast->prim_type.tag);
             break;
-        case AST_IDENT:
-            fprintf(file, "%s", ast->ident.name);
+        case AST_IDENT_EXPR:
+            fprintf(file, "%s", ast->ident_expr.name);
             break;
-        case AST_TYPED_PATTERN:
-            ast_print(file, ast->typed_pattern.pattern);
-            fprintf(file, ": ");
-            ast_print(file, ast->typed_pattern.type);
+        case AST_IDENT_PATTERN:
+            fprintf(file, "%s", ast->ident_pattern.name);
+            if (ast->ident_pattern.type) {
+                fprintf(file, ": ");
+                ast_print(file, ast->ident_pattern.type);
+            }
             break;
         case AST_FIELD_TYPE:
         case AST_FIELD_EXPR:
         case AST_FIELD_PATTERN:
-            if (ast->field_expr.name) {
-                ast_print(file, ast->field_expr.name);
-                fprintf(file, ast->tag == AST_FIELD_TYPE ? ": " : " = ");
-            }
-            ast_print(file, ast->field_expr.arg);
+            if (ast->field_type.name)
+                fprintf(file, ast->tag == AST_FIELD_TYPE ? "%s: " : "%s = ", ast->field_type.name);
+            ast_print(file, ast->field_type.arg);
             break;
-        case AST_RECORD_EXPR:
         case AST_RECORD_TYPE:
+        case AST_RECORD_EXPR:
         case AST_RECORD_PATTERN:
             print_many(file, "[", ", ", "]", ast->record_type.fields);
             break;
         case AST_FUNC_DECL:
-            fprintf(file, "func ");
-            ast_print(file, ast->func_decl.name);
-            fprintf(file, "(");
-            ast_print(file, ast->func_decl.param);
-            fprintf(file, ")");
+            fprintf(file, "func %s", ast->func_decl.name);
+            print_many(file, "(", ", ", ")", ast->func_decl.params);
             if (ast->func_decl.ret_type) {
                 fprintf(file, " -> ");
                 ast_print(file, ast->func_decl.ret_type);
@@ -103,23 +100,20 @@ void ast_dump(const struct ast* ast) {
     fflush(stdout);
 }
 
-const char* binary_expr_tag_to_string(enum ast_tag ast_tag) {
-    switch (ast_tag) {
-#define x(tag, str) case AST_##tag##_EXPR: return str;
-#define y(tag, str) case AST_ASSIGN_##tag##_EXPR: return str"=";
+const char* binary_expr_tag_to_string(enum binary_expr_tag tag) {
+    switch (tag) {
+#define x(tag, str) case BINARY_EXPR_##tag: return str;
         BINARY_EXPR_LIST(x)
-        BINARY_EXPR_LIST(y)
 #undef x
-#undef y
         default:
             assert(false && "invalid binary expression");
             return "";
     }
 }
 
-const char* unary_expr_tag_to_string(enum ast_tag ast_tag) {
-    switch (ast_tag) {
-#define x(tag, str) case AST_##tag##_EXPR: return str;
+const char* unary_expr_tag_to_string(enum unary_expr_tag tag) {
+    switch (tag) {
+#define x(tag, str) case UNARY_EXPR_##tag: return str;
         UNARY_EXPR_LIST(x)
 #undef x
         default:
