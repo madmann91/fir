@@ -38,11 +38,10 @@ struct type {
 };
 
 struct type_set;
-struct format_out;
 
-void type_print(struct format_out*, const struct type*);
+void type_print(FILE*, const struct type*);
 void type_dump(const struct type*);
-char* type_to_string(char* buf, size_t size, const struct type*);
+char* type_to_string(const struct type*);
 
 bool type_is_subtype(const struct type*, const struct type*);
 bool type_is_prim(const struct type*);

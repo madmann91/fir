@@ -232,10 +232,7 @@ FIR_SYMBOL struct fir_node* fir_node_clone(
     const struct fir_node* ty);
 
 /// Prints a node on the given file with the given indentation level.
-FIR_SYMBOL void fir_node_print_to_file(FILE*, const struct fir_node*, size_t indent);
-/// Prints a node to the given buffer, with the given indentation level.
-/// @returns The number of characters written to the buffer.
-FIR_SYMBOL size_t fir_node_print_to_buf(char* buf, size_t size, const struct fir_node*, size_t indent);
+FIR_SYMBOL void fir_node_print(FILE*, const struct fir_node*, size_t indent);
 /// Prints a node on standard output.
 FIR_SYMBOL void fir_node_dump(const struct fir_node*);
 

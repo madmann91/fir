@@ -75,6 +75,7 @@ static inline bool compile_file(const char* file_name, const struct options* opt
     free(file_data);
     if (!options->no_cleanup)
         fir_mod_cleanup(mod);
+
     fir_mod_dump(mod);
     fir_mod_destroy(mod);
     return status;

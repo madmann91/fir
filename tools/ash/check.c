@@ -41,10 +41,12 @@ static const struct type* expect_type(
     const struct type* expected_type)
 {
     if (!type_is_subtype(type, expected_type)) {
-        char type_buf[256], expected_type_buf[256];
+        char* type_str = type_to_string(type);
+        char* expected_type_str = type_to_string(expected_type);
         log_error(type_checker->log, source_range, "expected type '%s', but got '%s'",
-            type_to_string(type_buf, sizeof(type_buf), type),
-            type_to_string(expected_type_buf, sizeof(expected_type_buf), expected_type));
+            type_str, expected_type_str);
+        free(type_str);
+        free(expected_type_str);
         return type_top(type_checker->type_set);
     }
     return type;
@@ -55,6 +57,8 @@ static const struct type* coerce(
     struct ast** expr,
     const struct type* type)
 {
+    // TODO
+    return type;
 }
 
 static const struct type* check(
@@ -62,6 +66,8 @@ static const struct type* check(
     struct ast* expr,
     const struct type* type)
 {
+    // TODO
+    return type;
 }
 
 static const struct type* infer(struct type_checker* type_checker, struct ast* ast) {
@@ -72,7 +78,7 @@ static const struct type* infer(struct type_checker* type_checker, struct ast* a
             break;
         default:
             assert(false && "invalid AST node");
-            break;
+            return type_top(type_checker->type_set);
     }
 }
 

@@ -1,7 +1,6 @@
 add_library(libfir_support STATIC
     support/io.c
     support/log.c
-    support/format.c
     support/str_pool.c
     support/mem_pool.c
     support/datatypes.c

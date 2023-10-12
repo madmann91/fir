@@ -4,7 +4,6 @@
 #include "support/hash.h"
 #include "support/str_pool.h"
 #include "support/mem_pool.h"
-#include "support/format.h"
 
 static inline uint32_t hash_type(const struct type* const* type_ptr) {
     const struct type* type = *type_ptr;
@@ -83,34 +82,34 @@ struct type_set {
     struct internal_type_set types;
 };
 
-void print_type(struct format_out* out, const struct type* type) {
+void type_print(FILE* file, const struct type* type) {
     switch (type->tag) {
-#define x(tag, str) case TYPE_##tag: format(out, str); break;
+#define x(tag, str) case TYPE_##tag: fprintf(file, str); break;
         PRIM_TYPE_LIST(x)
 #undef x
         case TYPE_VARIANT:
             for (size_t i = 0; i < type->variant_type.option_count; ++i) {
-                print_type(out, type->variant_type.option_types[i]);
+                type_print(file, type->variant_type.option_types[i]);
                 if (i + 1 != type->variant_type.option_count)
-                    format(out, " | ");
+                    fprintf(file, " | ");
             }
             break;
         case TYPE_RECORD:
-            format(out, "[");
+            fprintf(file, "[");
             for (size_t i = 0; i < type->record_type.field_count; ++i) {
                 if (type->record_type.field_names)
-                    format(out, "%s: ", type->record_type.field_names[i]);
-                print_type(out, type->record_type.field_types[i]);
+                    fprintf(file, "%s: ", type->record_type.field_names[i]);
+                type_print(file, type->record_type.field_types[i]);
                 if (i + 1 != type->record_type.field_count)
-                    format(out, ", ");
+                    fprintf(file, ", ");
             }
-            format(out, "]");
+            fprintf(file, "]");
             break;
         case TYPE_FUNC:
-            format(out, "func (");
-            print_type(out, type->func_type.param_type);
-            format(out, ") -> ");
-            print_type(out, type->func_type.ret_type);
+            fprintf(file, "func (");
+            type_print(file, type->func_type.param_type);
+            fprintf(file, ") -> ");
+            type_print(file, type->func_type.ret_type);
             break;
         default:
             assert(false && "invalid type");
@@ -118,16 +117,20 @@ void print_type(struct format_out* out, const struct type* type) {
     }
 }
 
-void dump_type(const struct type* type) {
-    print_type(&(struct format_out) { .tag = FORMAT_OUT_FILE, .file = stdout }, type);
+void type_dump(const struct type* type) {
+    type_print(stdout, type);
     printf("\n");
     fflush(stdout);
 }
 
-char* type_to_string(char* buf, size_t size, const struct type* type) {
-    struct format_buf format_buf = { .data = buf, .capacity = size };
-    print_type(&(struct format_out) { .tag = FORMAT_OUT_BUF, .format_buf = &format_buf }, type);
-    buf[size - 1] = 0;
+char* type_to_string(const struct type* type) {
+    char* buf;
+    size_t size;
+    FILE* file = open_memstream(&buf, &size);
+    if (!file)
+        return NULL;
+    type_print(file, type);
+    fclose(file);
     return buf;
 }
 
