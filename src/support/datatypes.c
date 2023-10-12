@@ -15,8 +15,8 @@ static inline bool cmp_node(
     return (*node_ptr) == (*other_ptr);
 }
 
-static inline void print_node(FILE* file, const struct fir_node* const* node_ptr) {
-    fprintf(file, "%s_%"PRIu64, fir_node_name(*node_ptr), (*node_ptr)->id);
+static inline void print_node(struct format_out* out, const struct fir_node* const* node_ptr) {
+    format(out, "%s_%"PRIu64, fir_node_name(*node_ptr), (*node_ptr)->id);
 }
 
 MAP_IMPL(node_map, const struct fir_node*, const struct fir_node*, hash_node, cmp_node, PUBLIC)

@@ -141,7 +141,9 @@ struct ast {
     };
 };
 
-void ast_print(FILE*, const struct ast*);
+struct format_out;
+
+void ast_print(struct format_out*, const struct ast*);
 void ast_dump(const struct ast*);
 
 const char* unary_expr_tag_to_string(enum unary_expr_tag);

@@ -88,6 +88,16 @@ static bool insert_symbol(
     return true;
 }
 
+static void bind_name(struct name_binder* name_binder, struct ast* ast) {
+    switch (ast->tag) {
+        case AST_FUNC_DECL:
+            insert_symbol(name_binder, ast->func_decl.name, ast);
+            break;
+        default:
+            break;
+    }
+}
+
 static void bind(struct name_binder* name_binder, struct ast* ast) {
     switch (ast->tag) {
         case AST_ERROR:
@@ -95,7 +105,6 @@ static void bind(struct name_binder* name_binder, struct ast* ast) {
         case AST_LITERAL:
             break;
         case AST_FUNC_DECL:
-            insert_symbol(name_binder, ast->func_decl.name, ast);
             push_env(name_binder);
             for (struct ast* param = ast->func_decl.params; param; param = param->next)
                 bind(name_binder, param);
@@ -132,6 +141,8 @@ void bind_program(struct ast* ast, struct log* log) {
         .env = alloc_env(NULL),
         .log = log
     };
+    for (struct ast* decl = ast->program.decls; decl; decl = decl->next)
+        bind_name(&name_binder, decl);
     for (struct ast* decl = ast->program.decls; decl; decl = decl->next)
         bind(&name_binder, decl);
     free_env(name_binder.env);

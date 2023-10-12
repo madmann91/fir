@@ -5,9 +5,9 @@
 #include "alloc.h"
 #include "visibility.h"
 #include "hash.h"
+#include "format.h"
 
 #include <stddef.h>
-#include <stdio.h>
 #include <assert.h>
 
 #define GRAPH_DEFINE(name, key_t, hash, cmp, print, vis) \
@@ -40,7 +40,7 @@
     VISIBILITY(vis) struct name##_edge* name##_connect(struct name*, struct name##_node*, struct name##_node*); \
     VISIBILITY(vis) struct name##_node_vec name##_post_order(struct name*, const struct name##_node*const*, size_t); \
     VISIBILITY(vis) struct name##_node_vec name##_depth_first_order(struct name*, const struct name##_node*const*, size_t); \
-    VISIBILITY(vis) void name##_print(FILE*, const struct name*); \
+    VISIBILITY(vis) void name##_print(struct format_out*, const struct name*); \
     VISIBILITY(vis) void name##_dump(const struct name*);
 
 #define GRAPH_IMPL(name, key_t, hash, cmp, print, vis) \
@@ -107,19 +107,19 @@
         assert(was_inserted); \
         return edge; \
     } \
-    VISIBILITY(vis) void name##_print(FILE* file, const struct name* graph) { \
-        fprintf(file, "digraph {\n"); \
+    VISIBILITY(vis) void name##_print(struct format_out* out, const struct name* graph) { \
+        format(out, "digraph {\n"); \
         SET_FOREACH(const struct name##_edge*, edge_ptr, graph->edges) { \
             const struct name##_edge* edge = *edge_ptr; \
-            fprintf(file, "    "); \
-            print(file, &edge->from->data); \
-            fprintf(file, "->"); \
-            print(file, &edge->to->data); \
-            fprintf(file, "\n"); \
+            format(out, "    "); \
+            print(out, &edge->from->data); \
+            format(out, "->"); \
+            print(out, &edge->to->data); \
+            format(out, "\n"); \
         } \
-        fprintf(file, "}\n"); \
+        format(out, "}\n"); \
     } \
     VISIBILITY(vis) void name##_dump(const struct name* graph) { \
-        name##_print(stdout, graph); \
+        name##_print(&(struct format_out) { .tag = FORMAT_OUT_FILE, .file = stdout }, graph); \
         fflush(stdout); \
     }

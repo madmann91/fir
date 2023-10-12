@@ -4,6 +4,7 @@
 #include "support/hash.h"
 #include "support/str_pool.h"
 #include "support/mem_pool.h"
+#include "support/format.h"
 
 static inline uint32_t hash_type(const struct type* const* type_ptr) {
     const struct type* type = *type_ptr;
@@ -82,34 +83,34 @@ struct type_set {
     struct internal_type_set types;
 };
 
-void print_type(FILE* file, const struct type* type) {
+void print_type(struct format_out* out, const struct type* type) {
     switch (type->tag) {
-#define x(tag, str) case TYPE_##tag: fprintf(file, str); break;
+#define x(tag, str) case TYPE_##tag: format(out, str); break;
         PRIM_TYPE_LIST(x)
 #undef x
         case TYPE_VARIANT:
             for (size_t i = 0; i < type->variant_type.option_count; ++i) {
-                print_type(file, type->variant_type.option_types[i]);
+                print_type(out, type->variant_type.option_types[i]);
                 if (i + 1 != type->variant_type.option_count)
-                    fprintf(file, " | ");
+                    format(out, " | ");
             }
             break;
         case TYPE_RECORD:
-            fprintf(file, "[");
+            format(out, "[");
             for (size_t i = 0; i < type->record_type.field_count; ++i) {
                 if (type->record_type.field_names)
-                    fprintf(file, "%s: ", type->record_type.field_names[i]);
-                print_type(file, type->record_type.field_types[i]);
+                    format(out, "%s: ", type->record_type.field_names[i]);
+                print_type(out, type->record_type.field_types[i]);
                 if (i + 1 != type->record_type.field_count)
-                    fprintf(file, ", ");
+                    format(out, ", ");
             }
-            fprintf(file, "]");
+            format(out, "]");
             break;
         case TYPE_FUNC:
-            fprintf(file, "func (");
-            print_type(file, type->func_type.param_type);
-            fprintf(file, ") -> ");
-            print_type(file, type->func_type.ret_type);
+            format(out, "func (");
+            print_type(out, type->func_type.param_type);
+            format(out, ") -> ");
+            print_type(out, type->func_type.ret_type);
             break;
         default:
             assert(false && "invalid type");
@@ -118,12 +119,27 @@ void print_type(FILE* file, const struct type* type) {
 }
 
 void dump_type(const struct type* type) {
-    print_type(stdout, type);
+    print_type(&(struct format_out) { .tag = FORMAT_OUT_FILE, .file = stdout }, type);
     printf("\n");
     fflush(stdout);
 }
 
-bool type_tag_is_prim_type(enum type_tag tag) {
+char* type_to_string(char* buf, size_t size, const struct type* type) {
+    struct format_buf format_buf = { .data = buf, .capacity = size };
+    print_type(&(struct format_out) { .tag = FORMAT_OUT_BUF, .format_buf = &format_buf }, type);
+    buf[size - 1] = 0;
+    return buf;
+}
+
+bool type_is_subtype(const struct type* left, const struct type* right) {
+    return left == right;
+}
+
+bool type_is_prim(const struct type* type) {
+    return type_tag_is_prim(type->tag);
+}
+
+bool type_tag_is_prim(enum type_tag tag) {
     switch (tag) {
 #define x(tag, ...) case TYPE_##tag:
         PRIM_TYPE_LIST(x)
@@ -205,12 +221,20 @@ static const struct type* insert_type(struct type_set* type_set, const struct ty
     return new_type;
 }
 
-const struct type* prim_type(struct type_set* type_set, enum type_tag tag) {
-    assert(type_tag_is_prim_type(tag));
+const struct type* type_top(struct type_set* type_set) {
+    return insert_type(type_set, &(struct type) { .tag = TYPE_TOP });
+}
+
+const struct type* type_bottom(struct type_set* type_set) {
+    return insert_type(type_set, &(struct type) { .tag = TYPE_BOTTOM });
+}
+
+const struct type* type_prim(struct type_set* type_set, enum type_tag tag) {
+    assert(type_tag_is_prim(tag));
     return insert_type(type_set, &(struct type) { .tag = tag, });
 }
 
-const struct type* func_type(
+const struct type* type_func(
     struct type_set* type_set,
     const struct type* param_type,
     const struct type* ret_type)
@@ -224,7 +248,7 @@ const struct type* func_type(
     });
 }
 
-const struct type* variant_type(
+const struct type* type_variant(
     struct type_set* type_set,
     const struct type* const* option_types,
     size_t option_count)
@@ -238,7 +262,7 @@ const struct type* variant_type(
     });
 }
 
-const struct type* record_type(
+const struct type* type_record(
     struct type_set* type_set,
     const struct type* const* field_types,
     const char* const* field_names,

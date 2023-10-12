@@ -47,8 +47,11 @@ FIR_SYMBOL size_t fir_mod_func_count(const struct fir_mod*);
 /// Returns the number of global variables in the module.
 FIR_SYMBOL size_t fir_mod_global_count(const struct fir_mod*);
 
-/// Prints the given module in the given stream.
-FIR_SYMBOL void fir_mod_print(FILE*, const struct fir_mod*);
+/// Prints the given module in the given file.
+FIR_SYMBOL void fir_mod_print_to_file(FILE*, const struct fir_mod*);
+/// Prints the given module to the given buffer.
+/// @return The number of characters written to the buffer.
+FIR_SYMBOL size_t fir_mod_print_to_buf(char* buf, size_t size, const struct fir_mod*);
 /// Prints the given module on the standard output.
 FIR_SYMBOL void fir_mod_dump(const struct fir_mod*);
 
