@@ -156,7 +156,6 @@ int main(int argc, char** argv) {
     }
 
     printf("running %zu test(s):\n\n", enabled_tests);
-    fflush(stdout);
 
     run_tests();
 

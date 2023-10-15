@@ -66,7 +66,14 @@ char* type_to_string(const struct type*);
 
 bool type_is_subtype(const struct type*, const struct type*);
 bool type_is_prim(const struct type*);
+bool type_is_int(const struct type*);
+bool type_is_float(const struct type*);
+size_t type_bitwidth(const struct type*);
+
 bool type_tag_is_prim(enum type_tag);
+bool type_tag_is_int(enum type_tag);
+bool type_tag_is_float(enum type_tag);
+size_t type_tag_bitwidth(enum type_tag);
 
 struct type_set* type_set_create(void);
 void type_set_destroy(struct type_set*);

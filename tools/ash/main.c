@@ -11,16 +11,20 @@
 
 struct options {
     bool disable_colors;
+    bool disable_cleanup;
     bool print_ast;
+    bool print_ir;
 };
 
 static void usage(void) {
     printf(
         "usage: ash [options] files...\n"
         "options:\n"
-        "  -h  --help      Shows this message.\n"
-        "      --no-color  Disables colors in the output.\n"
-        "      --print-ast Prints the AST on the standard output.\n");
+        "  -h  --help        Shows this message.\n"
+        "      --no-color    Disables colors in the output.\n"
+        "      --no-cleanup  Do not clean up the module after emitting it.\n"
+        "      --print-ast   Prints the AST on the standard output.\n"
+        "      --print-ir    Prints the IR on the standard output.\n");
 }
 
 static bool parse_options(int argc, char** argv, struct options* options) {
@@ -32,8 +36,12 @@ static bool parse_options(int argc, char** argv, struct options* options) {
                 return false;
             } else if (!strcmp(argv[i], "--no-color")) {
                 options->disable_colors = true;
+            } else if (!strcmp(argv[i], "--no-cleanup")) {
+                options->disable_cleanup = true;
             } else if (!strcmp(argv[i], "--print-ast")) {
                 options->print_ast = true;
+            } else if (!strcmp(argv[i], "--print-ir")) {
+                options->print_ir = true;
             } else {
                 fprintf(stderr, "invalid option '%s'\n", argv[i]);
                 return false;
@@ -88,6 +96,11 @@ static bool compile_file(const char* file_name, const struct options* options) {
 
     mod = fir_mod_create(file_name);
     ast_emit(program, mod);
+    if (!options->disable_cleanup)
+        fir_mod_cleanup(mod);
+    if (options->print_ir)
+        fir_mod_dump(mod);
+
     goto done;
 
 error:

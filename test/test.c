@@ -51,6 +51,10 @@ static void start_test(struct test* test) {
 }
 
 void run_tests() {
+    // Flush output buffers in case the test case prints something
+    fflush(stdout);
+    fflush(stderr);
+
     size_t enabled_tests = 0;
     VEC_FOREACH(struct test, test, tests) {
         if (test->enabled) {

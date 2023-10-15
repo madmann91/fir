@@ -238,9 +238,10 @@ bool type_is_subtype(const struct type* left, const struct type* right) {
     return false;
 }
 
-bool type_is_prim(const struct type* type) {
-    return type_tag_is_prim(type->tag);
-}
+bool type_is_prim(const struct type* type) { return type_tag_is_prim(type->tag); }
+bool type_is_float(const struct type* type) { return type_tag_is_float(type->tag); }
+bool type_is_int(const struct type* type) { return type_tag_is_int(type->tag); }
+size_t type_bitwidth(const struct type* type) { return type_tag_bitwidth(type->tag); }
 
 bool type_tag_is_prim(enum type_tag tag) {
     switch (tag) {
@@ -250,6 +251,48 @@ bool type_tag_is_prim(enum type_tag tag) {
             return true;
         default:
             return false;
+    }
+}
+
+bool type_tag_is_int(enum type_tag tag) {
+    switch (tag) {
+        case TYPE_I8:
+        case TYPE_I16:
+        case TYPE_I32:
+        case TYPE_I64:
+        case TYPE_U8:
+        case TYPE_U16:
+        case TYPE_U32:
+        case TYPE_U64:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool type_tag_is_float(enum type_tag tag) {
+    return tag == TYPE_F32 || tag == TYPE_F64;
+}
+
+size_t type_tag_bitwidth(enum type_tag tag) {
+    switch (tag) {
+        case TYPE_I8:
+        case TYPE_U8:
+            return 8;
+        case TYPE_I16:
+        case TYPE_U16:
+            return 16;
+        case TYPE_I32:
+        case TYPE_U32:
+            return 32;
+        case TYPE_I64:
+        case TYPE_U64:
+            return 64;
+        case TYPE_BOOL:
+            return 1;
+        default:
+            assert(false && "type has no bitwidth");
+            return 0;
     }
 }
 

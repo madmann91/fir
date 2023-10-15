@@ -83,6 +83,9 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod) {
 
         fir_node_print(file, funcs[i], 0);
         fprintf(file, "\n");
+        if (!funcs[i]->ops[0])
+            continue;
+
         struct scope scope = scope_create(funcs[i]);
         struct cfg cfg = cfg_create(&scope);
         SET_FOREACH(const struct fir_node*, node_ptr, scope.nodes) {
