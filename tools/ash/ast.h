@@ -173,7 +173,6 @@ struct fir_mod;
 
 void ast_print(FILE*, const struct ast*);
 void ast_dump(const struct ast*);
-size_t ast_count(const struct ast*);
 
 void ast_check(struct ast*, struct mem_pool*, struct type_set*, struct log*);
 void ast_bind(struct ast*, struct log*);
