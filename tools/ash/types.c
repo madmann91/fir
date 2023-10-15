@@ -5,9 +5,9 @@
 #include "support/str_pool.h"
 #include "support/mem_pool.h"
 
-static inline uint32_t hash_type(const struct type* const* type_ptr) {
+static inline uint32_t hash_type(uint32_t h, const struct type* const* type_ptr) {
     const struct type* type = *type_ptr;
-    uint32_t h = hash_uint32(hash_init(), type->tag);
+    h = hash_uint32(h, type->tag);
     switch (type->tag) {
         case TYPE_VARIANT: {
             h = hash_uint64(h, type->variant_type.option_count);
@@ -17,17 +17,33 @@ static inline uint32_t hash_type(const struct type* const* type_ptr) {
         }
         case TYPE_RECORD: {
             h = hash_uint64(h, type->record_type.field_count);
-            if (type->record_type.field_names) {
-                for (size_t i = 0; i < type->record_type.field_count; ++i)
-                    h = hash_string(h, type->record_type.field_names[i]);
-            }
-            for (size_t i = 0; i < type->record_type.field_count; ++i)
+            for (size_t i = 0; i < type->record_type.field_count; ++i) {
+                h = hash_string(h, type->record_type.field_names[i]);
                 h = hash_uint64(h, type->record_type.field_types[i]->id);
+            }
             break;
         }
+        case TYPE_TUPLE: {
+            h = hash_uint64(h, type->tuple_type.arg_count);
+            for (size_t i = 0; i < type->tuple_type.arg_count; ++i)
+                h = hash_uint64(h, type->tuple_type.arg_types[i]->id);
+            break;
+        }
+        case TYPE_ARRAY:
+            h = hash_uint64(h, type->array_type.elem_count);
+            h = hash_uint64(h, type->array_type.elem_type->id);
+            break;
+        case TYPE_DYN_ARRAY:
+            h = hash_uint64(h, type->dyn_array_type.elem_type->id);
+            break;
         case TYPE_FUNC:
             h = hash_uint64(h, type->func_type.param_type->id);
             h = hash_uint64(h, type->func_type.ret_type->id);
+            break;
+        case TYPE_REF:
+        case TYPE_PTR:
+            h = hash_uint64(h, type->ptr_type.pointee_type->id);
+            h = hash_uint8(h, type->ptr_type.is_const);
             break;
         default:
             break;
@@ -64,10 +80,29 @@ static inline bool cmp_type(
                     other->record_type.field_types,
                     sizeof(struct type*) * type->record_type.field_count);
         }
+        case TYPE_TUPLE: {
+            return
+                type->tuple_type.arg_count == other->tuple_type.arg_count &&
+                !memcmp(
+                    type->tuple_type.arg_types,
+                    other->tuple_type.arg_types,
+                    sizeof(char*) * type->tuple_type.arg_count);
+        }
+        case TYPE_ARRAY:
+            return
+                type->array_type.elem_count == other->array_type.elem_count &&
+                type->array_type.elem_type  == other->array_type.elem_type;
+        case TYPE_DYN_ARRAY:
+            return type->dyn_array_type.elem_type  == other->dyn_array_type.elem_type;
         case TYPE_FUNC:
             return
                 type->func_type.param_type == other->func_type.param_type &&
                 type->func_type.ret_type   == other->func_type.ret_type;
+        case TYPE_PTR:
+        case TYPE_REF:
+            return
+                type->ptr_type.pointee_type == other->ptr_type.pointee_type &&
+                type->ptr_type.is_const     == other->ptr_type.is_const;
         default:
             return true;
     }
@@ -97,12 +132,30 @@ void type_print(FILE* file, const struct type* type) {
         case TYPE_RECORD:
             fprintf(file, "[");
             for (size_t i = 0; i < type->record_type.field_count; ++i) {
-                if (type->record_type.field_names)
-                    fprintf(file, "%s: ", type->record_type.field_names[i]);
+                fprintf(file, "%s: ", type->record_type.field_names[i]);
                 type_print(file, type->record_type.field_types[i]);
                 if (i + 1 != type->record_type.field_count)
                     fprintf(file, ", ");
             }
+            fprintf(file, "]");
+            break;
+        case TYPE_TUPLE:
+            fprintf(file, "(");
+            for (size_t i = 0; i < type->tuple_type.arg_count; ++i) {
+                type_print(file, type->tuple_type.arg_types[i]);
+                if (i + 1 != type->tuple_type.arg_count)
+                    fprintf(file, ", ");
+            }
+            fprintf(file, ")");
+            break;
+        case TYPE_ARRAY:
+            fprintf(file, "[");
+            type_print(file, type->array_type.elem_type);
+            fprintf(file, " * %zu]", type->array_type.elem_count);
+            break;
+        case TYPE_DYN_ARRAY:
+            fprintf(file, "[");
+            type_print(file, type->dyn_array_type.elem_type);
             fprintf(file, "]");
             break;
         case TYPE_FUNC:
@@ -110,6 +163,20 @@ void type_print(FILE* file, const struct type* type) {
             type_print(file, type->func_type.param_type);
             fprintf(file, ") -> ");
             type_print(file, type->func_type.ret_type);
+            break;
+        case TYPE_PTR:
+            fprintf(file, "&%s", type->ptr_type.is_const ? "const " : "");
+            type_print(file, type->ptr_type.pointee_type);
+            break;
+        case TYPE_REF:
+            fprintf(file, "ref %s", type->ptr_type.is_const ? "const " : "");
+            type_print(file, type->ref_type.pointee_type);
+            break;
+        case TYPE_BOTTOM:
+            fprintf(file, "<bottom>");
+            break;
+        case TYPE_TOP:
+            fprintf(file, "<top>");
             break;
         default:
             assert(false && "invalid type");
@@ -134,8 +201,41 @@ char* type_to_string(const struct type* type) {
     return buf;
 }
 
+static inline size_t find_field(
+    const char* field_name,
+    const char* const* field_names,
+    size_t field_count)
+{
+    for (size_t i = 0; i < field_count; ++i) {
+        if (field_name == field_names[i])
+            return i;
+    }
+    return field_count;
+}
+
 bool type_is_subtype(const struct type* left, const struct type* right) {
-    return left == right;
+    if (left == right || right->tag == TYPE_TOP || left->tag == TYPE_BOTTOM)
+        return true;
+    if (left->tag != right->tag)
+        return false;
+    if (left->tag == TYPE_RECORD) {
+        if (left->record_type.field_count < right->record_type.field_count)
+            return false;
+        for (size_t i = 0; i < right->record_type.field_count; ++i) {
+            size_t field_index = find_field(
+                right->record_type.field_names[i],
+                left->record_type.field_names,
+                left->record_type.field_count);
+            if (field_index >= left->record_type.field_count)
+                return false;
+            if (!type_is_subtype(
+                left->record_type.field_types[field_index],
+                right->record_type.field_types[i]))
+                return false;
+        }
+        return true;
+    }
+    return false;
 }
 
 bool type_is_prim(const struct type* type) {
@@ -199,7 +299,7 @@ static const struct type* insert_type(struct type_set* type_set, const struct ty
     if (found)
         return *found;
 
-    struct type* new_type = xmalloc(sizeof(struct type));
+    struct type* new_type = MEM_POOL_ALLOC(type_set->mem_pool, struct type);
     memcpy(new_type, type, sizeof(struct type));
     new_type->id = type_set->cur_id++;
     switch (type->tag) {
@@ -215,6 +315,11 @@ static const struct type* insert_type(struct type_set* type_set, const struct ty
             new_type->record_type.field_names = copy_strings(type_set,
                 type->record_type.field_names,
                 type->record_type.field_count);
+            break;
+        case TYPE_TUPLE:
+            new_type->tuple_type.arg_types = copy_types(type_set,
+                type->tuple_type.arg_types,
+                type->tuple_type.arg_count);
             break;
         default:
             break;
@@ -235,6 +340,26 @@ const struct type* type_bottom(struct type_set* type_set) {
 const struct type* type_prim(struct type_set* type_set, enum type_tag tag) {
     assert(type_tag_is_prim(tag));
     return insert_type(type_set, &(struct type) { .tag = tag, });
+}
+
+const struct type* type_ptr(struct type_set* type_set, const struct type* pointee_type, bool is_const) {
+    return insert_type(type_set, &(struct type) {
+        .tag = TYPE_PTR,
+        .ptr_type = {
+            .pointee_type = pointee_type,
+            .is_const = is_const
+        }
+    });
+}
+
+const struct type* type_ref(struct type_set* type_set, const struct type* pointee_type, bool is_const) {
+    return insert_type(type_set, &(struct type) {
+        .tag = TYPE_REF,
+        .ptr_type = {
+            .pointee_type = pointee_type,
+            .is_const = is_const
+        }
+    });
 }
 
 const struct type* type_func(
@@ -271,6 +396,12 @@ const struct type* type_record(
     const char* const* field_names,
     size_t field_count)
 {
+#ifndef NDEBUG
+    for (size_t i = 0; i < field_count; ++i) {
+        for (size_t j = i + 1; j < field_count; ++j)
+            assert(strcmp(field_names[i], field_names[j]) != 0);
+    }
+#endif
     return insert_type(type_set, &(struct type) {
         .tag = TYPE_RECORD,
         .record_type = {
@@ -278,5 +409,43 @@ const struct type* type_record(
             .field_names = field_names,
             .field_count = field_count
         }
+    });
+}
+
+const struct type* type_tuple(
+    struct type_set* type_set,
+    const struct type* const* arg_types,
+    size_t arg_count)
+{
+    return insert_type(type_set, &(struct type) {
+        .tag = TYPE_TUPLE,
+        .tuple_type = {
+            .arg_types = arg_types,
+            .arg_count = arg_count
+        }
+    });
+}
+
+const struct type* type_array(
+    struct type_set* type_set,
+    const struct type* elem_type,
+    size_t elem_count)
+{
+    return insert_type(type_set, &(struct type) {
+        .tag = TYPE_ARRAY,
+        .array_type = {
+            .elem_type = elem_type,
+            .elem_count = elem_count
+        }
+    });
+}
+
+const struct type* type_dyn_array(
+    struct type_set* type_set,
+    const struct type* elem_type)
+{
+    return insert_type(type_set, &(struct type) {
+        .tag = TYPE_DYN_ARRAY,
+        .dyn_array_type.elem_type = elem_type
     });
 }

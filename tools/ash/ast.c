@@ -39,6 +39,14 @@ static void print_literal(FILE* file, const struct literal* literal) {
         fprintf(file, "%g", literal->float_val);
 }
 
+static void print_with_parens(FILE* file, const struct ast* param) {
+    if (param->tag == AST_TUPLE_TYPE ||
+        param->tag == AST_TUPLE_EXPR ||
+        param->tag == AST_TUPLE_PATTERN)
+        param = param->tuple_type.args;
+    print_many(file, "(", ", ", ")", param);
+}
+
 void ast_print(FILE* file, const struct ast* ast) {
     switch (ast->tag) {
         case AST_ERROR:
@@ -63,6 +71,9 @@ void ast_print(FILE* file, const struct ast* ast) {
                 ast_print(file, ast->ident_pattern.type);
             }
             break;
+        case AST_IMPLICIT_CAST_EXPR:
+            ast_print(file, ast->implicit_cast_expr.expr);
+            break;
         case AST_FIELD_TYPE:
         case AST_FIELD_EXPR:
         case AST_FIELD_PATTERN:
@@ -75,9 +86,14 @@ void ast_print(FILE* file, const struct ast* ast) {
         case AST_RECORD_PATTERN:
             print_many(file, "[", ", ", "]", ast->record_type.fields);
             break;
+        case AST_TUPLE_TYPE:
+        case AST_TUPLE_EXPR:
+        case AST_TUPLE_PATTERN:
+            print_many(file, "(", ", ", ")", ast->tuple_type.args);
+            break;
         case AST_FUNC_DECL:
             fprintf(file, "func %s", ast->func_decl.name);
-            print_many(file, "(", ", ", ")", ast->func_decl.params);
+            print_with_parens(file, ast->func_decl.param);
             if (ast->func_decl.ret_type) {
                 fprintf(file, " -> ");
                 ast_print(file, ast->func_decl.ret_type);

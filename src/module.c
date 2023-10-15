@@ -32,9 +32,8 @@ static uint32_t hash_node_data(uint32_t h, const struct fir_node* node) {
     return h;
 }
 
-static uint32_t hash_node(const struct fir_node* const* node_ptr) {
+static uint32_t hash_node(uint32_t h, const struct fir_node* const* node_ptr) {
     const struct fir_node* node = *node_ptr;
-    uint32_t h = hash_init();
     h = hash_uint32(h, node->tag);
     if (!fir_node_is_ty(node))
         h = hash_uint64(h, node->ty->id);

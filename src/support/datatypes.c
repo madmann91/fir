@@ -4,8 +4,8 @@
 
 #include <inttypes.h>
 
-static inline uint32_t hash_node(const struct fir_node* const* node_ptr) {
-    return (*node_ptr)->id;
+static inline uint32_t hash_node(uint32_t h, const struct fir_node* const* node_ptr) {
+    return hash_uint64(h, (*node_ptr)->id);
 }
 
 static inline bool cmp_node(
@@ -19,6 +19,7 @@ static inline void print_node(FILE* file, const struct fir_node* const* node_ptr
     fprintf(file, "%s_%"PRIu64, fir_node_name(*node_ptr), (*node_ptr)->id);
 }
 
+SET_IMPL(str_view_set, struct str_view, str_view_hash, str_view_cmp, PUBLIC)
 MAP_IMPL(node_map, const struct fir_node*, const struct fir_node*, hash_node, cmp_node, PUBLIC)
 SET_IMPL(node_set, const struct fir_node*, hash_node, cmp_node, PUBLIC)
 VEC_IMPL(node_vec, const struct fir_node*, PUBLIC)

@@ -117,6 +117,19 @@ static struct ast* parse_record(
     return alloc_ast(parser, &begin_pos, &(struct ast) { .tag = tag, .record_type.fields = fields });
 }
 
+static struct ast* parse_tuple(
+    struct parser* parser,
+    enum ast_tag tag,
+    struct ast* (*parse_arg)(struct parser*))
+{
+    struct fir_source_pos begin_pos = parser->ahead->source_range.begin;
+    eat_token(parser, TOK_LPAREN);
+    struct ast* args = parse_many(parser, TOK_RPAREN, TOK_COMMA, parse_arg);
+    if (args && !args->next)
+        return args;
+    return alloc_ast(parser, &begin_pos, &(struct ast) { .tag = tag, .tuple_type.args = args });
+}
+
 static struct ast* parse_prim_type(struct parser* parser, enum prim_type_tag tag) {
     struct fir_source_pos begin_pos = parser->ahead->source_range.begin;
     eat_token(parser, (enum token_tag)tag);
@@ -140,13 +153,41 @@ static struct ast* parse_field_type(struct parser* parser) {
     });
 }
 
+static struct ast* parse_array_type(struct parser* parser) {
+    const struct fir_source_pos begin_pos = parser->ahead->source_range.begin;
+    eat_token(parser, TOK_LBRACKET);
+    struct ast* elem_type = parse_type(parser);
+    if (accept_token(parser, TOK_MUL)) {
+        size_t elem_count = parser->ahead->tag == TOK_INT ? parser->ahead->int_val : 0;
+        expect_token(parser, TOK_INT);
+        return alloc_ast(parser, &begin_pos, &(struct ast) {
+            .tag = AST_ARRAY_TYPE,
+            .array_type = {
+                .elem_type = elem_type,
+                .elem_count = elem_count
+            }
+        });
+    }
+    return alloc_ast(parser, &begin_pos, &(struct ast) {
+        .tag = AST_DYN_ARRAY_TYPE,
+        .dyn_array_type.elem_type = elem_type
+    });
+}
+
 static struct ast* parse_type(struct parser* parser) {
     switch (parser->ahead->tag) {
 #define x(tag, ...) case TOK_##tag: return parse_prim_type(parser, PRIM_TYPE_##tag);
         PRIM_TYPE_LIST(x)
 #undef x
-        case TOK_LBRACKET: return parse_record(parser, AST_RECORD_TYPE, parse_field_type);
-        default:           return parse_error(parser, "type");
+        case TOK_LPAREN:
+            return parse_tuple(parser, AST_TUPLE_TYPE, parse_type);
+        case TOK_LBRACKET:
+            if (parser->ahead[1].tag == TOK_RBRACKET ||
+                (parser->ahead[1].tag == TOK_IDENT && parser->ahead[2].tag == TOK_COLON))
+                return parse_record(parser, AST_RECORD_TYPE, parse_field_type);
+            return parse_array_type(parser);
+        default:
+            return parse_error(parser, "type");
     }
 }
 
@@ -167,17 +208,23 @@ static struct ast* parse_ident_pattern(struct parser* parser) {
 
 static struct ast* parse_pattern(struct parser* parser) {
     switch (parser->ahead->tag) {
-        case TOK_IDENT: return parse_ident_pattern(parser);
-        default:        return parse_error(parser, "pattern");
+        case TOK_IDENT:  return parse_ident_pattern(parser);
+        case TOK_LPAREN: return parse_tuple(parser, AST_TUPLE_PATTERN, parse_pattern);
+        default:         return parse_error(parser, "pattern");
     }
+}
+
+static struct ast* parse_func_param(struct parser* parser) {
+    if (parser->ahead->tag == TOK_LPAREN)
+        return parse_pattern(parser);
+    return parse_error(parser, "function parameter");
 }
 
 static struct ast* parse_func_decl(struct parser* parser) {
     struct fir_source_pos begin_pos = parser->ahead->source_range.begin;
     eat_token(parser, TOK_FUNC);
     const char* name = parse_name(parser);
-    expect_token(parser, TOK_LPAREN);
-    struct ast* params = parse_many(parser, TOK_RPAREN, TOK_COMMA, parse_pattern);
+    struct ast* param = parse_func_param(parser);
     struct ast* ret_type = NULL;
     if (accept_token(parser, TOK_THIN_ARROW))
         ret_type = parse_type(parser);
@@ -189,7 +236,7 @@ static struct ast* parse_func_decl(struct parser* parser) {
         .tag = AST_FUNC_DECL,
         .func_decl = {
             .name = name,
-            .params = params,
+            .param = param,
             .ret_type = ret_type,
             .body = body
         }
@@ -288,6 +335,16 @@ static struct ast* parse_float_literal(struct parser* parser) {
     });
 }
 
+static struct ast* parse_array_expr(struct parser* parser) {
+    const struct fir_source_pos begin_pos = parser->ahead->source_range.begin;
+    eat_token(parser, TOK_LBRACKET);
+    struct ast* elems = parse_many(parser, TOK_RBRACKET, TOK_COMMA, parse_expr);
+    return alloc_ast(parser, &begin_pos, &(struct ast) {
+        .tag = AST_ARRAY_EXPR,
+        .array_expr.elems = elems
+    });
+}
+
 static struct ast* parse_expr(struct parser* parser) {
     switch (parser->ahead->tag) {
         case TOK_TRUE:     return parse_bool_literal(parser, true);
@@ -295,8 +352,14 @@ static struct ast* parse_expr(struct parser* parser) {
         case TOK_IDENT:    return parse_ident_expr(parser);
         case TOK_INT:      return parse_int_literal(parser);
         case TOK_FLOAT:    return parse_float_literal(parser);
-        case TOK_LBRACKET: return parse_record(parser, AST_RECORD_EXPR, parse_field_expr);
-        default:           return parse_error(parser, "expression");
+        case TOK_LPAREN:   return parse_tuple(parser, AST_TUPLE_EXPR, parse_expr);
+        case TOK_LBRACKET:
+            if (parser->ahead[1].tag == TOK_RBRACKET ||
+                (parser->ahead[1].tag == TOK_IDENT && parser->ahead[2].tag == TOK_EQ))
+                return parse_record(parser, AST_RECORD_EXPR, parse_field_expr);
+            return parse_array_expr(parser);
+        default:
+            return parse_error(parser, "expression");
     }
 }
 

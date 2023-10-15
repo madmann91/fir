@@ -16,15 +16,7 @@
 
 #define TOKEN_LOOKAHEAD 1
 
-static inline uint32_t hash_str_view(const struct str_view* str_view) {
-    return str_view_hash(hash_init(), *str_view);
-}
-
-static inline bool cmp_str_view(const struct str_view* str_view, const struct str_view* other) {
-    return str_view_cmp(*str_view, *other);
-}
-
-MAP_DEFINE(symbol_table, struct str_view, const struct fir_node*, hash_str_view, cmp_str_view, PRIVATE)
+MAP_DEFINE(symbol_table, struct str_view, const struct fir_node*, str_view_hash, str_view_cmp, PRIVATE)
 
 struct delayed_op {
     size_t op_index;
@@ -134,9 +126,9 @@ static inline double parse_float_val(struct parser* parser) {
 static inline enum fir_linkage parse_linkage(struct parser* parser) {
     enum fir_linkage linkage = FIR_INTERNAL;
     struct str_view ident = token_str_view(parser->lexer.data, parser->ahead);
-    if (str_view_cmp(ident, str_view_create("internal")))      linkage = FIR_INTERNAL;
-    else if (str_view_cmp(ident, str_view_create("imported"))) linkage = FIR_IMPORTED;
-    else if (str_view_cmp(ident, str_view_create("exported"))) linkage = FIR_EXPORTED;
+    if (str_view_cmp(&ident, &STR_VIEW("internal")))      linkage = FIR_INTERNAL;
+    else if (str_view_cmp(&ident, &STR_VIEW("imported"))) linkage = FIR_IMPORTED;
+    else if (str_view_cmp(&ident, &STR_VIEW("exported"))) linkage = FIR_EXPORTED;
     else invalid_linkage(parser, &parser->ahead->source_range, ident);
     expect_token(parser, TOK_IDENT);
     return linkage;
@@ -146,10 +138,10 @@ static inline enum fir_fp_flags parse_fp_flags(struct parser* parser) {
     enum fir_fp_flags fp_flags = FIR_FP_STRICT;
     while (accept_token(parser, TOK_PLUS)) {
         struct str_view ident = token_str_view(parser->lexer.data, parser->ahead);
-        if (str_view_cmp(ident, str_view_create("fo")))       fp_flags |= FIR_FP_FINITE_ONLY;
-        else if (str_view_cmp(ident, str_view_create("nsz"))) fp_flags |= FIR_FP_NO_SIGNED_ZERO;
-        else if (str_view_cmp(ident, str_view_create("a")))   fp_flags |= FIR_FP_ASSOCIATIVE;
-        else if (str_view_cmp(ident, str_view_create("d")))   fp_flags |= FIR_FP_DISTRIBUTIVE;
+        if (str_view_cmp(&ident, &STR_VIEW("fo")))       fp_flags |= FIR_FP_FINITE_ONLY;
+        else if (str_view_cmp(&ident, &STR_VIEW("nsz"))) fp_flags |= FIR_FP_NO_SIGNED_ZERO;
+        else if (str_view_cmp(&ident, &STR_VIEW("a")))   fp_flags |= FIR_FP_ASSOCIATIVE;
+        else if (str_view_cmp(&ident, &STR_VIEW("d")))   fp_flags |= FIR_FP_DISTRIBUTIVE;
         else invalid_fp_flag(parser, &parser->ahead->source_range, ident);
         expect_token(parser, TOK_IDENT);
     }

@@ -1,7 +1,9 @@
 #include "macros.h"
-#include "support/map.h"
 
-static inline uint32_t hash_int(const int* i) { return *i; }
+#include "support/map.h"
+#include "support/hash.h"
+
+static inline uint32_t hash_int(uint32_t h, const int* i) { return hash_uint32(h, *i); }
 static inline bool cmp_int(const int* i, const int* j) { return *i == *j; }
 
 MAP_DEFINE(int_map, int, int, hash_int, cmp_int, PRIVATE)

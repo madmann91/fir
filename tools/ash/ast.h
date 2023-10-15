@@ -41,18 +41,26 @@ enum ast_tag {
     AST_PRIM_TYPE,
     AST_FIELD_TYPE,
     AST_RECORD_TYPE,
+    AST_ARRAY_TYPE,
+    AST_TUPLE_TYPE,
+    AST_DYN_ARRAY_TYPE,
 
     // Patterns
     AST_IDENT_PATTERN,
     AST_FIELD_PATTERN,
     AST_RECORD_PATTERN,
+    AST_ARRAY_PATTERN,
+    AST_TUPLE_PATTERN,
 
     // Expressions
+    AST_IMPLICIT_CAST_EXPR,
     AST_IDENT_EXPR,
     AST_FIELD_EXPR,
     AST_RECORD_EXPR,
+    AST_ARRAY_EXPR,
+    AST_TUPLE_EXPR,
     AST_UNARY_EXPR,
-    AST_BINARY_EXPR,
+    AST_BINARY_EXPR
 };
 
 enum prim_type_tag {
@@ -94,6 +102,7 @@ struct ast {
     enum ast_tag tag;
     struct fir_source_range source_range;
     const struct type* type;
+    const struct fir_node* node;
     struct ast* next;
     union {
         struct {
@@ -112,8 +121,15 @@ struct ast {
             enum prim_type_tag tag;
         } prim_type;
         struct {
+            struct ast* elem_type;
+            size_t elem_count;
+        } array_type;
+        struct {
+            struct ast* elem_type;
+        } dyn_array_type;
+        struct {
             const char* name;
-            struct ast* params;
+            struct ast* param;
             struct ast* ret_type;
             struct ast* body;
         } func_decl;
@@ -129,6 +145,15 @@ struct ast {
             struct ast* fields;
         } record_pattern, record_expr, record_type;
         struct {
+            struct ast* elems;
+        } array_expr, array_pattern;
+        struct {
+            struct ast* args;
+        } tuple_type, tuple_expr, tuple_pattern;
+        struct {
+            struct ast* expr;
+        } implicit_cast_expr;
+        struct {
             enum binary_expr_tag tag;
             bool is_assign;
             struct ast* left;
@@ -141,8 +166,18 @@ struct ast {
     };
 };
 
+struct mem_pool;
+struct type_set;
+struct log;
+struct fir_mod;
+
 void ast_print(FILE*, const struct ast*);
 void ast_dump(const struct ast*);
+size_t ast_count(const struct ast*);
+
+void ast_check(struct ast*, struct mem_pool*, struct type_set*, struct log*);
+void ast_bind(struct ast*, struct log*);
+void ast_emit(struct ast*, struct fir_mod*);
 
 const char* unary_expr_tag_to_string(enum unary_expr_tag);
 const char* binary_expr_tag_to_string(enum binary_expr_tag);

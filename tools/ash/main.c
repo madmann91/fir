@@ -1,7 +1,5 @@
 #include "parser.h"
-#include "bind.h"
 #include "ast.h"
-#include "check.h"
 #include "types.h"
 
 #include "support/io.h"
@@ -9,8 +7,11 @@
 #include "support/log.h"
 #include "support/mem_pool.h"
 
+#include <fir/module.h>
+
 struct options {
     bool disable_colors;
+    bool print_ast;
 };
 
 static void usage(void) {
@@ -18,7 +19,8 @@ static void usage(void) {
         "usage: ash [options] files...\n"
         "options:\n"
         "  -h  --help      Shows this message.\n"
-        "      --no-color  Disables colors in the output.\n");
+        "      --no-color  Disables colors in the output.\n"
+        "      --print-ast Prints the AST on the standard output.\n");
 }
 
 static bool parse_options(int argc, char** argv, struct options* options) {
@@ -30,6 +32,8 @@ static bool parse_options(int argc, char** argv, struct options* options) {
                 return false;
             } else if (!strcmp(argv[i], "--no-color")) {
                 options->disable_colors = true;
+            } else if (!strcmp(argv[i], "--print-ast")) {
+                options->print_ast = true;
             } else {
                 fprintf(stderr, "invalid option '%s'\n", argv[i]);
                 return false;
@@ -64,20 +68,26 @@ static bool compile_file(const char* file_name, const struct options* options) {
 
     bool status = true;
     struct type_set* type_set = NULL;
+    struct fir_mod* mod = NULL;
+
     struct ast* program = parse_file(file_data, file_size, &mem_pool, &log);
     if (log.error_count != 0)
         goto error;
 
-    bind_program(program, &log);
+    ast_bind(program, &log);
     if (log.error_count != 0)
         goto error;
 
     type_set = type_set_create();
-    check_program(program, type_set, &log);
+    ast_check(program, &mem_pool, type_set, &log);
     if (log.error_count != 0)
         goto error;
 
-    ast_dump(program);
+    if (options->print_ast)
+        ast_dump(program);
+
+    mod = fir_mod_create(file_name);
+    ast_emit(program, mod);
     goto done;
 
 error:
@@ -85,6 +95,8 @@ error:
 done:
     if (type_set)
         type_set_destroy(type_set);
+    if (mod)
+        fir_mod_destroy(mod);
     mem_pool_destroy(&mem_pool);
     free(file_data);
     return status;

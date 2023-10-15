@@ -1,4 +1,3 @@
-#include "bind.h"
 #include "ast.h"
 
 #include "support/log.h"
@@ -6,15 +5,7 @@
 
 #include <assert.h>
 
-static inline uint32_t hash_symbol(const char* const* symbol_ptr) {
-    return hash_string(hash_init(), *symbol_ptr);
-}
-
-static inline bool cmp_symbol(const char* const* symbol_ptr, const char* const* other_ptr) {
-    return !strcmp(*symbol_ptr, *other_ptr);
-}
-
-MAP_DEFINE(symbol_table, const char*, struct ast*, hash_symbol, cmp_symbol, PRIVATE)
+MAP_DEFINE(symbol_table, struct str_view, struct ast*, str_view_hash, str_view_cmp, PRIVATE)
 
 struct env {
     struct symbol_table symbol_table;
@@ -67,7 +58,7 @@ static struct ast* find_symbol(
 {
     struct env* env = name_binder->env;
     while (env) {
-        struct ast* const* symbol = symbol_table_find(&env->symbol_table, &name);
+        struct ast* const* symbol = symbol_table_find(&env->symbol_table, &STR_VIEW(name));
         if (symbol)
             return *symbol;
         env = env->prev;
@@ -81,7 +72,7 @@ static bool insert_symbol(
     const char* name,
     struct ast* symbol)
 {
-    if (!symbol_table_insert(&name_binder->env->symbol_table, &name, &symbol)) {
+    if (!symbol_table_insert(&name_binder->env->symbol_table, &STR_VIEW(name), &symbol)) {
         log_error(name_binder->log, &symbol->source_range, "identifier '%s' already exists", name);
         return false;
     }
@@ -106,8 +97,7 @@ static void bind(struct name_binder* name_binder, struct ast* ast) {
             break;
         case AST_FUNC_DECL:
             push_env(name_binder);
-            for (struct ast* param = ast->func_decl.params; param; param = param->next)
-                bind(name_binder, param);
+            bind(name_binder, ast->func_decl.param);
             bind(name_binder, ast->func_decl.body);
             pop_env(name_binder);
             break;
@@ -116,7 +106,8 @@ static void bind(struct name_binder* name_binder, struct ast* ast) {
             break;
         case AST_IDENT_PATTERN:
             insert_symbol(name_binder, ast->ident_pattern.name, ast);
-            bind(name_binder, ast->ident_pattern.type);
+            if (ast->ident_pattern.type)
+                bind(name_binder, ast->ident_pattern.type);
             break;
         case AST_FIELD_TYPE:
         case AST_FIELD_EXPR:
@@ -129,13 +120,19 @@ static void bind(struct name_binder* name_binder, struct ast* ast) {
             for (struct ast* field = ast->record_type.fields; field; field = field->next)
                 bind(name_binder, field);
             break;
+        case AST_TUPLE_TYPE:
+        case AST_TUPLE_EXPR:
+        case AST_TUPLE_PATTERN:
+            for (struct ast* arg = ast->tuple_type.args; arg; arg = arg->next)
+                bind(name_binder, arg);
+            break;
         default:
             assert(false && "invalid AST node");
             break;
     }
 }
 
-void bind_program(struct ast* ast, struct log* log) {
+void ast_bind(struct ast* ast, struct log* log) {
     assert(ast->tag == AST_PROGRAM);
     struct name_binder name_binder = {
         .env = alloc_env(NULL),

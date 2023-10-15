@@ -44,8 +44,7 @@
     VISIBILITY(vis) void name##_dump(const struct name*);
 
 #define GRAPH_IMPL(name, key_t, hash, cmp, print, vis) \
-    VISIBILITY(vis) uint32_t name##_hash_edge(struct name##_edge* const* edge_ptr) { \
-        uint32_t h = hash_init(); \
+    VISIBILITY(vis) uint32_t name##_hash_edge(uint32_t h, struct name##_edge* const* edge_ptr) { \
         h = hash_uint64(h, (uintptr_t)(*edge_ptr)->from); \
         h = hash_uint64(h, (uintptr_t)(*edge_ptr)->to); \
         return h; \

@@ -51,7 +51,7 @@
         set->elem_count = 0; \
     } \
     VISIBILITY(vis) bool name##_insert(struct name* set, elem_ty const* elem) { \
-        if (htable_insert(&set->htable, elem, NULL, sizeof(elem_ty), 0, hash(elem), name##_cmp_wrapper)) { \
+        if (htable_insert(&set->htable, elem, NULL, sizeof(elem_ty), 0, hash(hash_init(), elem), name##_cmp_wrapper)) { \
             if (htable_needs_rehash(&set->htable, set->elem_count)) \
                 htable_grow(&set->htable, sizeof(elem_ty), 0); \
             set->elem_count++; \
@@ -61,12 +61,12 @@
     } \
     VISIBILITY(vis) elem_ty const* name##_find(const struct name* set, elem_ty const* elem) { \
         size_t idx; \
-        if (!htable_find(&set->htable, &idx, elem, sizeof(elem_ty), hash(elem), name##_cmp_wrapper)) \
+        if (!htable_find(&set->htable, &idx, elem, sizeof(elem_ty), hash(hash_init(), elem), name##_cmp_wrapper)) \
            return NULL; \
         return ((elem_ty const*)set->htable.keys) + idx; \
     } \
     VISIBILITY(vis) bool name##_remove(struct name* set, elem_ty const* elem) { \
-        if (htable_remove(&set->htable, elem, sizeof(elem_ty), 0, hash(elem), name##_cmp_wrapper)) { \
+        if (htable_remove(&set->htable, elem, sizeof(elem_ty), 0, hash(hash_init(), elem), name##_cmp_wrapper)) { \
             set->elem_count--; \
             return true; \
         } \

@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#define STR_VIEW(x) ((struct str_view) { .data = (x), .length = strlen((x)) })
+
 struct str_view {
     const char* data;
     size_t length;
@@ -19,19 +21,15 @@ struct str {
     size_t capacity;
 };
 
-[[nodiscard]] static inline struct str_view str_view_create(const char* str) {
-    return (struct str_view) { .data = str, .length = strlen(str) };
-}
-
-[[nodiscard]] static inline bool str_view_cmp(struct str_view str_view, struct str_view other) {
+[[nodiscard]] static inline bool str_view_cmp(const struct str_view* str_view, const struct str_view* other) {
     return
-        str_view.length == other.length &&
-        !memcmp(str_view.data, other.data, str_view.length);
+        str_view->length == other->length &&
+        !memcmp(str_view->data, other->data, str_view->length);
 }
 
-[[nodiscard]] static inline uint32_t str_view_hash(uint32_t h, struct str_view str_view) {
-    for (size_t i = 0; i < str_view.length; ++i)
-        h = hash_uint8(h, str_view.data[i]);
+[[nodiscard]] static inline uint32_t str_view_hash(uint32_t h, const struct str_view* str_view) {
+    for (size_t i = 0; i < str_view->length; ++i)
+        h = hash_uint8(h, str_view->data[i]);
     return h;
 }
 

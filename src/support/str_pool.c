@@ -1,20 +1,9 @@
 #include "str_pool.h"
 #include "mem_pool.h"
+#include "datatypes.h"
 #include "alloc.h"
-#include "hash.h"
-#include "set.h"
 
 #include <string.h>
-
-static inline uint32_t hash_str_view(const struct str_view* str_view) {
-    return str_view_hash(hash_init(), *str_view);
-}
-
-static inline bool cmp_str_view(const struct str_view* str_view, const struct str_view* other) {
-    return str_view_cmp(*str_view, *other);
-}
-
-SET_DEFINE(str_view_set, struct str_view, hash_str_view, cmp_str_view, PRIVATE)
 
 struct str_pool {
     struct mem_pool mem_pool;
@@ -35,7 +24,7 @@ void str_pool_destroy(struct str_pool* str_pool) {
 }
 
 const char* str_pool_insert(struct str_pool* str_pool, const char* str) {
-    return str_pool_insert_view(str_pool, str_view_create(str));
+    return str_pool_insert_view(str_pool, STR_VIEW(str));
 }
 
 const char* str_pool_insert_view(struct str_pool* str_pool, struct str_view str_view) {
