@@ -49,25 +49,55 @@ static const struct fir_node* convert_type(struct emitter* emitter, const struct
     }
 }
 
-static const struct fir_node* emit_func_decl(struct emitter* emitter, struct ast* ast) {
-    assert(ast->tag == AST_FUNC_DECL);
-    struct fir_node* func = fir_func(convert_type(emitter, ast->type));
+static const struct fir_node* emit_func_decl(struct emitter* emitter, struct ast* func_decl) {
+    assert(func_decl->tag == AST_FUNC_DECL);
+    struct fir_node* func = fir_func(convert_type(emitter, func_decl->type));
+    func->data.linkage = FIR_EXPORTED;
     struct fir_block entry;
     const struct fir_node* param = fir_block_start(&entry, func);
     emitter->block = &entry;
-    emit_pattern(emitter, ast->func_decl.param, param);
-    const struct fir_node* ret_val = emit(emitter, ast->func_decl.body);
+    emit_pattern(emitter, func_decl->func_decl.param, param);
+    const struct fir_node* ret_val = emit(emitter, func_decl->func_decl.body);
     fir_block_return(emitter->block, ret_val);
     emitter->block = NULL;
     return func;
 }
 
+static const struct fir_node* emit_tuple_expr(struct emitter* emitter, struct ast* tuple_expr) {
+    struct small_node_vec args;
+    small_node_vec_init(&args);
+    for (struct ast* arg = tuple_expr->tuple_expr.args; arg; arg = arg->next)
+        small_node_vec_push(&args, (const struct fir_node*[]) { emit(emitter, arg) });
+    const struct fir_node* tup = fir_tup(emitter->mod, args.elems, args.elem_count);
+    small_node_vec_destroy(&args);
+    return tup;
+}
+
+static const struct fir_node* emit_literal(
+    struct emitter* emitter,
+    struct literal* literal,
+    const struct type* type)
+{
+    if (literal->tag == LITERAL_BOOL)
+        return fir_int_const(fir_bool_ty(emitter->mod), literal->bool_val ? 1 : 0);
+    else if (literal->tag == LITERAL_INT)
+        return fir_int_const(convert_type(emitter, type), literal->int_val);
+    else if (literal->tag == LITERAL_FLOAT)
+        return fir_float_const(convert_type(emitter, type), literal->float_val);
+    assert(false && "invalid literal");
+    return NULL;
+}
+
 static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
     switch (ast->tag) {
+        case AST_LITERAL:
+            return ast->node = emit_literal(emitter, &ast->literal, ast->type);
         case AST_FUNC_DECL:
             return ast->node = emit_func_decl(emitter, ast);
         case AST_IDENT_EXPR:
             return ast->node = ast->ident_expr.bound_to->node;
+        case AST_TUPLE_EXPR:
+            return ast->node = emit_tuple_expr(emitter, ast);
         default:
             assert(false && "invalid AST node");
             break;
