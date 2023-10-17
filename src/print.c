@@ -63,6 +63,7 @@ void fir_node_print(FILE* file, const struct fir_node* node, size_t indent) {
 
 void fir_node_dump(const struct fir_node* node) {
     fir_node_print(stdout, node, 0);
+    printf("\n");
     fflush(stdout);
 }
 
@@ -101,5 +102,6 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod) {
 
 void fir_mod_dump(const struct fir_mod* mod) {
     fir_mod_print(stdout, mod);
+    printf("\n");
     fflush(stdout);
 }

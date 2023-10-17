@@ -96,6 +96,7 @@ struct fir_mod {
     const struct fir_node* unit;
     const struct fir_node* bool_ty;
     const struct fir_node* alloc_ty;
+    const struct fir_node* index_ty;
     struct fir_use* free_uses;
 };
 
@@ -189,6 +190,7 @@ struct fir_mod* fir_mod_create(const char* name) {
     mod->unit     = insert_node(mod, &(struct fir_node) { .tag = FIR_TUP,      .ty = mod->unit_ty });
     mod->bool_ty  = fir_int_ty(mod, 1);
     mod->alloc_ty = fir_tup_ty(mod, (const struct fir_node*[]) { fir_mem_ty(mod), fir_ptr_ty(mod) }, 2);
+    mod->index_ty = fir_int_ty(mod, 64);
     return mod;
 }
 
@@ -422,8 +424,23 @@ const struct fir_node* fir_func_ty(
     });
 }
 
+const struct fir_node* fir_mem_func_ty(
+    const struct fir_node* param_ty,
+    const struct fir_node* ret_ty)
+{
+    const struct fir_node* mem_ty = fir_mem_ty(fir_node_mod(param_ty));
+    return fir_func_ty(fir_node_prepend(param_ty, &mem_ty, 1), fir_node_prepend(ret_ty, &mem_ty, 1));
+}
+
 const struct fir_node* fir_cont_ty(const struct fir_node* param_ty) {
     return fir_func_ty(param_ty, fir_noret_ty(fir_node_mod(param_ty)));
+}
+
+const struct fir_node* fir_mem_cont_ty(const struct fir_node* param_ty) {
+    struct fir_mod* mod = fir_node_mod(param_ty);
+    const struct fir_node* mem_ty = fir_mem_ty(mod);
+    const struct fir_node* noret_ty = fir_noret_ty(mod);
+    return fir_func_ty(fir_node_prepend(param_ty, &mem_ty, 1), noret_ty);
 }
 
 struct fir_node* fir_func(const struct fir_node* func_ty) {
@@ -1185,6 +1202,23 @@ static inline const struct fir_node* remove_ins(
     return result;
 }
 
+const struct fir_node* fir_ext_at(const struct fir_node* aggr, size_t index) {
+    return fir_ext(aggr, fir_int_const(fir_node_mod(aggr)->index_ty, index));
+}
+
+const struct fir_node* fir_ext_mem(const struct fir_node* val) {
+    if (val->ty->tag == FIR_MEM_TY)
+        return val;
+    if (val->ty->tag == FIR_TUP_TY) {
+        for (size_t i = 0; i < val->ty->op_count; ++i) {
+            const struct fir_node* mem = fir_ext_mem(fir_ext_at(val, i));
+            if (mem)
+                return mem;
+        }
+    }
+    return NULL;
+}
+
 const struct fir_node* fir_ins(
     const struct fir_node* aggr,
     const struct fir_node* index,
@@ -1217,6 +1251,29 @@ const struct fir_node* fir_ins(
         .ty = aggr,
         .ops = { aggr, index, elem }
     });
+}
+
+const struct fir_node* fir_ins_at(
+    const struct fir_node* aggr,
+    size_t index,
+    const struct fir_node* elem)
+{
+    return fir_ins(aggr, fir_int_const(fir_node_mod(aggr)->index_ty, index), elem);
+}
+
+const struct fir_node* fir_ins_mem(const struct fir_node* val, const struct fir_node* mem) {
+    assert(mem->ty->tag == FIR_MEM_TY);
+    if (val->ty->tag == FIR_MEM_TY)
+        return mem;
+    if (val->ty->tag == FIR_TUP_TY) {
+        for (size_t i = 0; i < val->ty->op_count; ++i) {
+            const struct fir_node* elem = fir_ext_at(val, i);
+            const struct fir_node* elem_with_mem = fir_ins_mem(elem, mem);
+            if (elem_with_mem != elem)
+                return fir_ins_at(val, i, elem_with_mem);
+        }
+    }
+    return val;
 }
 
 const struct fir_node* fir_addrof(

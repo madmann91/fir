@@ -103,9 +103,17 @@ FIR_SYMBOL const struct fir_node* fir_func_ty(
     const struct fir_node* param_ty,
     const struct fir_node* ret_ty);
 
+/// Function type carrying a memory object.
+FIR_SYMBOL const struct fir_node* fir_mem_func_ty(
+    const struct fir_node* param_ty,
+    const struct fir_node* ret_ty);
+
 /// Builds a continuation type with the given parameter type.
 /// Shortcut for `func_ty(param_ty, noret_ty)`
 FIR_SYMBOL const struct fir_node* fir_cont_ty(const struct fir_node* param_ty);
+
+/// Continuation type carrying a memory object.
+FIR_SYMBOL const struct fir_node* fir_mem_cont_ty(const struct fir_node* param_ty);
 
 /// @}
 
@@ -225,11 +233,30 @@ FIR_SYMBOL const struct fir_node* fir_ext(
     const struct fir_node* aggr,
     const struct fir_node* index);
 
+/// Extracts an element from an existing tuple or array at the given constant index.
+/// Shortcut for `ext(aggr, const[index])`.
+FIR_SYMBOL const struct fir_node* fir_ext_at(const struct fir_node* aggr, size_t index);
+
+/// Extracts the memory object from a value, if any.
+/// @return The memory object contained in the value, if it exists, or `NULL` otherwise.
+FIR_SYMBOL const struct fir_node* fir_ext_mem(const struct fir_node* val);
+
 /// Inserts an element into an existing tuple or array.
 FIR_SYMBOL const struct fir_node* fir_ins(
     const struct fir_node* aggr,
     const struct fir_node* index,
     const struct fir_node* elem);
+
+/// Inserts an element into an existing tuple or array at the given constant index.
+FIR_SYMBOL const struct fir_node* fir_ins_at(
+    const struct fir_node* aggr,
+    size_t index,
+    const struct fir_node* elem);
+
+/// Inserts a new memory object into an existing value that is or contains a memory object.
+FIR_SYMBOL const struct fir_node* fir_ins_mem(
+    const struct fir_node* val,
+    const struct fir_node* mem);
 
 /// Obtains the address of an element of a tuple or array, given the address of the tuple or array.
 FIR_SYMBOL const struct fir_node* fir_addrof(
@@ -304,6 +331,7 @@ FIR_SYMBOL const struct fir_node* fir_switch(
 
 /// Obtains the parameter of a function.
 FIR_SYMBOL const struct fir_node* fir_param(const struct fir_node* func);
+
 /// Enters the first basic-block of a function.
 FIR_SYMBOL const struct fir_node* fir_start(const struct fir_node* block);
 

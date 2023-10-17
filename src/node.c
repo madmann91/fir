@@ -2,6 +2,7 @@
 #include "fir/module.h"
 
 #include "support/bits.h"
+#include "support/datatypes.h"
 
 #include <assert.h>
 
@@ -62,6 +63,10 @@ bool fir_node_is_float_const(const struct fir_node* node) {
 
 bool fir_node_is_bool_ty(const struct fir_node* node) {
     return node->tag == FIR_INT_TY && node->data.bitwidth == 1;
+}
+
+bool fir_node_is_cont_ty(const struct fir_node* node) {
+    return node->tag == FIR_FUNC_TY && node->ops[1]->tag == FIR_NORET_TY;
 }
 
 bool fir_node_is_not(const struct fir_node* node) {
@@ -221,6 +226,77 @@ struct fir_node* fir_node_clone(
     assert(cloned_node);
     cloned_node->data = node->data;
     return cloned_node;
+}
+
+const struct fir_node* fir_node_prepend(
+    const struct fir_node* node,
+    const struct fir_node* const* elems,
+    size_t elem_count)
+{
+    struct fir_mod* mod = fir_node_mod(node);
+    struct small_node_vec args;
+    small_node_vec_init(&args);
+    for (size_t i = 0; i < elem_count; ++i)
+        small_node_vec_push(&args, &elems[i]);
+
+    bool is_ty = fir_node_is_ty(node);
+    const struct fir_node* ty = is_ty ? node : node->ty;
+    if (ty->tag == FIR_TUP_TY) {
+        for (size_t i = 0; i < ty->op_count; ++i) {
+            const struct fir_node* arg = is_ty ? ty->ops[i] : fir_ext_at(node, i);
+            small_node_vec_push(&args, &arg);
+        }
+    } else {
+        small_node_vec_push(&args, &node);
+    }
+
+    const struct fir_node* new_node = is_ty
+        ? fir_tup_ty(mod, args.elems, args.elem_count)
+        : fir_tup(mod, args.elems, args.elem_count);
+    small_node_vec_destroy(&args);
+    return new_node;
+}
+
+const struct fir_node* fir_node_chop(const struct fir_node* node, size_t elem_count) {
+    assert(node->tag == FIR_TUP_TY || node->ty->tag == FIR_TUP_TY);
+    struct small_node_vec args;
+    small_node_vec_init(&args);
+
+    bool is_ty = fir_node_is_ty(node);
+    const struct fir_node* ty = is_ty ? node : node->ty;
+    for (size_t i = elem_count; i < ty->op_count; ++i) {
+        const struct fir_node* arg = is_ty ? ty->ops[i] : fir_ext_at(node, i);
+        small_node_vec_push(&args, &arg);
+    }
+
+    struct fir_mod* mod = fir_node_mod(node);
+    const struct fir_node* new_node = is_ty
+        ? fir_tup_ty(mod, args.elems, args.elem_count)
+        : fir_tup(mod, args.elems, args.elem_count);
+    small_node_vec_destroy(&args);
+    return new_node;
+}
+
+const struct fir_node* fir_func_entry(const struct fir_node* func) {
+    assert(func->tag == FIR_FUNC);
+    if (!func->ops[0])
+        return NULL;
+    assert(func->ops[0]->tag == FIR_START);
+    assert(func->ops[0]->ops[0]->tag == FIR_FUNC);
+    return func->ops[0]->ops[0];
+}
+
+const struct fir_node* fir_func_return(const struct fir_node* func) {
+    const struct fir_node* entry = fir_func_entry(func);
+    if (!entry)
+        return NULL;
+    const struct fir_node* param = fir_param(entry);
+    assert(fir_node_is_cont_ty(param->ty));
+    return param;
+}
+
+const struct fir_node* fir_func_mem_param(const struct fir_node* func) {
+    return fir_ext_mem(fir_param(func));
 }
 
 size_t fir_use_count(const struct fir_use* use) {

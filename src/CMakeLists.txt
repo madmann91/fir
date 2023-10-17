@@ -14,6 +14,7 @@ add_library(libfir_analysis STATIC
 add_library(libfir
     version.c
     dbg_info.c
+    block.c
     node.c
     module.c
     parse/parse.c

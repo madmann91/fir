@@ -81,47 +81,47 @@ union fir_node_data {
     const struct fir_node* ops[n];
 
 /// @struct fir_node
-/// IR node. @see FIR_NODE
+/// IR node. @see FIR_NODE.
 struct fir_node { FIR_NODE() };
 
 /// @name Predicates
 /// @{
 
 /// @return `true` if the given node tag represents a type.
-/// @see FIR_TYPE_LIST
+/// @see FIR_TYPE_LIST.
 FIR_SYMBOL bool fir_node_tag_is_ty(enum fir_node_tag);
 /// @return `true` if the given node tag represents a nominal node.
-/// @see FIR_NOMINAL_NODE_LIST
+/// @see FIR_NOMINAL_NODE_LIST.
 FIR_SYMBOL bool fir_node_tag_is_nominal(enum fir_node_tag);
 /// @return `true` if the given node tag represents an integer arithmetic operation.
-/// @see FIR_IARITH_OP_LIST
+/// @see FIR_IARITH_OP_LIST.
 FIR_SYMBOL bool fir_node_tag_is_iarith_op(enum fir_node_tag);
 /// @return `true` if the given node tag represents a floating-point arithmetic operation.
-/// @see FIR_FARITH_OP_LIST
+/// @see FIR_FARITH_OP_LIST.
 FIR_SYMBOL bool fir_node_tag_is_farith_op(enum fir_node_tag);
 /// @return `true` if the given node tag represents an integer comparison.
-/// @see FIR_ICMP_OP_LIST
+/// @see FIR_ICMP_OP_LIST.
 FIR_SYMBOL bool fir_node_tag_is_icmp_op(enum fir_node_tag);
 /// @return `true` if the given node tag represents a floating-point comparison.
-/// @see FIR_FCMP_OP_LIST
+/// @see FIR_FCMP_OP_LIST.
 FIR_SYMBOL bool fir_node_tag_is_fcmp_op(enum fir_node_tag);
 /// @return `true` if the given node tag represents a bitwise operation.
-/// @see FIR_BIT_OP_LIST
+/// @see FIR_BIT_OP_LIST.
 FIR_SYMBOL bool fir_node_tag_is_bit_op(enum fir_node_tag);
 /// @return `true` if the given node tag represents a bitshift operation.
-/// @see FIR_SHIFT_OP_LIST
+/// @see FIR_SHIFT_OP_LIST.
 FIR_SYMBOL bool fir_node_tag_is_shift_op(enum fir_node_tag);
 /// @return `true` if the given node tag represents a cast.
-/// @see FIR_CAST_OP_LIST
+/// @see FIR_CAST_OP_LIST.
 FIR_SYMBOL bool fir_node_tag_is_cast_op(enum fir_node_tag);
 /// @return `true` if the given node tag represents an aggregate operation.
-/// @see FIR_AGGR_OP_LIST
+/// @see FIR_AGGR_OP_LIST.
 FIR_SYMBOL bool fir_node_tag_is_aggr_op(enum fir_node_tag);
 /// @return `true` if the given node tag represents a memory operation.
-/// @see FIR_MEM_OP_LIST
+/// @see FIR_MEM_OP_LIST.
 FIR_SYMBOL bool fir_node_tag_is_mem_op(enum fir_node_tag);
 /// @return `true` if the given node tag represents a control-flow operation.
-/// @see FIR_CONTROL_OP_LIST
+/// @see FIR_CONTROL_OP_LIST.
 FIR_SYMBOL bool fir_node_tag_is_control_op(enum fir_node_tag);
 
 /// @return `true` if the given node tag represents a node that carries floating-point flags.
@@ -129,78 +129,80 @@ FIR_SYMBOL bool fir_node_tag_has_fp_flags(enum fir_node_tag);
 /// @return `true` if the given node tag represents a type with a bitwidth.
 FIR_SYMBOL bool fir_node_tag_has_bitwidth(enum fir_node_tag);
 
-/// @see fir_node_tag_is_ty
+/// @see fir_node_tag_is_ty.
 FIR_SYMBOL bool fir_node_is_ty(const struct fir_node*);
-/// @see fir_node_tag_is_ty
+/// @see fir_node_tag_is_ty.
 FIR_SYMBOL bool fir_node_is_nominal(const struct fir_node*);
-/// @see fir_node_tag_is_iarith_op
+/// @see fir_node_tag_is_iarith_op.
 FIR_SYMBOL bool fir_node_is_iarith_op(const struct fir_node*);
-/// @see fir_node_tag_is_farith_op
+/// @see fir_node_tag_is_farith_op.
 FIR_SYMBOL bool fir_node_is_farith_op(const struct fir_node*);
-/// @see fir_node_tag_is_icmp_op
+/// @see fir_node_tag_is_icmp_op.
 FIR_SYMBOL bool fir_node_is_icmp_op(const struct fir_node*);
-/// @see fir_node_tag_is_fcmp_op
+/// @see fir_node_tag_is_fcmp_op.
 FIR_SYMBOL bool fir_node_is_fcmp_op(const struct fir_node*);
-/// @see fir_node_tag_is_bit_op
+/// @see fir_node_tag_is_bit_op.
 FIR_SYMBOL bool fir_node_is_bit_op(const struct fir_node*);
-/// @see fir_node_tag_is_shift_op
+/// @see fir_node_tag_is_shift_op.
 FIR_SYMBOL bool fir_node_is_shift_op(const struct fir_node*);
-/// @see fir_node_tag_is_cast_op
+/// @see fir_node_tag_is_cast_op.
 FIR_SYMBOL bool fir_node_is_cast_op(const struct fir_node*);
-/// @see fir_node_tag_is_aggr_op
+/// @see fir_node_tag_is_aggr_op.
 FIR_SYMBOL bool fir_node_is_aggr_op(const struct fir_node*);
-/// @see fir_node_tag_is_mem_op
+/// @see fir_node_tag_is_mem_op.
 FIR_SYMBOL bool fir_node_is_mem_op(const struct fir_node*);
-/// @see fir_node_tag_is_control_op
+/// @see fir_node_tag_is_control_op.
 FIR_SYMBOL bool fir_node_is_control_op(const struct fir_node*);
 
-/// @see fir_node_tag_has_fp_flags
+/// @see fir_node_tag_has_fp_flags.
 FIR_SYMBOL bool fir_node_has_fp_flags(const struct fir_node*);
-/// @see fir_node_tag_has_bitwidth
+/// @see fir_node_tag_has_bitwidth.
 FIR_SYMBOL bool fir_node_has_bitwidth(const struct fir_node*);
 
 /// @return `true` if the given node is an integer constant.
-/// @see fir_int_const
+/// @see fir_int_const.
 FIR_SYMBOL bool fir_node_is_int_const(const struct fir_node*);
 /// @return `true` if the given node is a floating-point constant.
-/// @see fir_float_const
+/// @see fir_float_const.
 FIR_SYMBOL bool fir_node_is_float_const(const struct fir_node*);
 /// @return `true` if the given node is boolean type.
-/// @see fir_bool_ty
+/// @see fir_bool_ty.
 FIR_SYMBOL bool fir_node_is_bool_ty(const struct fir_node*);
+/// @return `true` if the given node is continuation type.
+FIR_SYMBOL bool fir_node_is_cont_ty(const struct fir_node*);
 /// @return `true` if the given node is a bitwise NOT.
-/// @see fir_not
+/// @see fir_not.
 FIR_SYMBOL bool fir_node_is_not(const struct fir_node*);
 /// @return `true` if the given node is an integer negation.
-/// @see fir_ineg
+/// @see fir_ineg.
 FIR_SYMBOL bool fir_node_is_ineg(const struct fir_node*);
 /// @return `true` if the given node is a floating-point negation.
-/// @see fir_fneg
+/// @see fir_fneg.
 FIR_SYMBOL bool fir_node_is_fneg(const struct fir_node*);
 
 /// @return `true` if the given node is an integer or floating-point constant equal to 0.
-/// @see fir_zero
+/// @see fir_zero.
 FIR_SYMBOL bool fir_node_is_zero(const struct fir_node*);
 /// @return `true` if the given node is an integer or floating-point constant equal to 1.
-/// @see fir_one
+/// @see fir_one.
 FIR_SYMBOL bool fir_node_is_one(const struct fir_node*);
 /// @return `true` if the given node is an integer constant with all bits set.
-/// @see fir_all_ones
+/// @see fir_all_ones.
 FIR_SYMBOL bool fir_node_is_all_ones(const struct fir_node*);
 
 /// @return `true` if the given node is a boolean selection.
-/// @see fir_select
+/// @see fir_select.
 FIR_SYMBOL bool fir_node_is_select(const struct fir_node*);
 /// @return `true` if the given node is a n-ary choice.
-/// @see fir_choice
+/// @see fir_choice.
 FIR_SYMBOL bool fir_node_is_choice(const struct fir_node*);
 /// @return `true` if the given node is a jump (a call to a continuation).
 FIR_SYMBOL bool fir_node_is_jump(const struct fir_node*);
 /// @return `true` if the given node is a conditional jump.
-/// @see fir_branch
+/// @see fir_branch.
 FIR_SYMBOL bool fir_node_is_branch(const struct fir_node*);
 /// @return `true` if the given node is a indexed jump.
-/// @see fir_switch
+/// @see fir_switch.
 FIR_SYMBOL bool fir_node_is_switch(const struct fir_node*);
 
 /// @}
@@ -235,6 +237,37 @@ FIR_SYMBOL struct fir_node* fir_node_clone(
 FIR_SYMBOL void fir_node_print(FILE*, const struct fir_node*, size_t indent);
 /// Prints a node on standard output.
 FIR_SYMBOL void fir_node_dump(const struct fir_node*);
+
+/// @name Aggregates
+/// @{
+
+/// Prepends one or more elements in front of the given value or type. If the value (resp. type) is
+/// a tuple (resp. tuple type), the elements are added in front of the tuple elements (resp. tuple
+/// type elements). If not, a tuple (resp. tuple type) is created containing both the elements and
+/// the value (resp. type), in that order.
+FIR_SYMBOL const struct fir_node* fir_node_prepend(
+    const struct fir_node* node,
+    const struct fir_node* const* elems,
+    size_t elem_count);
+
+/// Chops one or more elements in front of a tuple type or value of type tuple.
+FIR_SYMBOL const struct fir_node* fir_node_chop(const struct fir_node* node, size_t elem_count);
+
+/// @}
+
+/// @name Control-flow and functions
+/// @{
+
+/// Returns the first basic-block of a function, or `NULL` if it is not set.
+FIR_SYMBOL const struct fir_node* fir_func_entry(const struct fir_node*);
+
+/// Returns the return continuation of a function, or `NULL` if it is not set.
+FIR_SYMBOL const struct fir_node* fir_func_return(const struct fir_node*);
+
+/// Returns the memory parameter of the given function, or `NULL` if it does not exist.
+FIR_SYMBOL const struct fir_node* fir_func_mem_param(const struct fir_node*);
+
+/// @}
 
 /// @name Uses
 /// @{
