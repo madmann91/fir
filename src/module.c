@@ -287,8 +287,6 @@ cleanup_nominals(global)
 void fir_mod_cleanup(struct fir_mod* mod) {
     struct node_set live_nodes = collect_live_nodes(mod);
     fix_uses(mod, &live_nodes);
-    cleanup_funcs(&mod->funcs, &live_nodes);
-    cleanup_globals(&mod->globals, &live_nodes);
 
     struct node_vec dead_nodes = node_vec_create();
     SET_FOREACH(const struct fir_node*, node_ptr, mod->nodes) {
@@ -299,8 +297,14 @@ void fir_mod_cleanup(struct fir_mod* mod) {
     VEC_FOREACH(const struct fir_node*, node_ptr, dead_nodes) {
         [[maybe_unused]] bool was_removed = internal_node_set_remove(&mod->nodes, node_ptr);
         assert(was_removed);
+    }
+
+    VEC_FOREACH(const struct fir_node*, node_ptr, dead_nodes) {
         free_node((struct fir_node*)*node_ptr);
     }
+
+    cleanup_funcs(&mod->funcs, &live_nodes);
+    cleanup_globals(&mod->globals, &live_nodes);
 
     node_vec_destroy(&dead_nodes);
     node_set_destroy(&live_nodes);
