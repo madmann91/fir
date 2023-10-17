@@ -1,4 +1,5 @@
 ![Logo](logo.svg)
+
 ![Workflow status](https://github.com/madmann91/fir/actions/workflows/build-test-action.yml/badge.svg)
 
 # Fir
