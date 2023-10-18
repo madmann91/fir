@@ -13,9 +13,9 @@
 struct options {
     bool disable_colors;
     bool disable_cleanup;
+    bool is_verbose;
     bool print_ast;
     bool print_ir;
-    enum fir_verbosity verbosity;
 };
 
 static bool usage(void*, char*) {
@@ -23,7 +23,7 @@ static bool usage(void*, char*) {
         "usage: ash [options] files...\n"
         "options:\n"
         "  -h  --help               Shows this message.\n"
-        "      --verbosity=<level>  Sets the verbosity level (level = compact, medium, high).\n"
+        "  -v  --verbose            Makes the output verbose.\n"
         "      --no-color           Disables colors in the output.\n"
         "      --no-cleanup         Do not clean up the module after emitting it.\n"
         "      --print-ast          Prints the AST on the standard output.\n"
@@ -67,7 +67,7 @@ static bool compile_file(const char* file_name, const struct options* options) {
 
     struct fir_print_options print_options = fir_print_options_default(stdout);
     print_options.disable_colors |= options->disable_colors;
-    print_options.verbosity = options->verbosity;
+    print_options.verbosity = options->is_verbose ? FIR_VERBOSITY_HIGH : FIR_VERBOSITY_MEDIUM;
 
     if (options->print_ast)
         ast_print(stdout, program, &print_options);
@@ -94,14 +94,14 @@ done:
 }
 
 int main(int argc, char** argv) {
-    struct options options = { .verbosity = FIR_VERBOSITY_MEDIUM };
+    struct options options = {};
     struct cli_option cli_options [] = {
         { .short_name = "-h", .long_name = "--help", .parse = usage },
         cli_flag(NULL, "--no-color",   &options.disable_colors),
         cli_flag(NULL, "--no-cleanup", &options.disable_cleanup),
         cli_flag(NULL, "--print-ir",   &options.print_ir),
         cli_flag(NULL, "--print-ast",  &options.print_ast),
-        cli_verbosity(NULL, "--verbosity", &options.verbosity)
+        cli_flag("-v", "--verbose",    &options.is_verbose)
     };
     if (!cli_parse_options(argc, argv, cli_options, sizeof(cli_options) / sizeof(cli_options[0])))
         return 1;

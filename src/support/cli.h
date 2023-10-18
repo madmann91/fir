@@ -1,9 +1,8 @@
 #pragma once
 
-#include "fir/node.h"
-
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 struct cli_option {
     const char* short_name;
@@ -13,7 +12,12 @@ struct cli_option {
     bool (*parse)(void*, char*);
 };
 
-struct cli_option cli_flag(const char*, const char*, bool*);
-struct cli_option cli_verbosity(const char*, const char*, enum fir_verbosity*);
+[[nodiscard]] struct cli_option cli_flag(const char*, const char*, bool*);
+[[nodiscard]] struct cli_option cli_option_uint32(const char*, const char*, uint32_t*);
+[[nodiscard]] struct cli_option cli_option_uint64(const char*, const char*, uint64_t*);
+[[nodiscard]] struct cli_option cli_option_string(const char*, const char*, char**);
 
-bool cli_parse_options(int argc, char** argv, const struct cli_option*, size_t option_count);
+bool cli_parse_options(
+    int argc, char** argv,
+    const struct cli_option*,
+    size_t option_count);

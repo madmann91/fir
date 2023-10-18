@@ -1,7 +1,9 @@
 #include "cli.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 enum cli_state {
     STATE_ACCEPTED,
@@ -22,20 +24,44 @@ struct cli_option cli_flag(const char* short_name, const char* long_name, bool* 
     };
 }
 
-static inline bool set_verbosity(void* data, char* arg) {
-    if (!strcmp(arg, "compact")) return *(enum fir_verbosity*)data = FIR_VERBOSITY_COMPACT, true;
-    if (!strcmp(arg, "medium"))  return *(enum fir_verbosity*)data = FIR_VERBOSITY_MEDIUM, true;
-    if (!strcmp(arg, "high"))    return *(enum fir_verbosity*)data = FIR_VERBOSITY_HIGH, true;
-    fprintf(stderr, "invalid verbosity level '%s', must be 'compact', 'medium', or 'high'\n", arg);
-    return false;
+static inline bool set_uint32(void* data, char* arg) {
+    return *(uint32_t*)data = strtoul(arg, NULL, 10), true;
 }
 
-struct cli_option cli_verbosity(const char* short_name, const char* long_name, enum fir_verbosity* verbosity) {
+struct cli_option cli_option_uint32(const char* short_name, const char* long_name, uint32_t* data) {
     return (struct cli_option) {
         .short_name = short_name,
         .long_name = long_name,
-        .data = verbosity,
-        .parse = set_verbosity,
+        .data = data,
+        .parse = set_uint32,
+        .has_value = true
+    };
+}
+
+static inline bool set_uint64(void* data, char* arg) {
+    return *(uint64_t*)data = strtoumax(arg, NULL, 10), true;
+}
+
+struct cli_option cli_option_uint64(const char* short_name, const char* long_name, uint64_t* data) {
+    return (struct cli_option) {
+        .short_name = short_name,
+        .long_name = long_name,
+        .data = data,
+        .parse = set_uint64,
+        .has_value = true
+    };
+}
+
+static inline bool set_string(void* data, char* arg) {
+    return *(char**)data = arg, true;
+}
+
+struct cli_option cli_option_string(const char* short_name, const char* long_name, char** data) {
+    return (struct cli_option) {
+        .short_name = short_name,
+        .long_name = long_name,
+        .data = data,
+        .parse = set_string,
         .has_value = true
     };
 }

@@ -17,7 +17,7 @@ static bool usage(void*, char*) {
         "options:\n"
         "  -h  --help               Shows this message.\n"
         "      --version            Shows version information.\n"
-        "      --verbosity=<level>  Sets the verbosity level (level = compact, medium, high).\n"
+        "  -v  --verbose            Makes the output verbose.\n"
         "      --no-color           Disables colors in the output.\n"
         "      --no-cleanup         Do not clean up the module after loading it.\n");
     return false;
@@ -55,7 +55,7 @@ static bool version(void*, char*) {
 struct options {
     bool disable_cleanup;
     bool disable_colors;
-    enum fir_verbosity verbosity;
+    bool is_verbose;
 };
 
 static inline bool compile_file(const char* file_name, const struct options* options) {
@@ -78,7 +78,7 @@ static inline bool compile_file(const char* file_name, const struct options* opt
 
     struct fir_print_options print_options = fir_print_options_default(stdout);
     print_options.disable_colors |= options->disable_colors;
-    print_options.verbosity = options->verbosity;
+    print_options.verbosity = options->is_verbose ? FIR_VERBOSITY_HIGH : FIR_VERBOSITY_MEDIUM;
     fir_mod_print(stdout, mod, &print_options);
 
     fir_mod_destroy(mod);
@@ -86,14 +86,14 @@ static inline bool compile_file(const char* file_name, const struct options* opt
 }
 
 int main(int argc, char** argv) {
-    struct options options = { .verbosity = FIR_VERBOSITY_MEDIUM };
+    struct options options = {};
 
     struct cli_option cli_options[] = {
         { .short_name = "-h", .long_name = "--help", .parse = usage },
         { .long_name = "--version", .parse = version },
         cli_flag(NULL, "--no-color",   &options.disable_colors),
         cli_flag(NULL, "--no-cleanup", &options.disable_cleanup),
-        cli_verbosity(NULL, "--verbosity", &options.verbosity)
+        cli_flag("-v", "--verbose",    &options.is_verbose)
     };
     if (!cli_parse_options(argc, argv, cli_options, sizeof(cli_options) / sizeof(cli_options[0])))
         return 1;
