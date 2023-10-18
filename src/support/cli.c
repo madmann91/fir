@@ -126,6 +126,7 @@ bool cli_parse_options(int argc, char** argv, const struct cli_option* options, 
         fprintf(stderr, "invalid option '%s'\n", argv[i]);
         return false;
 next_arg:
+        continue;
     }
     return true;
 }
