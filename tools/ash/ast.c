@@ -1,5 +1,7 @@
 #include "ast.h"
 
+#include "support/term.h"
+
 #include <assert.h>
 #include <inttypes.h>
 
@@ -8,11 +10,12 @@ static inline void print_many(
     const char* begin,
     const char* sep,
     const char* end,
-    const struct ast* ast)
+    const struct ast* ast,
+    const struct fir_print_options* options)
 {
     fprintf(file, "%s", begin);
     for (; ast; ast = ast->next) {
-        ast_print(file, ast);
+        ast_print(file, ast, options);
         if (ast->next)
             fprintf(file, "%s", sep);
     }
@@ -39,27 +42,40 @@ static void print_literal(FILE* file, const struct literal* literal) {
         fprintf(file, "%g", literal->float_val);
 }
 
-static void print_with_parens(FILE* file, const struct ast* param) {
+static void print_with_parens(
+    FILE* file,
+    const struct ast* param,
+    const struct fir_print_options* options)
+{
     if (param->tag == AST_TUPLE_TYPE ||
         param->tag == AST_TUPLE_EXPR ||
         param->tag == AST_TUPLE_PATTERN)
         param = param->tuple_type.args;
-    print_many(file, "(", ", ", ")", param);
+    print_many(file, "(", ", ", ")", param, options);
 }
 
-void ast_print(FILE* file, const struct ast* ast) {
+void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options* options) {
+    const char* keyword_style = options->disable_colors ? "" : TERM2(TERM_FG_GREEN, TERM_BOLD);
+    const char* literal_style = options->disable_colors ? "" : TERM1(TERM_FG_CYAN);
+    const char* error_style = options->disable_colors ? "" : TERM2(TERM_FG_RED, TERM_BOLD);
+    const char* reset_style = options->disable_colors ? "" : TERM1(TERM_RESET);
     switch (ast->tag) {
         case AST_ERROR:
-            fprintf(file, "<ERROR>");
+            fprintf(file, "%s<ERROR>%s", error_style, reset_style);
             break;
         case AST_PROGRAM:
-            print_many(file, "", "\n", "", ast->program.decls);
+            print_many(file, "", "\n", "", ast->program.decls, options);
+            fprintf(file, "\n");
             break;
         case AST_LITERAL:
+            fprintf(file, "%s", literal_style);
             print_literal(file, &ast->literal);
+            fprintf(file, "%s", reset_style);
             break;
         case AST_PRIM_TYPE:
+            fprintf(file, "%s", keyword_style);
             print_prim_type(file, ast->prim_type.tag);
+            fprintf(file, "%s", reset_style);
             break;
         case AST_IDENT_EXPR:
             fprintf(file, "%s", ast->ident_expr.name);
@@ -68,39 +84,39 @@ void ast_print(FILE* file, const struct ast* ast) {
             fprintf(file, "%s", ast->ident_pattern.name);
             if (ast->ident_pattern.type) {
                 fprintf(file, ": ");
-                ast_print(file, ast->ident_pattern.type);
+                ast_print(file, ast->ident_pattern.type, options);
             }
             break;
         case AST_IMPLICIT_CAST_EXPR:
-            ast_print(file, ast->implicit_cast_expr.expr);
+            ast_print(file, ast->implicit_cast_expr.expr, options);
             break;
         case AST_FIELD_TYPE:
         case AST_FIELD_EXPR:
         case AST_FIELD_PATTERN:
             if (ast->field_type.name)
                 fprintf(file, ast->tag == AST_FIELD_TYPE ? "%s: " : "%s = ", ast->field_type.name);
-            ast_print(file, ast->field_type.arg);
+            ast_print(file, ast->field_type.arg, options);
             break;
         case AST_RECORD_TYPE:
         case AST_RECORD_EXPR:
         case AST_RECORD_PATTERN:
-            print_many(file, "[", ", ", "]", ast->record_type.fields);
+            print_many(file, "[", ", ", "]", ast->record_type.fields, options);
             break;
         case AST_TUPLE_TYPE:
         case AST_TUPLE_EXPR:
         case AST_TUPLE_PATTERN:
-            print_many(file, "(", ", ", ")", ast->tuple_type.args);
+            print_many(file, "(", ", ", ")", ast->tuple_type.args, options);
             break;
         case AST_FUNC_DECL:
-            fprintf(file, "func %s", ast->func_decl.name);
-            print_with_parens(file, ast->func_decl.param);
+            fprintf(file, "%sfunc%s %s", keyword_style, reset_style, ast->func_decl.name);
+            print_with_parens(file, ast->func_decl.param, options);
             if (ast->func_decl.ret_type) {
                 fprintf(file, " -> ");
-                ast_print(file, ast->func_decl.ret_type);
+                ast_print(file, ast->func_decl.ret_type, options);
             }
             if (ast->func_decl.body) {
                 fprintf(file, " = ");
-                ast_print(file, ast->func_decl.body);
+                ast_print(file, ast->func_decl.body, options);
             }
             fprintf(file, ";");
             break;
@@ -111,8 +127,8 @@ void ast_print(FILE* file, const struct ast* ast) {
 }
 
 void ast_dump(const struct ast* ast) {
-    ast_print(stdout, ast);
-    printf("\n");
+    struct fir_print_options options = fir_print_options_default(stdout);
+    ast_print(stdout, ast, &options);
     fflush(stdout);
 }
 

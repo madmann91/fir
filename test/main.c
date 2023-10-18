@@ -2,6 +2,7 @@
 #include "test.h"
 
 #include "support/term.h"
+#include "support/cli.h"
 #include "support/io.h"
 
 #include <stdio.h>
@@ -12,7 +13,6 @@
 #endif
 
 struct options {
-    bool enable_filtering;
     bool disable_colors;
 #ifndef TEST_DISABLE_REGEX
     bool regex_match;
@@ -30,7 +30,7 @@ void register_test(const char* name, void (*test_func) (struct test_context*)) {
     });
 }
 
-void usage(void) {
+static bool usage(void*, char*) {
     printf(
         "usage: testdriver [options] filters ...\n"
         "options:\n"
@@ -40,38 +40,14 @@ void usage(void) {
 #endif
         "         --no-color   Turns of the use of color in the output.\n"
         "         --list       Lists all tests and exit.\n");
+    return false;
 }
 
-static void print_tests() {
+static bool print_tests(void*, char*) {
     VEC_FOREACH(struct test, test, tests) {
         printf("%s\n", test->name);
     }
-}
-
-bool parse_options(int argc, char** argv, struct options* options) {
-    for (int i = 1; i < argc; ++i) {
-        if (argv[i][0] == '-') {
-            if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
-                usage();
-                return false;
-            } else if (!strcmp(argv[i], "--list")) {
-                print_tests();
-                return false;
-            } else if (!strcmp(argv[i], "--no-color")) {
-                options->disable_colors = true;
-#ifndef TEST_DISABLE_REGEX
-            } else if (!strcmp(argv[i], "--regex")) {
-                options->regex_match = true;
-#endif
-            } else {
-                fprintf(stderr, "invalid option '%s'\n", argv[i]);
-                return false;
-            }
-        } else {
-            options->enable_filtering = true;
-        }
-    }
-    return true;
+    return false;
 }
 
 static const char* color_code(bool success) {
@@ -107,13 +83,16 @@ static pcre2_code* compile_regex(const char* pattern) {
 #endif
 
 static size_t filter_tests(int argc, char** argv, const struct options* options) {
-    if (!options->enable_filtering) {
+    bool enable_filtering = false;
+    for (int i = 1; i < argc && !enable_filtering; ++i)
+        enable_filtering |= argv[i] != NULL;
+    if (!enable_filtering) {
         VEC_FOREACH(struct test, test, tests) { test->enabled = true; }
         return tests.elem_count;
     }
 
     for (int i = 1; i < argc; ++i) {
-        if (argv[i][0] == '-')
+        if (!argv[i])
             continue;
 #ifndef TEST_DISABLE_REGEX
         if (options->regex_match) {
@@ -146,7 +125,15 @@ static size_t filter_tests(int argc, char** argv, const struct options* options)
 
 int main(int argc, char** argv) {
     struct options options = { .disable_colors = !is_terminal(stdout) };
-    if (!parse_options(argc, argv, &options))
+    struct cli_option cli_options[] = {
+        { .short_name = "-h", .long_name = "--help", .parse = usage },
+        { .long_name = "--list", .parse = print_tests },
+        cli_flag(NULL, "--no-color", &options.disable_colors),
+#ifndef TEST_DISABLE_REGEX
+        cli_flag(NULL, "--regex",    &options.regex_match)
+#endif
+    };
+    if (!cli_parse_options(argc, argv, cli_options, sizeof(cli_options) / sizeof(cli_options[0])))
         return 1;
 
     size_t enabled_tests = filter_tests(argc, argv, &options);
@@ -182,7 +169,7 @@ int main(int argc, char** argv) {
     bool failed = passed_tests != enabled_tests;
     printf("\n%s%zu/%zu test(s) passed, %zu assertion(s) passed%s\n",
         options.disable_colors ? "" : color_code(failed == 0),
-        passed_tests, tests.elem_count, passed_asserts,
+        passed_tests, enabled_tests, passed_asserts,
         options.disable_colors ? "" : TERM1(TERM_RESET));
     test_vec_destroy(&tests);
     return failed == 0 ? 0 : 1;

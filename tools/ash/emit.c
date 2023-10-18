@@ -52,7 +52,7 @@ static const struct fir_node* convert_type(struct emitter* emitter, const struct
 static const struct fir_node* emit_func_decl(struct emitter* emitter, struct ast* func_decl) {
     assert(func_decl->tag == AST_FUNC_DECL);
     struct fir_node* func = fir_func(convert_type(emitter, func_decl->type));
-    func->data.linkage = FIR_EXPORTED;
+    func->data.linkage = FIR_LINKAGE_EXPORTED;
     struct fir_block entry;
     const struct fir_node* param = fir_block_start(&entry, func);
     emitter->block = &entry;

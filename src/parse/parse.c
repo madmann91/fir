@@ -124,11 +124,11 @@ static inline double parse_float_val(struct parser* parser) {
 }
 
 static inline enum fir_linkage parse_linkage(struct parser* parser) {
-    enum fir_linkage linkage = FIR_INTERNAL;
+    enum fir_linkage linkage = FIR_LINKAGE_INTERNAL;
     struct str_view ident = token_str_view(parser->lexer.data, parser->ahead);
-    if (str_view_cmp(&ident, &STR_VIEW("internal")))      linkage = FIR_INTERNAL;
-    else if (str_view_cmp(&ident, &STR_VIEW("imported"))) linkage = FIR_IMPORTED;
-    else if (str_view_cmp(&ident, &STR_VIEW("exported"))) linkage = FIR_EXPORTED;
+    if (str_view_cmp(&ident, &STR_VIEW("internal")))      linkage = FIR_LINKAGE_INTERNAL;
+    else if (str_view_cmp(&ident, &STR_VIEW("imported"))) linkage = FIR_LINKAGE_IMPORTED;
+    else if (str_view_cmp(&ident, &STR_VIEW("exported"))) linkage = FIR_LINKAGE_EXPORTED;
     else invalid_linkage(parser, &parser->ahead->source_range, ident);
     expect_token(parser, TOK_IDENT);
     return linkage;

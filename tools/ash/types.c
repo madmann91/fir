@@ -4,6 +4,7 @@
 #include "support/hash.h"
 #include "support/str_pool.h"
 #include "support/mem_pool.h"
+#include "support/mem_stream.h"
 
 static inline uint32_t hash_type(uint32_t h, const struct type* const* type_ptr) {
     const struct type* type = *type_ptr;
@@ -191,14 +192,11 @@ void type_dump(const struct type* type) {
 }
 
 char* type_to_string(const struct type* type) {
-    char* buf;
-    size_t size;
-    FILE* file = open_memstream(&buf, &size);
-    if (!file)
-        return NULL;
-    type_print(file, type);
-    fclose(file);
-    return buf;
+    struct mem_stream mem_stream;
+    mem_stream_init(&mem_stream);
+    type_print(mem_stream.file, type);
+    mem_stream_destroy(&mem_stream);
+    return mem_stream.buf;
 }
 
 static inline size_t find_field(

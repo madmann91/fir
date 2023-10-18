@@ -224,8 +224,10 @@ static void visit_node(
         if (!node_set_insert(visited_nodes, &top))
             continue;
 
-        for (size_t i = 0; i < top->op_count; ++i)
-            node_vec_push(stack, &top->ops[i]);
+        for (size_t i = 0; i < top->op_count; ++i) {
+            if (top->ops[i])
+                node_vec_push(stack, &top->ops[i]);
+        }
     }
 }
 
@@ -233,11 +235,11 @@ static struct node_set collect_live_nodes(struct fir_mod* mod) {
     struct node_set live_nodes = node_set_create();
     struct node_vec stack = node_vec_create();
     VEC_FOREACH(struct fir_node*, func_ptr, mod->funcs) {
-        if ((*func_ptr)->data.linkage == FIR_EXPORTED)
+        if ((*func_ptr)->data.linkage == FIR_LINKAGE_EXPORTED)
             visit_node(*func_ptr, &stack, &live_nodes);
     }
     VEC_FOREACH(struct fir_node*, global_ptr, mod->globals) {
-        if ((*global_ptr)->data.linkage == FIR_EXPORTED)
+        if ((*global_ptr)->data.linkage == FIR_LINKAGE_EXPORTED)
             visit_node(*global_ptr, &stack, &live_nodes);
     }
     node_vec_destroy(&stack);
@@ -454,7 +456,7 @@ struct fir_node* fir_func(const struct fir_node* func_ty) {
     func->id = mod->cur_id++;
     func->tag = FIR_FUNC;
     func->ty = func_ty;
-    func->data.linkage = FIR_INTERNAL;
+    func->data.linkage = FIR_LINKAGE_INTERNAL;
     func->op_count = 1;
     func_vec_push(&mod->funcs, &func);
     return func;
@@ -473,7 +475,7 @@ struct fir_node* fir_global(struct fir_mod* mod) {
     global->id = mod->cur_id++;
     global->tag = FIR_GLOBAL;
     global->ty = fir_ptr_ty(mod);
-    global->data.linkage = FIR_INTERNAL;
+    global->data.linkage = FIR_LINKAGE_INTERNAL;
     global->op_count = 1;
     global_vec_push(&mod->globals, &global);
     return global;

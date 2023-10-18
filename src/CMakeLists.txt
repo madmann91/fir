@@ -1,8 +1,10 @@
 add_library(libfir_support STATIC
     support/io.c
     support/log.c
+    support/cli.c
     support/str_pool.c
     support/mem_pool.c
+    support/mem_stream.c
     support/datatypes.c
     support/alloc.c
     support/primes.c)
