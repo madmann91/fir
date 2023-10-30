@@ -32,11 +32,18 @@ static const struct fir_node* convert_type(struct emitter* emitter, const struct
             return fir_mem_func_ty(
                 convert_type(emitter, type->func_type.param_type),
                 convert_type(emitter, type->func_type.ret_type));
+        case TYPE_RECORD:
         case TYPE_TUPLE: {
             struct small_node_vec args_ty;
             small_node_vec_init(&args_ty);
-            for (size_t i = 0; i < type->tuple_type.arg_count; ++i) {
-                const struct fir_node* arg_ty = convert_type(emitter, type->tuple_type.arg_types[i]);
+            const size_t arg_count = type->tag == TYPE_TUPLE
+                ? type->tuple_type.arg_count
+                : type->record_type.field_count;
+            const struct type* const* arg_types = type->tag == TYPE_TUPLE
+                ? type->tuple_type.arg_types
+                : type->record_type.field_types;
+            for (size_t i = 0; i < arg_count; ++i) {
+                const struct fir_node* arg_ty = convert_type(emitter, arg_types[i]);
                 small_node_vec_push(&args_ty, &arg_ty);
             }
             const struct fir_node* tup_ty = fir_tup_ty(emitter->mod, args_ty.elems, args_ty.elem_count);
@@ -73,6 +80,24 @@ static const struct fir_node* emit_tuple_expr(struct emitter* emitter, struct as
     return tup;
 }
 
+static const struct fir_node* emit_record_expr(struct emitter* emitter, struct ast* record_expr) {
+    const struct type* record_type = record_expr->type;
+    assert(record_type->tag == TYPE_RECORD);
+
+    struct small_node_vec args;
+    small_node_vec_init(&args);
+    small_node_vec_resize(&args, record_type->record_type.field_count);
+    for (struct ast* field = record_expr->record_expr.fields; field; field = field->next) {
+        size_t index = type_find_field(record_type, field->field_expr.name);
+        assert(index < record_type->record_type.field_count);
+        args.elems[index] = emit(emitter, field);
+    }
+
+    const struct fir_node* tup = fir_tup(emitter->mod, args.elems, args.elem_count);
+    small_node_vec_destroy(&args);
+    return tup;
+}
+
 static const struct fir_node* emit_literal(
     struct emitter* emitter,
     struct literal* literal,
@@ -98,6 +123,10 @@ static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
             return ast->node = ast->ident_expr.bound_to->node;
         case AST_TUPLE_EXPR:
             return ast->node = emit_tuple_expr(emitter, ast);
+        case AST_RECORD_EXPR:
+            return ast->node = emit_record_expr(emitter, ast);
+        case AST_FIELD_EXPR:
+            return ast->node = emit(emitter, ast->field_expr.arg);
         default:
             assert(false && "invalid AST node");
             break;

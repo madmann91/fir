@@ -24,22 +24,24 @@ static bool usage(void*, char*) {
 }
 
 static bool version(void*, char*) {
-#define RED TERM1(TERM_FG_RED)
-#define RES TERM1(TERM_RESET)
+#define HIGH TERM2(TERM_FG_WHITE, TERM_BOLD)
+#define MED TERM2(TERM_FG_YELLOW, TERM_BOLD)
+#define LOW TERM2(TERM_FG_RED, TERM_BOLD)
+#define RESET TERM1(TERM_RESET)
 	printf(
-		RED "               .             " RES "\n"
-		RED "       .       ...           " RES "\n"
-		RED "       ...     ....          " RES "\n"
-		RED "    .   ..... .....   .      " RES "   /////////////////    ////\n"
-		RED "    ..   ........... ...     " RES "     ////         //    ////\n"
-		RED "    .... ................    " RES "     ////\n"
-		RED "  . ........ ... ........    " RES "     ////       //    //////     ////// //////\n"
-		RED "  ..... ...  ..   .......  . " RES "     /////////////       ///        /////   //\n"
-		RED " . ....       .   . ........ " RES "     ////       //       ///        ///\n"
-		RED " .. . ..               ..... " RES "     ////                ///        ///\n"
-		RED " ....                  ..... " RES "     ////                ///        ///\n"
-		RED "  ....                .....  " RES "     ////                ///        ///        ////\n"
-		RED "   ....              ....    " RES "    //////              /////      /////       ////\n\n");
+		LOW "               .             \n" RESET
+		LOW "       .       ...           \n" RESET
+		LOW "       ...     ....          \n" RESET
+		LOW "    .   ..... .....   .        ///////////////// " MED "   ////\n" RESET
+		LOW "    ..   ........... ...         ////         // " MED "   ////\n" RESET
+		LOW "    .... ................        ////\n" RESET
+		LOW "  . ........ ... ........        ////       //   " MED " //////    " HIGH " ////// //////\n" RESET
+		LOW "  ..... ...  ..   .......  .     /////////////   " MED "    ///    " HIGH "    /////   //\n" RESET
+		LOW " . ....       .   . ........     ////       //   " MED "    ///    " HIGH "    ///\n" RESET
+		LOW " .. . ..               .....     ////            " MED "    ///    " HIGH "    ///\n" RESET
+		LOW " ....                  .....     ////            " MED "    ///    " HIGH "    ///\n" RESET
+		LOW "  ....                .....      ////            " MED "    ///    " HIGH "    ///        ////\n" RESET
+		LOW "   ....              ....       //////           " MED "   /////   " HIGH "   /////       ////\n\n" RESET);
 #undef RED
 #undef RES
 

@@ -1,8 +1,6 @@
 #include "ast.h"
 #include "types.h"
 
-#include "support/set.h"
-#include "support/vec.h"
 #include "support/hash.h"
 #include "support/log.h"
 #include "support/datatypes.h"
@@ -10,18 +8,6 @@
 
 #include <stdint.h>
 #include <assert.h>
-
-static inline uint32_t hash_ast(uint32_t h, struct ast* const* ast_ptr) {
-    return hash_uint64(h, (uintptr_t)*ast_ptr);
-}
-
-static inline bool cmp_ast(struct ast* const* ast_ptr, struct ast* const* other_ptr) {
-    return *ast_ptr == *other_ptr;
-}
-
-SET_DEFINE(ast_set, struct ast*, hash_ast, cmp_ast, PRIVATE)
-SMALL_VEC_DEFINE(small_type_vec, const struct type*, PRIVATE)
-SMALL_VEC_DEFINE(small_string_vec, const char*, PRIVATE)
 
 struct type_checker {
     struct ast_set visited_decls;
@@ -150,7 +136,7 @@ static const struct type* infer_record(struct type_checker* type_checker, struct
         const struct type* field_type = infer(type_checker, field);
         const char* field_name = field->field_type.name;
         small_type_vec_push(&field_types, &field_type);
-        small_string_vec_push(&field_names, &field_name);
+        small_string_vec_push(&field_names, (char**)&field_name);
         if (!str_view_set_insert(&fields_seen, &STR_VIEW(field_name))) {
             log_error(type_checker->log, &field->source_range, "field '%s' mentioned more than once", field_name);
             return type_top(type_checker->type_set);
@@ -160,7 +146,7 @@ static const struct type* infer_record(struct type_checker* type_checker, struct
     const struct type* type = type_record(
         type_checker->type_set,
         field_types.elems,
-        field_names.elems,
+        (const char* const*)field_names.elems,
         field_types.elem_count);
 
     small_type_vec_destroy(&field_types);

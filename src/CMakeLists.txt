@@ -2,6 +2,7 @@ add_library(libfir_support STATIC
     support/io.c
     support/log.c
     support/cli.c
+    support/graph.c
     support/str_pool.c
     support/mem_pool.c
     support/mem_stream.c
@@ -10,6 +11,8 @@ add_library(libfir_support STATIC
     support/primes.c)
 
 add_library(libfir_analysis STATIC
+    analysis/loop_tree.c
+    analysis/dom_tree.c
     analysis/scope.c
     analysis/cfg.c)
 

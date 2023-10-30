@@ -5,6 +5,16 @@
 #include <assert.h>
 #include <inttypes.h>
 
+static inline uint32_t hash_ast(uint32_t h, struct ast* const* ast_ptr) {
+    return hash_uint64(h, (uintptr_t)*ast_ptr);
+}
+
+static inline bool cmp_ast(struct ast* const* ast_ptr, struct ast* const* other_ptr) {
+    return *ast_ptr == *other_ptr;
+}
+
+SET_IMPL(ast_set, struct ast*, hash_ast, cmp_ast, PUBLIC)
+
 static inline void print_many(
     FILE* file,
     const char* begin,

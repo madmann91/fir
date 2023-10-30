@@ -3,6 +3,8 @@
 #include "token.h"
 #include "ast.h"
 
+#include "support/vec.h"
+
 #include <stdio.h>
 
 enum type_tag {
@@ -60,9 +62,13 @@ struct type {
 
 struct type_set;
 
+SMALL_VEC_DECL(small_type_vec, const struct type*, PUBLIC)
+
 void type_print(FILE*, const struct type*);
 void type_dump(const struct type*);
 char* type_to_string(const struct type*);
+
+size_t type_find_field(const struct type* record_type, const char* field_name);
 
 bool type_is_subtype(const struct type*, const struct type*);
 bool type_is_prim(const struct type*);
@@ -75,7 +81,7 @@ bool type_tag_is_int(enum type_tag);
 bool type_tag_is_float(enum type_tag);
 size_t type_tag_bitwidth(enum type_tag);
 
-struct type_set* type_set_create(void);
+[[nodiscard]] struct type_set* type_set_create(void);
 void type_set_destroy(struct type_set*);
 
 const struct type* type_top(struct type_set*);

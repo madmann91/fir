@@ -292,6 +292,7 @@ const struct fir_node* fir_func_return(const struct fir_node* func) {
         return NULL;
     const struct fir_node* param = fir_param(entry);
     assert(fir_node_is_cont_ty(param->ty));
+    assert(param->ty->ops[0] == func->ty->ops[1]);
     return param;
 }
 

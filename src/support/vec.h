@@ -11,6 +11,9 @@
 #define VEC_FOREACH(elem_ty, elem, vec) \
     for (elem_ty* elem = (vec).elems; elem != (vec).elems + (vec).elem_count; ++elem)
 
+#define VEC_REV_FOREACH(elem_ty, elem, vec) \
+    for (elem_ty* elem = (vec).elems + (vec).elem_count; elem-- != (vec).elems; )
+
 #define VEC_DEFINE(name, elem_ty, vis) \
     VEC_DECL(name, elem_ty, vis) \
     VEC_IMPL(name, elem_ty, vis)

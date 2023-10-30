@@ -2,6 +2,8 @@
 
 #include "token.h"
 
+#include "support/set.h"
+
 #include <fir/node.h>
 
 #include <stdbool.h>
@@ -172,6 +174,8 @@ struct mem_pool;
 struct type_set;
 struct log;
 struct fir_mod;
+
+SET_DECL(ast_set, struct ast*, PUBLIC)
 
 void ast_print(FILE*, const struct ast*, const struct fir_print_options*);
 void ast_dump(const struct ast*);

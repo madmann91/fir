@@ -1,10 +1,12 @@
 #include "types.h"
 
-#include "support/set.h"
+#include "support/datatypes.h"
 #include "support/hash.h"
 #include "support/str_pool.h"
 #include "support/mem_pool.h"
 #include "support/mem_stream.h"
+
+SMALL_VEC_IMPL(small_type_vec, const struct type*, PUBLIC)
 
 static inline uint32_t hash_type(uint32_t h, const struct type* const* type_ptr) {
     const struct type* type = *type_ptr;
@@ -199,16 +201,17 @@ char* type_to_string(const struct type* type) {
     return mem_stream.buf;
 }
 
-static inline size_t find_field(
-    const char* field_name,
-    const char* const* field_names,
-    size_t field_count)
-{
-    for (size_t i = 0; i < field_count; ++i) {
-        if (field_name == field_names[i])
-            return i;
-    }
-    return field_count;
+static int cmp_field_names(const void* field, const void* other) {
+    return strcmp(*(char**)field, *(char**)other);
+}
+
+size_t type_find_field(const struct type* record_type, const char* field_name) {
+    assert(record_type->tag == TYPE_RECORD);
+    const char** name_ptr = bsearch(&field_name,
+        record_type->record_type.field_names,
+        record_type->record_type.field_count,
+        sizeof(char*), cmp_field_names);
+    return name_ptr ? (size_t)(name_ptr - record_type->record_type.field_names) : SIZE_MAX;
 }
 
 bool type_is_subtype(const struct type* left, const struct type* right) {
@@ -220,10 +223,7 @@ bool type_is_subtype(const struct type* left, const struct type* right) {
         if (left->record_type.field_count < right->record_type.field_count)
             return false;
         for (size_t i = 0; i < right->record_type.field_count; ++i) {
-            size_t field_index = find_field(
-                right->record_type.field_names[i],
-                left->record_type.field_names,
-                left->record_type.field_count);
+            size_t field_index = type_find_field(left, right->record_type.field_names[i]);
             if (field_index >= left->record_type.field_count)
                 return false;
             if (!type_is_subtype(
@@ -437,20 +437,39 @@ const struct type* type_record(
     const char* const* field_names,
     size_t field_count)
 {
+    struct small_string_vec sorted_field_names;
+    small_string_vec_init(&sorted_field_names);
+    small_string_vec_resize(&sorted_field_names, field_count);
+    for (size_t i = 0; i < field_count; ++i)
+        sorted_field_names.elems[i] = (char*)field_names[i];
+    qsort(sorted_field_names.elems, field_count, sizeof(char*), cmp_field_names);
+
 #ifndef NDEBUG
-    for (size_t i = 0; i < field_count; ++i) {
-        for (size_t j = i + 1; j < field_count; ++j)
-            assert(strcmp(field_names[i], field_names[j]) != 0);
-    }
+    for (size_t i = 1; i < field_count; ++i)
+        assert(strcmp(sorted_field_names.elems[i - 1], sorted_field_names.elems[i]) < 0);
 #endif
-    return insert_type(type_set, &(struct type) {
+
+    struct small_type_vec sorted_field_types;
+    small_type_vec_init(&sorted_field_types);
+    small_type_vec_resize(&sorted_field_types, field_count);
+    for (size_t i = 0; i < field_count; ++i) {
+        char** name_ptr = bsearch(&field_names[i], sorted_field_names.elems, field_count, sizeof(char*), cmp_field_names);
+        assert(name_ptr);
+        sorted_field_types.elems[(size_t)(name_ptr - sorted_field_names.elems)] = field_types[i];
+    }
+
+    const struct type* record_type = insert_type(type_set, &(struct type) {
         .tag = TYPE_RECORD,
         .record_type = {
-            .field_types = field_types,
-            .field_names = field_names,
+            .field_types = sorted_field_types.elems,
+            .field_names = (const char* const*)sorted_field_names.elems,
             .field_count = field_count
         }
     });
+
+    small_string_vec_destroy(&sorted_field_names);
+    small_type_vec_destroy(&sorted_field_types);
+    return record_type;
 }
 
 const struct type* type_tuple(

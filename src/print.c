@@ -125,7 +125,7 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
             fir_node_print(file, *node_ptr, options);
             fprintf(file, "\n");
         }
-        node_graph_print(file, &cfg.graph);
+        graph_print(file, &cfg.graph);
         scope_destroy(&scope);
         cfg_destroy(&cfg);
     }

@@ -226,6 +226,9 @@ FIR_SYMBOL const struct fir_node* fir_node_rebuild(
     const struct fir_node* ty,
     const struct fir_node* const* ops);
 
+/// @name Printing
+/// @{
+
 /// Clones the given _nominal_ node with a new type into the given module.
 /// Linkage is inherited from the original nominal node.
 FIR_SYMBOL struct fir_node* fir_node_clone(
@@ -254,6 +257,8 @@ FIR_SYMBOL struct fir_print_options fir_print_options_default(FILE*);
 FIR_SYMBOL void fir_node_print(FILE*, const struct fir_node*, const struct fir_print_options*);
 /// Prints a node on standard output.
 FIR_SYMBOL void fir_node_dump(const struct fir_node*);
+
+/// @}
 
 /// @name Aggregates
 /// @{
