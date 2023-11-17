@@ -82,6 +82,12 @@ FIR_SYMBOL void fir_block_jump(struct fir_block* from, struct fir_block* target)
 /// Returns from the enclosing function, if the block is not already terminated.
 FIR_SYMBOL void fir_block_return(struct fir_block*, const struct fir_node* ret_val);
 
+/// Calls a function with side-effects from the given block.
+FIR_SYMBOL const struct fir_node* fir_block_call(
+    struct fir_block*,
+    const struct fir_node* callee,
+    const struct fir_node* arg);
+
 /// @}
 
 /// @name Memory operations

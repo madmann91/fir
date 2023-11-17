@@ -245,6 +245,8 @@ enum fir_verbosity {
 
 /// Options passed to @ref fir_node_print and @ref fir_mod_print.
 struct fir_print_options {
+    const char* tab;              ///< String used as a tabulation character for indentation.
+    size_t indent;                ///< Indentation level.
     bool disable_colors;          ///< Disables terminal colors in the output.
     enum fir_verbosity verbosity; ///< Verbosity of the output (when applicable).
 };

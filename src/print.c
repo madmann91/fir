@@ -9,9 +9,9 @@
 
 #include <inttypes.h>
 
-static inline void print_indent(FILE* file, size_t indent) {
+static inline void print_indent(FILE* file, size_t indent, const char* tab) {
     for (size_t i = 0; i < indent; ++i)
-        fprintf(file, "    ");
+        fputs(tab, file);
 }
 
 static void print_fp_flags(FILE* file, enum fir_fp_flags flags) {
@@ -74,6 +74,7 @@ static void print_node(FILE* file, const struct fir_node* node, const struct fir
 }
 
 void fir_node_print(FILE* file, const struct fir_node* node, const struct fir_print_options* options) {
+    print_indent(file, options->indent, options->tab);
     if (!fir_node_is_ty(node)) {
         if (options->verbosity != FIR_VERBOSITY_COMPACT) {
             print_node(file, node->ty, options);
@@ -86,6 +87,7 @@ void fir_node_print(FILE* file, const struct fir_node* node, const struct fir_pr
 
 struct fir_print_options fir_print_options_default(FILE* file) {
     return (struct fir_print_options) {
+        .tab = "    ",
         .disable_colors = !is_terminal(file),
         .verbosity = FIR_VERBOSITY_MEDIUM
     };
@@ -105,6 +107,7 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
     size_t global_count = fir_mod_global_count(mod);
 
     for (size_t i = 0; i < global_count; ++i) {
+        print_indent(file, options->indent, options->tab);
         fir_node_print(file, globals[i], options);
         fprintf(file, "\n");
     }
@@ -113,6 +116,7 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
         if (funcs[i]->ty->ops[1]->tag == FIR_NORET_TY)
             continue;
 
+        print_indent(file, options->indent, options->tab);
         fir_node_print(file, funcs[i], options);
         fprintf(file, "\n");
         if (!funcs[i]->ops[0])
@@ -121,7 +125,7 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
         struct scope scope = scope_create(funcs[i]);
         struct cfg cfg = cfg_create(&scope);
         SET_FOREACH(const struct fir_node*, node_ptr, scope.nodes) {
-            print_indent(file, 1);
+            print_indent(file, options->indent + 1, options->tab);
             fir_node_print(file, *node_ptr, options);
             fprintf(file, "\n");
         }

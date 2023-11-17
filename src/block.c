@@ -34,6 +34,7 @@ static inline void jump(
 
 const struct fir_node* fir_block_start(struct fir_block* entry, struct fir_node* func) {
     const struct fir_node* mem = fir_ext_mem(fir_param(func));
+    assert(mem);
     *entry = make_block(fir_cont(fir_cont_ty(func->ty->ops[1])), func, mem, true);
     entry->is_merge_block = false;
     fir_node_set_op(func, 0, fir_start(entry->block));
@@ -91,6 +92,17 @@ void fir_block_jump(struct fir_block* from, struct fir_block* target) {
 void fir_block_return(struct fir_block* from, const struct fir_node* ret_val) {
     if (!from->is_terminated)
         jump(from, fir_call(fir_func_return(from->func), fir_node_prepend(ret_val, &from->mem, 1)), NULL);
+}
+
+const struct fir_node* fir_block_call(
+    struct fir_block* block,
+    const struct fir_node* callee,
+    const struct fir_node* arg)
+{
+    const struct fir_node* ret_val = fir_call(callee, fir_node_prepend(arg, &block->mem, 1));
+    block->mem = fir_ext_at(ret_val, 0);
+    assert(block->mem->ty->tag == FIR_MEM_TY);
+    return fir_node_chop(ret_val, 1);
 }
 
 const struct fir_node* fir_block_alloc(struct fir_block* block, const struct fir_node* ty) {

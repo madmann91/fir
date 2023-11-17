@@ -270,9 +270,14 @@ const struct fir_node* fir_node_chop(const struct fir_node* node, size_t elem_co
     }
 
     struct fir_mod* mod = fir_node_mod(node);
-    const struct fir_node* new_node = is_ty
-        ? fir_tup_ty(mod, args.elems, args.elem_count)
-        : fir_tup(mod, args.elems, args.elem_count);
+    const struct fir_node* new_node = NULL;
+    if (args.elem_count == 1) {
+        new_node = args.elems[0];
+    } else {
+        new_node = is_ty
+            ? fir_tup_ty(mod, args.elems, args.elem_count)
+            : fir_tup(mod, args.elems, args.elem_count);
+    }
     small_node_vec_destroy(&args);
     return new_node;
 }

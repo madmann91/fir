@@ -6,10 +6,11 @@ add_executable(unit_tests
     unit/parse.c
     unit/support/mem_pool.c
     unit/support/map.c
-    unit/support/set.c)
+    unit/support/set.c
+    unit/analysis/cfg.c)
 
 target_include_directories(unit_tests PRIVATE ../src .)
-target_link_libraries(unit_tests PRIVATE libfir libfir_support)
+target_link_libraries(unit_tests PRIVATE libfir libfir_support libfir_analysis)
 
 if (WIN32 OR TEST_DISABLE_FORK)
     target_compile_definitions(unit_tests PRIVATE -DTEST_DISABLE_FORK)
