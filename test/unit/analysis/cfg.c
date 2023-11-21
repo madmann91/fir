@@ -94,6 +94,18 @@ TEST(cfg_rec_pow) {
     REQUIRE(!ret->outs->next_out);
     REQUIRE(ret->outs->to == sink);
 
+    REQUIRE(cfg_dom_of(entry)->idom == source);
+    REQUIRE(cfg_dom_of(first)->idom == entry);
+    REQUIRE(cfg_dom_of(second)->idom == entry);
+    REQUIRE(cfg_dom_of(ret)->idom == entry);
+    REQUIRE(cfg_dom_of(sink)->idom == ret);
+
+    REQUIRE(cfg_post_dom_of(source)->idom == entry);
+    REQUIRE(cfg_post_dom_of(entry)->idom == ret);
+    REQUIRE(cfg_post_dom_of(first)->idom == ret);
+    REQUIRE(cfg_post_dom_of(second)->idom == ret);
+    REQUIRE(cfg_post_dom_of(ret)->idom == sink);
+
     scope_destroy(&scope);
     cfg_destroy(&cfg);
     fir_mod_destroy(mod);
@@ -184,6 +196,9 @@ TEST(cfg_iter_pow) {
     //     done
     //       |
     //       v
+    //      ret
+    //       |
+    //       v
     //     sink
 
     struct graph_node* source = cfg.graph.source;
@@ -226,6 +241,22 @@ TEST(cfg_iter_pow) {
     REQUIRE(ret->outs);
     REQUIRE(!ret->outs->next_out);
     REQUIRE(ret->outs->to == sink);
+
+    REQUIRE(cfg_dom_of(entry)->idom == source);
+    REQUIRE(cfg_dom_of(loop)->idom == entry);
+    REQUIRE(cfg_dom_of(is_zero)->idom == loop);
+    REQUIRE(cfg_dom_of(is_non_zero)->idom == loop);
+    REQUIRE(cfg_dom_of(done)->idom == is_zero);
+    REQUIRE(cfg_dom_of(ret)->idom == done);
+    REQUIRE(cfg_dom_of(sink)->idom == ret);
+
+    REQUIRE(cfg_post_dom_of(source)->idom == entry);
+    REQUIRE(cfg_post_dom_of(entry)->idom == loop);
+    REQUIRE(cfg_post_dom_of(loop)->idom == is_zero);
+    REQUIRE(cfg_post_dom_of(is_zero)->idom == done);
+    REQUIRE(cfg_post_dom_of(is_non_zero)->idom == loop);
+    REQUIRE(cfg_post_dom_of(done)->idom == ret);
+    REQUIRE(cfg_post_dom_of(ret)->idom == sink);
 
     scope_destroy(&scope);
     cfg_destroy(&cfg);

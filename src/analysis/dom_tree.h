@@ -14,5 +14,10 @@ struct dom_tree {
     size_t node_count;
 };
 
-[[nodiscard]] struct dom_tree dom_tree_create(struct graph*, size_t user_data_index, enum graph_dir dir);
+[[nodiscard]] struct dom_tree dom_tree_create(
+    const struct graph_node_vec* post_order,
+    size_t post_order_index,
+    size_t dom_tree_index,
+    enum graph_dir dir);
+
 void dom_tree_destroy(struct dom_tree*);

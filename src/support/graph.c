@@ -24,6 +24,10 @@ static inline uint32_t hash_graph_node(uint32_t h, struct graph_node* const* nod
     return hash_uint64(h, (uintptr_t)(*node_ptr)->key);
 }
 
+static inline uint32_t hash_graph_node_by_id(uint32_t h, struct graph_node* const* node_ptr) {
+    return hash_uint64(h, (*node_ptr)->id);
+}
+
 static inline bool cmp_graph_node(
     struct graph_node* const* node_ptr,
     struct graph_node* const* other_ptr)
@@ -39,7 +43,7 @@ static inline bool cmp_raw_ptr(void* const* ptr, void* const* other) {
     return *ptr == *other;
 }
 
-SET_IMPL(graph_node_set, struct graph_node*, hash_graph_node, cmp_graph_node, PUBLIC)
+SET_IMPL(graph_node_set, struct graph_node*, hash_graph_node_by_id, cmp_graph_node, PUBLIC)
 SET_IMPL(graph_edge_set, struct graph_edge*, hash_graph_edge, cmp_graph_edge, PUBLIC)
 MAP_IMPL(graph_node_map, void*, struct graph_node*, hash_raw_ptr, cmp_raw_ptr, PUBLIC)
 VEC_IMPL(graph_node_vec, struct graph_node*, PUBLIC)
@@ -68,10 +72,6 @@ struct graph_node* graph_sink(struct graph* graph, enum graph_dir dir) {
     return graph_source(graph, graph_dir_reverse(dir));
 }
 
-size_t graph_node_post_order(const struct graph_node* node, enum graph_dir dir) {
-    return dir == GRAPH_DIR_FORWARD ? node->post_order : node->rev_post_order;
-}
-
 static inline struct graph_node* alloc_graph_node(size_t user_data_count) {
     return xcalloc(1, sizeof(struct graph_node) + user_data_count * sizeof(void*));
 }
@@ -86,8 +86,6 @@ struct graph graph_create(size_t user_data_count) {
         .sink = sink,
         .cur_id = GRAPH_OTHER_ID,
         .user_data_count = user_data_count,
-        .post_order = graph_node_vec_create(),
-        .depth_first_order = graph_node_vec_create(),
         .nodes = graph_node_map_create(),
         .edges = graph_edge_set_create()
     };
@@ -96,8 +94,6 @@ struct graph graph_create(size_t user_data_count) {
 void graph_destroy(struct graph* graph) {
     free(graph->source);
     free(graph->sink);
-    graph_node_vec_destroy(&graph->post_order);
-    graph_node_vec_destroy(&graph->depth_first_order);
 
     MAP_FOREACH(void*, key_ptr, struct graph_node*, node_ptr, graph->nodes) {
         (void)key_ptr;
@@ -149,15 +145,13 @@ struct graph_edge* graph_connect(
     return edge;
 }
 
-void graph_compute_post_order(struct graph* graph, enum graph_dir dir) {
-    struct graph_node_set visited_set = graph_node_set_create();
+struct graph_node_vec graph_compute_post_order(struct graph* graph, enum graph_dir dir) {
     struct graph_node_vec post_order = graph_node_vec_create();
+    struct graph_node_set visited_set = graph_node_set_create();
     struct graph_node_vec stack = graph_node_vec_create();
     struct graph_node* source = graph_source(graph, dir);
     graph_node_vec_push(&stack, &source);
     graph_node_set_insert(&visited_set, &source);
-    graph_node_vec_clear(&graph->post_order);
-    graph_node_vec_push(&graph->post_order, &source);
 restart:
     while (stack.elem_count > 0) {
         struct graph_node* node = stack.elems[stack.elem_count - 1];
@@ -173,21 +167,17 @@ restart:
     }
     graph_node_vec_destroy(&stack);
     graph_node_set_destroy(&visited_set);
-
-    for (size_t i = 0; i < post_order.elem_count; ++i) {
-        post_order.elems[i]->post_order = i;
-        post_order.elems[i]->rev_post_order = post_order.elem_count - 1 - i;
-    }
+    return post_order;
 }
 
-void graph_compute_depth_first_order(struct graph* graph, enum graph_dir dir) {
+struct graph_node_vec graph_compute_depth_first_order(struct graph* graph, enum graph_dir dir) {
+    struct graph_node_vec depth_first_order = graph_node_vec_create();
     struct graph_node_set visited_set = graph_node_set_create();
     struct graph_node_vec stack = graph_node_vec_create();
     struct graph_node* source = graph_source(graph, dir);
     graph_node_vec_push(&stack, &source);
     graph_node_set_insert(&visited_set, &source);
-    graph_node_vec_clear(&graph->depth_first_order);
-    graph_node_vec_push(&graph->depth_first_order, &source);
+    graph_node_vec_push(&depth_first_order, &source);
 restart:
     while (stack.elem_count > 0) {
         struct graph_node* node = stack.elems[stack.elem_count - 1];
@@ -195,7 +185,7 @@ restart:
             struct graph_node* target = graph_edge_endpoint(edge, dir);
             if (graph_node_set_insert(&visited_set, &target)) {
                 graph_node_vec_push(&stack, &target);
-                graph_node_vec_push(&graph->depth_first_order, &target);
+                graph_node_vec_push(&depth_first_order, &target);
                 goto restart;
             }
         }
@@ -203,23 +193,7 @@ restart:
     }
     graph_node_vec_destroy(&stack);
     graph_node_set_destroy(&visited_set);
-
-    for (size_t i = 0; i < graph->depth_first_order.elem_count; ++i)
-        graph->depth_first_order.elems[i]->depth_first_order = i;
-}
-
-struct graph_node* graph_post_order(struct graph* graph, size_t index, enum graph_dir dir) {
-    assert(index < graph->post_order.elem_count);
-    return dir == GRAPH_DIR_FORWARD
-        ? graph->post_order.elems[index]
-        : graph->post_order.elems[graph->post_order.elem_count - index];
-}
-
-struct graph_node* graph_depth_first_order(struct graph* graph, size_t index, enum graph_dir dir) {
-    assert(index < graph->depth_first_order.elem_count);
-    return dir == GRAPH_DIR_FORWARD
-        ? graph->depth_first_order.elems[index]
-        : graph->depth_first_order.elems[graph->depth_first_order.elem_count - index];
+    return depth_first_order;
 }
 
 static inline void print_node(FILE* file, const struct graph_node* node) {

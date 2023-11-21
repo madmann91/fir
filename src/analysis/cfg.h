@@ -7,15 +7,11 @@
 
 struct scope;
 
-enum cfg_user_data_index {
-    CFG_DOM_TREE_INDEX,
-    CFG_POST_DOM_TREE_INDEX,
-    CFG_LOOP_TREE_INDEX,
-    CFG_USER_DATA_COUNT
-};
-
 struct cfg {
     struct graph graph;
+    struct graph_node_vec post_order;
+    struct graph_node_vec post_order_back;
+    struct graph_node_vec depth_first_order;
     struct dom_tree dom_tree;
     struct dom_tree post_dom_tree;
     struct loop_tree loop_tree;
@@ -24,6 +20,6 @@ struct cfg {
 [[nodiscard]] struct cfg cfg_create(const struct scope*);
 void cfg_destroy(struct cfg*);
 
-void cfg_compute_loop_tree(struct cfg*);
-void cfg_compute_dom_tree(struct cfg*);
-void cfg_compute_post_dom_tree(struct cfg*);
+struct dom_tree_node*  cfg_dom_of(const struct graph_node*);
+struct dom_tree_node*  cfg_post_dom_of(const struct graph_node*);
+struct loop_tree_node* cfg_loop_of(const struct graph_node*);

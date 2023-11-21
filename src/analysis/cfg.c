@@ -5,6 +5,16 @@
 
 #include "fir/node.h"
 
+enum cfg_user_data_index {
+    CFG_POST_ORDER_INDEX,
+    CFG_POST_ORDER_BACK_INDEX,
+    CFG_DEPTH_FIRST_ORDER_INDEX,
+    CFG_DOM_TREE_INDEX,
+    CFG_POST_DOM_TREE_INDEX,
+    CFG_LOOP_TREE_INDEX,
+    CFG_USER_DATA_COUNT
+};
+
 static inline struct node_cspan jump_targets(const struct fir_node* node) {
     assert(fir_node_is_jump(node));
     if (fir_node_is_choice(node->ops[0])) {
@@ -42,28 +52,45 @@ struct cfg cfg_create(const struct scope* scope) {
             }
         }
     }
+
+    cfg.post_order        = graph_compute_post_order(&cfg.graph, GRAPH_DIR_FORWARD);
+    cfg.post_order_back   = graph_compute_post_order(&cfg.graph, GRAPH_DIR_BACKWARD);
+    cfg.depth_first_order = graph_compute_depth_first_order(&cfg.graph, GRAPH_DIR_FORWARD);
+
+    for (size_t i = 0; i < cfg.post_order.elem_count; ++i)
+        cfg.post_order.elems[i]->user_data[CFG_POST_ORDER_INDEX].index = i;
+    for (size_t i = 0; i < cfg.post_order_back.elem_count; ++i)
+        cfg.post_order_back.elems[i]->user_data[CFG_POST_ORDER_BACK_INDEX].index = i;
+    for (size_t i = 0; i < cfg.depth_first_order.elem_count; ++i)
+        cfg.depth_first_order.elems[i]->user_data[CFG_DEPTH_FIRST_ORDER_INDEX].index = i;
+
+    cfg.dom_tree = dom_tree_create(&cfg.post_order,
+        CFG_POST_ORDER_INDEX, CFG_DOM_TREE_INDEX, GRAPH_DIR_FORWARD);
+    cfg.post_dom_tree = dom_tree_create(&cfg.post_order_back,
+        CFG_POST_ORDER_BACK_INDEX, CFG_POST_DOM_TREE_INDEX, GRAPH_DIR_BACKWARD);
+    cfg.loop_tree = loop_tree_create(&cfg.graph, CFG_LOOP_TREE_INDEX);
     return cfg;
 }
 
 void cfg_destroy(struct cfg* cfg) {
     graph_destroy(&cfg->graph);
+    graph_node_vec_destroy(&cfg->post_order);
+    graph_node_vec_destroy(&cfg->post_order_back);
+    graph_node_vec_destroy(&cfg->depth_first_order);
     dom_tree_destroy(&cfg->dom_tree);
     dom_tree_destroy(&cfg->post_dom_tree);
     loop_tree_destroy(&cfg->loop_tree);
     memset(cfg, 0, sizeof(struct cfg));
 }
 
-void cfg_compute_loop_tree(struct cfg* cfg) {
-    loop_tree_destroy(&cfg->loop_tree);
-    cfg->loop_tree = loop_tree_create(&cfg->graph, CFG_LOOP_TREE_INDEX);
+struct dom_tree_node* cfg_dom_of(const struct graph_node* node) {
+    return (struct dom_tree_node*)node->user_data[CFG_DOM_TREE_INDEX].ptr;
 }
 
-void cfg_compute_dom_tree(struct cfg* cfg) {
-    dom_tree_destroy(&cfg->dom_tree);
-    cfg->dom_tree = dom_tree_create(&cfg->graph, CFG_DOM_TREE_INDEX, GRAPH_DIR_FORWARD);
+struct dom_tree_node* cfg_post_dom_of(const struct graph_node* node) {
+    return (struct dom_tree_node*)node->user_data[CFG_POST_DOM_TREE_INDEX].ptr;
 }
 
-void cfg_compute_post_dom_tree(struct cfg* cfg) {
-    dom_tree_destroy(&cfg->post_dom_tree);
-    cfg->post_dom_tree = dom_tree_create(&cfg->graph, CFG_POST_DOM_TREE_INDEX, GRAPH_DIR_BACKWARD);
+struct loop_tree_node* cfg_loop_of(const struct graph_node* node) {
+    return (struct loop_tree_node*)node->user_data[CFG_LOOP_TREE_INDEX].ptr;
 }

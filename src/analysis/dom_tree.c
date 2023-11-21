@@ -22,9 +22,14 @@ static inline size_t intersect_idoms(
     return idom;
 }
 
-static inline void compute_idoms(struct graph* graph, size_t* idoms, enum graph_dir dir) {
+static inline void compute_idoms(
+    const struct graph_node_vec* post_order,
+    size_t post_order_index,
+    size_t* idoms,
+    enum graph_dir dir)
+{
     static const size_t idom_sentinel = SIZE_MAX;
-    size_t node_count = graph->post_order.elem_count;
+    size_t node_count = post_order->elem_count;
 
     // Dominator tree construction based on "A Simple, Fast Dominance Algorithm", by K. D. Cooper et al.
     for (size_t i = 0; i < node_count; ++i)
@@ -36,12 +41,12 @@ static inline void compute_idoms(struct graph* graph, size_t* idoms, enum graph_
     bool changed = true;
     while (changed) {
         changed = false;
-        for (size_t i = node_count; i-- > 0;) {
+        for (size_t i = node_count - 1; i-- > 0;) {
             size_t idom = idom_sentinel;
-            const struct graph_edge* first_edge = graph_node_first_edge(graph_post_order(graph, i, dir), reverse_dir);
+            const struct graph_edge* first_edge = graph_node_first_edge(post_order->elems[i], reverse_dir);
             for (const struct graph_edge* edge = first_edge; edge; edge = graph_edge_next(edge, reverse_dir)) {
-                size_t other_idom = idoms[graph_node_post_order(graph_edge_endpoint(edge, reverse_dir), dir)];
-                if (other_idom == idom_sentinel)
+                size_t other_idom = graph_edge_endpoint(edge, reverse_dir)->user_data[post_order_index].index;
+                if (idoms[other_idom] == idom_sentinel)
                     continue;
                 idom = idom == idom_sentinel ? other_idom : intersect_idoms(idoms, idom, other_idom, node_count);
             }
@@ -53,18 +58,23 @@ static inline void compute_idoms(struct graph* graph, size_t* idoms, enum graph_
     }
 }
 
-struct dom_tree dom_tree_create(struct graph* graph, size_t user_data_index, enum graph_dir dir) {
-    const size_t node_count = graph->post_order.elem_count;
+struct dom_tree dom_tree_create(
+    const struct graph_node_vec* post_order,
+    size_t post_order_index,
+    size_t dom_tree_index,
+    enum graph_dir dir)
+{
+    const size_t node_count = post_order->elem_count;
     assert(node_count > 0);
     size_t* idoms = xcalloc(node_count, sizeof(size_t));
     struct dom_tree_node* nodes = xcalloc(node_count, sizeof(struct dom_tree_node));
-    compute_idoms(graph, idoms, dir);
+    compute_idoms(post_order, post_order_index, idoms, dir);
 
-    for (size_t i = 0; i < node_count; ++i) {
-        struct graph_node* idom = graph_post_order(graph, idoms[i], dir);
-        graph_post_order(graph, i, dir)->user_data[user_data_index] = &nodes[i];
+    for (size_t i = node_count; i-- > 0;) {
+        struct graph_node* idom = post_order->elems[idoms[i]];
+        post_order->elems[i]->user_data[dom_tree_index].ptr = &nodes[i];
         nodes[i].idom = idom;
-        nodes[i].depth = ((struct dom_tree_node*)idom->user_data[user_data_index])->depth + 1;
+        nodes[i].depth = ((struct dom_tree_node*)idom->user_data[dom_tree_index].ptr)->depth + 1;
     }
 
     free(idoms);

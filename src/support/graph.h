@@ -26,12 +26,12 @@ enum graph_node_id {
 struct graph_node {
     uint64_t id;
     void* key;
-    size_t post_order;
-    size_t rev_post_order;
-    size_t depth_first_order;
     struct graph_edge* ins;
     struct graph_edge* outs;
-    void* user_data[];
+    union {
+        void* ptr;
+        size_t index;
+    } user_data[];
 };
 
 SET_DECL(graph_edge_set, struct graph_edge*, PUBLIC)
@@ -44,8 +44,6 @@ struct graph {
     size_t user_data_count;
     struct graph_node* source;
     struct graph_node* sink;
-    struct graph_node_vec post_order;
-    struct graph_node_vec depth_first_order;
     struct graph_node_map nodes;
     struct graph_edge_set edges;
 };
@@ -61,7 +59,6 @@ enum graph_dir {
 [[nodiscard]] struct graph_node* graph_edge_endpoint(const struct graph_edge*, enum graph_dir);
 [[nodiscard]] struct graph_node* graph_source(struct graph*, enum graph_dir);
 [[nodiscard]] struct graph_node* graph_sink(struct graph*, enum graph_dir);
-[[nodiscard]] size_t graph_node_post_order(const struct graph_node*, enum graph_dir);
 
 [[nodiscard]] struct graph graph_create(size_t);
 void graph_destroy(struct graph*);
@@ -69,10 +66,8 @@ void graph_destroy(struct graph*);
 struct graph_node* graph_insert(struct graph*, void* key);
 struct graph_edge* graph_connect(struct graph*, struct graph_node*, struct graph_node*);
 
-void graph_compute_post_order(struct graph*, enum graph_dir);
-void graph_compute_depth_first_order(struct graph*, enum graph_dir);
-[[nodiscard]] struct graph_node* graph_post_order(struct graph*, size_t, enum graph_dir);
-[[nodiscard]] struct graph_node* graph_depth_first_order(struct graph*, size_t, enum graph_dir);
+struct graph_node_vec graph_compute_post_order(struct graph*, enum graph_dir);
+struct graph_node_vec graph_compute_depth_first_order(struct graph*, enum graph_dir);
 
 void graph_print(FILE*, const struct graph*);
 void graph_dump(const struct graph*);
