@@ -43,9 +43,8 @@ static inline void compute_idoms(
         changed = false;
         for (size_t i = node_count - 1; i-- > 0;) {
             size_t idom = idom_sentinel;
-            const struct graph_edge* first_edge = graph_node_first_edge(post_order->elems[i], reverse_dir);
-            for (const struct graph_edge* edge = first_edge; edge; edge = graph_edge_next(edge, reverse_dir)) {
-                size_t other_idom = graph_edge_endpoint(edge, reverse_dir)->user_data[post_order_index].index;
+            GRAPH_FOREACH_EDGE(edge, post_order->elems[i], reverse_dir) {
+                size_t other_idom = graph_edge_endpoint(edge, reverse_dir)->data[post_order_index].index;
                 if (idoms[other_idom] == idom_sentinel)
                     continue;
                 idom = idom == idom_sentinel ? other_idom : intersect_idoms(idoms, idom, other_idom, node_count);
@@ -72,9 +71,9 @@ struct dom_tree dom_tree_create(
 
     for (size_t i = node_count; i-- > 0;) {
         struct graph_node* idom = post_order->elems[idoms[i]];
-        post_order->elems[i]->user_data[dom_tree_index].ptr = &nodes[i];
+        post_order->elems[i]->data[dom_tree_index].ptr = &nodes[i];
         nodes[i].idom = idom;
-        nodes[i].depth = ((struct dom_tree_node*)idom->user_data[dom_tree_index].ptr)->depth + 1;
+        nodes[i].depth = ((struct dom_tree_node*)idom->data[dom_tree_index].ptr)->depth + 1;
     }
 
     free(idoms);

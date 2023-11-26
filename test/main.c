@@ -101,7 +101,7 @@ static size_t filter_tests(int argc, char** argv, const struct options* options)
                 continue;
             pcre2_match_data* match_data = pcre2_match_data_create_from_pattern(code, NULL);
             VEC_FOREACH(struct test, test, tests) {
-                test->enabled =
+                test->enabled |=
                     pcre2_match(code, (PCRE2_SPTR8)test->name, strlen(test->name), 0, 0, match_data, NULL) >= 0;
             }
             pcre2_match_data_free(match_data);
@@ -111,7 +111,7 @@ static size_t filter_tests(int argc, char** argv, const struct options* options)
         {
 #endif
             VEC_FOREACH(struct test, test, tests) {
-                test->enabled = !strcmp(test->name, argv[i]);
+                test->enabled |= !strcmp(test->name, argv[i]);
             }
         }
     }

@@ -8,6 +8,16 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#define GRAPH_FOREACH_EDGE(edge, node, dir) \
+    for (struct graph_edge* edge = graph_node_first_edge(node, dir); edge; \
+        edge = graph_edge_next(edge, dir))
+
+#define GRAPH_FOREACH_OUTGOING_EDGE(edge, node) \
+    GRAPH_FOREACH_EDGE(edge, node, GRAPH_DIR_FORWARD)
+
+#define GRAPH_FOREACH_INCOMING_EDGE(edge, node) \
+    GRAPH_FOREACH_EDGE(edge, node, GRAPH_DIR_BACKWARD)
+
 struct graph_node;
 
 struct graph_edge {
@@ -23,28 +33,30 @@ enum graph_node_id {
     GRAPH_OTHER_ID
 };
 
+union graph_node_data {
+    void* ptr;
+    size_t index;
+};
+
 struct graph_node {
     uint64_t id;
     void* key;
     struct graph_edge* ins;
     struct graph_edge* outs;
-    union {
-        void* ptr;
-        size_t index;
-    } user_data[];
+    union graph_node_data data[];
 };
 
 SET_DECL(graph_edge_set, struct graph_edge*, PUBLIC)
 VEC_DECL(graph_node_vec, struct graph_node*, PUBLIC)
-MAP_DECL(graph_node_map, void*, struct graph_node*, PUBLIC)
+MAP_DECL(graph_node_key_map, void*, struct graph_node*, PUBLIC)
 SET_DECL(graph_node_set, struct graph_node*, PUBLIC)
 
 struct graph {
     uint64_t cur_id;
-    size_t user_data_count;
+    size_t data_size;
     struct graph_node* source;
     struct graph_node* sink;
-    struct graph_node_map nodes;
+    struct graph_node_key_map nodes;
     struct graph_edge_set edges;
 };
 

@@ -94,17 +94,43 @@ TEST(cfg_rec_pow) {
     REQUIRE(!ret->outs->next_out);
     REQUIRE(ret->outs->to == sink);
 
-    REQUIRE(cfg_dom_of(entry)->idom == source);
-    REQUIRE(cfg_dom_of(first)->idom == entry);
-    REQUIRE(cfg_dom_of(second)->idom == entry);
-    REQUIRE(cfg_dom_of(ret)->idom == entry);
-    REQUIRE(cfg_dom_of(sink)->idom == ret);
+    REQUIRE(cfg_dom_tree_node(entry)->idom == source);
+    REQUIRE(cfg_dom_tree_node(first)->idom == entry);
+    REQUIRE(cfg_dom_tree_node(second)->idom == entry);
+    REQUIRE(cfg_dom_tree_node(ret)->idom == entry);
+    REQUIRE(cfg_dom_tree_node(sink)->idom == ret);
 
-    REQUIRE(cfg_post_dom_of(source)->idom == entry);
-    REQUIRE(cfg_post_dom_of(entry)->idom == ret);
-    REQUIRE(cfg_post_dom_of(first)->idom == ret);
-    REQUIRE(cfg_post_dom_of(second)->idom == ret);
-    REQUIRE(cfg_post_dom_of(ret)->idom == sink);
+    REQUIRE(cfg_dom_tree_node(source)->depth == 1);
+    REQUIRE(cfg_dom_tree_node(entry)->depth == 2);
+    REQUIRE(cfg_dom_tree_node(first)->depth == 3);
+    REQUIRE(cfg_dom_tree_node(second)->depth == 3);
+    REQUIRE(cfg_dom_tree_node(ret)->depth == 3);
+    REQUIRE(cfg_dom_tree_node(sink)->depth == 4);
+
+    REQUIRE(cfg_post_dom_tree_node(source)->idom == entry);
+    REQUIRE(cfg_post_dom_tree_node(entry)->idom == ret);
+    REQUIRE(cfg_post_dom_tree_node(first)->idom == ret);
+    REQUIRE(cfg_post_dom_tree_node(second)->idom == ret);
+    REQUIRE(cfg_post_dom_tree_node(ret)->idom == sink);
+
+    REQUIRE(cfg_post_dom_tree_node(source)->depth == 4);
+    REQUIRE(cfg_post_dom_tree_node(entry)->depth == 3);
+    REQUIRE(cfg_post_dom_tree_node(first)->depth == 3);
+    REQUIRE(cfg_post_dom_tree_node(second)->depth == 3);
+    REQUIRE(cfg_post_dom_tree_node(ret)->depth == 2);
+    REQUIRE(cfg_post_dom_tree_node(sink)->depth == 1);
+
+    REQUIRE(cfg_loop_tree_node(source)->parent == source);
+    REQUIRE(cfg_loop_tree_node(entry)->parent == source);
+    REQUIRE(cfg_loop_tree_node(first)->parent == source);
+    REQUIRE(cfg_loop_tree_node(second)->parent == source);
+    REQUIRE(cfg_loop_tree_node(ret)->parent == source);
+
+    REQUIRE(cfg_loop_tree_node(source)->depth == 1);
+    REQUIRE(cfg_loop_tree_node(entry)->depth == 2);
+    REQUIRE(cfg_loop_tree_node(first)->depth == 2);
+    REQUIRE(cfg_loop_tree_node(second)->depth == 2);
+    REQUIRE(cfg_loop_tree_node(ret)->depth == 2);
 
     scope_destroy(&scope);
     cfg_destroy(&cfg);
@@ -242,21 +268,55 @@ TEST(cfg_iter_pow) {
     REQUIRE(!ret->outs->next_out);
     REQUIRE(ret->outs->to == sink);
 
-    REQUIRE(cfg_dom_of(entry)->idom == source);
-    REQUIRE(cfg_dom_of(loop)->idom == entry);
-    REQUIRE(cfg_dom_of(is_zero)->idom == loop);
-    REQUIRE(cfg_dom_of(is_non_zero)->idom == loop);
-    REQUIRE(cfg_dom_of(done)->idom == is_zero);
-    REQUIRE(cfg_dom_of(ret)->idom == done);
-    REQUIRE(cfg_dom_of(sink)->idom == ret);
+    REQUIRE(cfg_dom_tree_node(entry)->idom == source);
+    REQUIRE(cfg_dom_tree_node(loop)->idom == entry);
+    REQUIRE(cfg_dom_tree_node(is_zero)->idom == loop);
+    REQUIRE(cfg_dom_tree_node(is_non_zero)->idom == loop);
+    REQUIRE(cfg_dom_tree_node(done)->idom == is_zero);
+    REQUIRE(cfg_dom_tree_node(ret)->idom == done);
+    REQUIRE(cfg_dom_tree_node(sink)->idom == ret);
 
-    REQUIRE(cfg_post_dom_of(source)->idom == entry);
-    REQUIRE(cfg_post_dom_of(entry)->idom == loop);
-    REQUIRE(cfg_post_dom_of(loop)->idom == is_zero);
-    REQUIRE(cfg_post_dom_of(is_zero)->idom == done);
-    REQUIRE(cfg_post_dom_of(is_non_zero)->idom == loop);
-    REQUIRE(cfg_post_dom_of(done)->idom == ret);
-    REQUIRE(cfg_post_dom_of(ret)->idom == sink);
+    REQUIRE(cfg_dom_tree_node(source)->depth == 1);
+    REQUIRE(cfg_dom_tree_node(entry)->depth == 2);
+    REQUIRE(cfg_dom_tree_node(loop)->depth == 3);
+    REQUIRE(cfg_dom_tree_node(is_zero)->depth == 4);
+    REQUIRE(cfg_dom_tree_node(is_non_zero)->depth == 4);
+    REQUIRE(cfg_dom_tree_node(done)->depth == 5);
+    REQUIRE(cfg_dom_tree_node(ret)->depth == 6);
+    REQUIRE(cfg_dom_tree_node(sink)->depth == 7);
+
+    REQUIRE(cfg_post_dom_tree_node(source)->idom == entry);
+    REQUIRE(cfg_post_dom_tree_node(entry)->idom == loop);
+    REQUIRE(cfg_post_dom_tree_node(loop)->idom == is_zero);
+    REQUIRE(cfg_post_dom_tree_node(is_zero)->idom == done);
+    REQUIRE(cfg_post_dom_tree_node(is_non_zero)->idom == loop);
+    REQUIRE(cfg_post_dom_tree_node(done)->idom == ret);
+    REQUIRE(cfg_post_dom_tree_node(ret)->idom == sink);
+
+    REQUIRE(cfg_post_dom_tree_node(source)->depth == 7);
+    REQUIRE(cfg_post_dom_tree_node(entry)->depth == 6);
+    REQUIRE(cfg_post_dom_tree_node(loop)->depth == 5);
+    REQUIRE(cfg_post_dom_tree_node(is_zero)->depth == 4);
+    REQUIRE(cfg_post_dom_tree_node(is_non_zero)->depth == 6);
+    REQUIRE(cfg_post_dom_tree_node(done)->depth == 3);
+    REQUIRE(cfg_post_dom_tree_node(ret)->depth == 2);
+    REQUIRE(cfg_post_dom_tree_node(sink)->depth == 1);
+
+    REQUIRE(cfg_loop_tree_node(source)->parent == source);
+    REQUIRE(cfg_loop_tree_node(entry)->parent == source);
+    REQUIRE(cfg_loop_tree_node(loop)->parent == source);
+    REQUIRE(cfg_loop_tree_node(is_zero)->parent == source);
+    REQUIRE(cfg_loop_tree_node(is_non_zero)->parent == loop);
+    REQUIRE(cfg_loop_tree_node(done)->parent == source);
+    REQUIRE(cfg_loop_tree_node(ret)->parent == source);
+
+    REQUIRE(cfg_loop_tree_node(source)->depth == 1);
+    REQUIRE(cfg_loop_tree_node(entry)->depth == 2);
+    REQUIRE(cfg_loop_tree_node(loop)->depth == 2);
+    REQUIRE(cfg_loop_tree_node(is_zero)->depth == 2);
+    REQUIRE(cfg_loop_tree_node(is_non_zero)->depth == 3);
+    REQUIRE(cfg_loop_tree_node(done)->depth == 2);
+    REQUIRE(cfg_loop_tree_node(ret)->depth == 2);
 
     scope_destroy(&scope);
     cfg_destroy(&cfg);

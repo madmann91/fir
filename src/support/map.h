@@ -2,6 +2,7 @@
 
 #include "hash_table.h"
 #include "visibility.h"
+#include "hash.h"
 
 #include <string.h>
 

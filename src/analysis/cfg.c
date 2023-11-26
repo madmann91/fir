@@ -5,7 +5,7 @@
 
 #include "fir/node.h"
 
-enum cfg_user_data_index {
+enum {
     CFG_POST_ORDER_INDEX,
     CFG_POST_ORDER_BACK_INDEX,
     CFG_DEPTH_FIRST_ORDER_INDEX,
@@ -58,17 +58,18 @@ struct cfg cfg_create(const struct scope* scope) {
     cfg.depth_first_order = graph_compute_depth_first_order(&cfg.graph, GRAPH_DIR_FORWARD);
 
     for (size_t i = 0; i < cfg.post_order.elem_count; ++i)
-        cfg.post_order.elems[i]->user_data[CFG_POST_ORDER_INDEX].index = i;
+        cfg.post_order.elems[i]->data[CFG_POST_ORDER_INDEX].index = i;
     for (size_t i = 0; i < cfg.post_order_back.elem_count; ++i)
-        cfg.post_order_back.elems[i]->user_data[CFG_POST_ORDER_BACK_INDEX].index = i;
+        cfg.post_order_back.elems[i]->data[CFG_POST_ORDER_BACK_INDEX].index = i;
     for (size_t i = 0; i < cfg.depth_first_order.elem_count; ++i)
-        cfg.depth_first_order.elems[i]->user_data[CFG_DEPTH_FIRST_ORDER_INDEX].index = i;
+        cfg.depth_first_order.elems[i]->data[CFG_DEPTH_FIRST_ORDER_INDEX].index = i;
 
     cfg.dom_tree = dom_tree_create(&cfg.post_order,
         CFG_POST_ORDER_INDEX, CFG_DOM_TREE_INDEX, GRAPH_DIR_FORWARD);
     cfg.post_dom_tree = dom_tree_create(&cfg.post_order_back,
         CFG_POST_ORDER_BACK_INDEX, CFG_POST_DOM_TREE_INDEX, GRAPH_DIR_BACKWARD);
-    cfg.loop_tree = loop_tree_create(&cfg.graph, CFG_LOOP_TREE_INDEX);
+    cfg.loop_tree = loop_tree_create(&cfg.depth_first_order,
+        CFG_DEPTH_FIRST_ORDER_INDEX, CFG_LOOP_TREE_INDEX, GRAPH_DIR_FORWARD);
     return cfg;
 }
 
@@ -83,14 +84,14 @@ void cfg_destroy(struct cfg* cfg) {
     memset(cfg, 0, sizeof(struct cfg));
 }
 
-struct dom_tree_node* cfg_dom_of(const struct graph_node* node) {
-    return (struct dom_tree_node*)node->user_data[CFG_DOM_TREE_INDEX].ptr;
+struct dom_tree_node* cfg_dom_tree_node(const struct graph_node* node) {
+    return (struct dom_tree_node*)node->data[CFG_DOM_TREE_INDEX].ptr;
 }
 
-struct dom_tree_node* cfg_post_dom_of(const struct graph_node* node) {
-    return (struct dom_tree_node*)node->user_data[CFG_POST_DOM_TREE_INDEX].ptr;
+struct dom_tree_node* cfg_post_dom_tree_node(const struct graph_node* node) {
+    return (struct dom_tree_node*)node->data[CFG_POST_DOM_TREE_INDEX].ptr;
 }
 
-struct loop_tree_node* cfg_loop_of(const struct graph_node* node) {
-    return (struct loop_tree_node*)node->user_data[CFG_LOOP_TREE_INDEX].ptr;
+struct loop_tree_node* cfg_loop_tree_node(const struct graph_node* node) {
+    return (struct loop_tree_node*)node->data[CFG_LOOP_TREE_INDEX].ptr;
 }

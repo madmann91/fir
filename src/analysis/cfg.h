@@ -20,6 +20,9 @@ struct cfg {
 [[nodiscard]] struct cfg cfg_create(const struct scope*);
 void cfg_destroy(struct cfg*);
 
-struct dom_tree_node*  cfg_dom_of(const struct graph_node*);
-struct dom_tree_node*  cfg_post_dom_of(const struct graph_node*);
-struct loop_tree_node* cfg_loop_of(const struct graph_node*);
+struct dom_tree_node*  cfg_dom_tree_node(const struct graph_node*);
+struct dom_tree_node*  cfg_post_dom_tree_node(const struct graph_node*);
+struct loop_tree_node* cfg_loop_tree_node(const struct graph_node*);
+
+void cfg_print(FILE*, const struct cfg*);
+void cfg_dump(const struct cfg*);
