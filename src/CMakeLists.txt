@@ -42,17 +42,18 @@ target_compile_options(libfir PRIVATE
     -DFIR_VERSION_TIMESTAMP=${timestamp})
 target_link_libraries(libfir PRIVATE libfir_support libfir_analysis)
 
+target_link_libraries(libfir_support PRIVATE coverage_options)
+target_link_libraries(libfir_analysis PRIVATE coverage_options)
+target_link_libraries(libfir PRIVATE coverage_options)
+
 include(CheckLibraryExists)
 check_library_exists(m sin "" LINK_LIBM)
 if (LINK_LIBM)
     target_link_libraries(libfir PUBLIC m)
 endif()
 
-set_target_properties(libfir PROPERTIES
+set_target_properties(libfir libfir_support libfir_analysis PROPERTIES
     PREFIX ""
     C_VISIBILITY_PRESET hidden)
 
-set_target_properties(libfir_support libfir_analysis PROPERTIES
-    PREFIX ""
-    POSITION_INDEPENDENT_CODE ON
-    C_VISIBILITY_PRESET hidden)
+set_target_properties(libfir_support libfir_analysis PROPERTIES POSITION_INDEPENDENT_CODE ON)

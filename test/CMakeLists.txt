@@ -35,3 +35,13 @@ endif ()
 
 add_test(NAME unit_tests COMMAND unit_tests)
 add_custom_target(memcheck COMMAND ${CMAKE_CTEST_COMMAND} -T memcheck WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+if (ENABLE_COVERAGE)
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/coverage.html
+        DEPENDS libfir libfir_support libfir_analysis unit_tests memcheck
+        COMMAND ${GCOVR_COMMAND} -r ${PROJECT_SOURCE_DIR} --html coverage.html
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    add_custom_target(coverage
+        DEPENDS ${CMAKE_BINARY_DIR}/coverage.html)
+endif()
