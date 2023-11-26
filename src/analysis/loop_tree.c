@@ -49,15 +49,16 @@ struct loop_tree loop_tree_create(
 {
     // This is inspired from P. Havlak's "Nesting of Reducible and Irreducible Loops".
     size_t* last_descendants = compute_last_descendants(depth_first_order, depth_first_order_index, dir);
+    const size_t node_count = depth_first_order->elem_count;
 
-    size_t* headers                  = xcalloc(depth_first_order->elem_count, sizeof(size_t));
-    struct loop_tree_node* nodes     = xcalloc(depth_first_order->elem_count, sizeof(struct loop_tree_node));
-    struct index_set* back_preds     = xmalloc(depth_first_order->elem_count * sizeof(struct index_set));
-    struct index_set* non_back_preds = xmalloc(depth_first_order->elem_count * sizeof(struct index_set));
+    size_t* headers                  = xcalloc(node_count, sizeof(size_t));
+    struct loop_tree_node* nodes     = xcalloc(node_count, sizeof(struct loop_tree_node));
+    struct index_set* back_preds     = xmalloc(node_count * sizeof(struct index_set));
+    struct index_set* non_back_preds = xmalloc(node_count * sizeof(struct index_set));
 
     enum graph_dir reverse_dir = graph_dir_reverse(dir);
 
-    for (size_t i = 0; i < depth_first_order->elem_count; ++i) {
+    for (size_t i = 0; i < node_count; ++i) {
         headers[i] = i;
         back_preds[i] = index_set_create();
         non_back_preds[i] = index_set_create();
@@ -74,7 +75,7 @@ struct loop_tree loop_tree_create(
 
     struct index_set loop_body = index_set_create();
     struct index_vec worklist = index_vec_create();
-    for (size_t i = depth_first_order->elem_count; i-- > 0;) {
+    for (size_t i = node_count; i-- > 0;) {
         assert(worklist.elem_count == 0);
 
         index_set_clear(&loop_body);
@@ -113,13 +114,12 @@ struct loop_tree loop_tree_create(
     index_set_destroy(&loop_body);
     index_vec_destroy(&worklist);
 
-    for (size_t i = 0; i < depth_first_order->elem_count; ++i) {
+    for (size_t i = 0; i < node_count; ++i) {
         index_set_destroy(&back_preds[i]);
         index_set_destroy(&non_back_preds[i]);
         size_t header = headers[i] == i ? 0 : headers[i];
-        struct graph_node* parent = depth_first_order->elems[header];
-        nodes[i].parent = parent;
-        nodes[i].depth = ((struct loop_tree_node*)parent->data[loop_tree_index].ptr)->depth + 1;
+        nodes[i].parent = depth_first_order->elems[header];
+        nodes[i].depth = nodes[header].depth + 1;
     }
 
     free(headers);

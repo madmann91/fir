@@ -70,10 +70,9 @@ struct dom_tree dom_tree_create(
     compute_idoms(post_order, post_order_index, idoms, dir);
 
     for (size_t i = node_count; i-- > 0;) {
-        struct graph_node* idom = post_order->elems[idoms[i]];
         post_order->elems[i]->data[dom_tree_index].ptr = &nodes[i];
-        nodes[i].idom = idom;
-        nodes[i].depth = ((struct dom_tree_node*)idom->data[dom_tree_index].ptr)->depth + 1;
+        nodes[i].idom = post_order->elems[idoms[i]];
+        nodes[i].depth = nodes[idoms[i]].depth + 1;
     }
 
     free(idoms);
