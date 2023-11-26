@@ -548,7 +548,7 @@ static inline bool is_commutative(enum fir_node_tag tag) {
 
 static inline bool should_swap_ops(
     enum fir_node_tag tag,
-    const struct fir_node* left,
+    [[maybe_unused]] const struct fir_node* left,
     const struct fir_node* right)
 {
     assert(left->tag != FIR_CONST || right->tag != FIR_CONST); // Must be run after constant folding

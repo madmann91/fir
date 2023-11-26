@@ -129,7 +129,7 @@ static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
             return ast->node = emit(emitter, ast->field_expr.arg);
         default:
             assert(false && "invalid AST node");
-            break;
+            return NULL;
     }
 }
 
