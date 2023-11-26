@@ -53,15 +53,15 @@ struct loop_tree loop_tree_create(
 
     size_t* headers                  = xcalloc(node_count, sizeof(size_t));
     struct loop_tree_node* nodes     = xcalloc(node_count, sizeof(struct loop_tree_node));
-    struct index_set* back_preds     = xmalloc(node_count * sizeof(struct index_set));
-    struct index_set* non_back_preds = xmalloc(node_count * sizeof(struct index_set));
+    struct index_vec* back_preds     = xmalloc(node_count * sizeof(struct index_vec));
+    struct index_vec* non_back_preds = xmalloc(node_count * sizeof(struct index_vec));
 
     enum graph_dir reverse_dir = graph_dir_reverse(dir);
 
     for (size_t i = 0; i < node_count; ++i) {
         headers[i] = i;
-        back_preds[i] = index_set_create();
-        non_back_preds[i] = index_set_create();
+        back_preds[i] = index_vec_create();
+        non_back_preds[i] = index_vec_create();
         depth_first_order->elems[i]->data[loop_tree_index].ptr = &nodes[i];
 
         const struct graph_node* node = depth_first_order->elems[i];
@@ -69,7 +69,7 @@ struct loop_tree loop_tree_create(
             const struct graph_node* endpoint = graph_edge_endpoint(edge, reverse_dir);
             size_t endpoint_index = endpoint->data[depth_first_order_index].index;
             bool is_back_pred = is_ancestor(last_descendants, i, endpoint_index);
-            index_set_insert(is_back_pred ? &back_preds[i] : &non_back_preds[i], &endpoint_index);
+            index_vec_push(is_back_pred ? &back_preds[i] : &non_back_preds[i], &endpoint_index);
         }
     }
 
@@ -79,7 +79,7 @@ struct loop_tree loop_tree_create(
         assert(worklist.elem_count == 0);
 
         index_set_clear(&loop_body);
-        SET_FOREACH(size_t, back_pred, back_preds[i]) {
+        VEC_FOREACH(size_t, back_pred, back_preds[i]) {
             if (i == *back_pred) {
                 nodes[i].type = LOOP_SELF;
             } else {
@@ -96,11 +96,11 @@ struct loop_tree loop_tree_create(
             size_t node = worklist.elems[worklist.elem_count - 1];
             index_vec_pop(&worklist);
 
-            SET_FOREACH(size_t, non_back_pred, non_back_preds[node]) {
+            VEC_FOREACH(size_t, non_back_pred, non_back_preds[node]) {
                 size_t header = union_find(headers, *non_back_pred);
                 if (!is_ancestor(last_descendants, i, header)) {
                     nodes[i].type = LOOP_IRREDUCIBLE;
-                    index_set_insert(&non_back_preds[i], &header);
+                    index_vec_push(&non_back_preds[i], &header);
                 } else if (header != i && index_set_insert(&loop_body, &header)) {
                     index_vec_push(&worklist, &header);
                 }
@@ -115,8 +115,8 @@ struct loop_tree loop_tree_create(
     index_vec_destroy(&worklist);
 
     for (size_t i = 0; i < node_count; ++i) {
-        index_set_destroy(&back_preds[i]);
-        index_set_destroy(&non_back_preds[i]);
+        index_vec_destroy(&back_preds[i]);
+        index_vec_destroy(&non_back_preds[i]);
         size_t header = headers[i] == i ? 0 : headers[i];
         nodes[i].parent = depth_first_order->elems[header];
         nodes[i].depth = nodes[header].depth + 1;
