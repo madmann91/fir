@@ -38,4 +38,4 @@ instructions above to build using CMake).
 
 ## License
 
-This project is distributed under the [MIT license](LICENSE.txt).
+This project is distributed under the [GPLv3](LICENSE.txt).
