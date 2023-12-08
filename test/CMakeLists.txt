@@ -7,6 +7,7 @@ add_executable(unit_tests
     unit/support/mem_pool.c
     unit/support/map.c
     unit/support/set.c
+    unit/support/heap.c
     unit/analysis/cfg.c)
 
 target_include_directories(unit_tests PRIVATE ../src .)
