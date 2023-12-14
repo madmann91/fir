@@ -86,17 +86,3 @@ void dom_tree_destroy(struct dom_tree* dom_tree) {
     free(dom_tree->nodes);
     memset(dom_tree, 0, sizeof(struct dom_tree));
 }
-
-[[nodiscard]] struct dom_tree_node* dom_tree_least_common_ancestor(
-    struct dom_tree_node* left,
-    struct dom_tree_node* right,
-    size_t dom_tree_index)
-{
-    while (left != right) {
-        while (left->depth > right->depth)
-            left = left->idom->data[dom_tree_index].ptr;
-        while (right->depth > left->depth)
-            right = right->idom->data[dom_tree_index].ptr;
-    }
-    return left;
-}
