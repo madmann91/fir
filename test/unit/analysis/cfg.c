@@ -132,6 +132,12 @@ TEST(cfg_rec_pow) {
     REQUIRE(cfg_loop_tree_node(second)->depth == 2);
     REQUIRE(cfg_loop_tree_node(ret)->depth == 2);
 
+    REQUIRE(cfg_loop_tree_node(source)->loop_depth == 0);
+    REQUIRE(cfg_loop_tree_node(entry)->loop_depth == 0);
+    REQUIRE(cfg_loop_tree_node(first)->loop_depth == 0);
+    REQUIRE(cfg_loop_tree_node(second)->loop_depth == 0);
+    REQUIRE(cfg_loop_tree_node(ret)->loop_depth == 0);
+
     scope_destroy(&scope);
     cfg_destroy(&cfg);
     fir_mod_destroy(mod);
@@ -317,6 +323,14 @@ TEST(cfg_iter_pow) {
     REQUIRE(cfg_loop_tree_node(is_non_zero)->depth == 3);
     REQUIRE(cfg_loop_tree_node(done)->depth == 2);
     REQUIRE(cfg_loop_tree_node(ret)->depth == 2);
+
+    REQUIRE(cfg_loop_tree_node(source)->loop_depth == 0);
+    REQUIRE(cfg_loop_tree_node(entry)->loop_depth == 0);
+    REQUIRE(cfg_loop_tree_node(loop)->loop_depth == 1);
+    REQUIRE(cfg_loop_tree_node(is_zero)->loop_depth == 0);
+    REQUIRE(cfg_loop_tree_node(is_non_zero)->loop_depth == 1);
+    REQUIRE(cfg_loop_tree_node(done)->loop_depth == 0);
+    REQUIRE(cfg_loop_tree_node(ret)->loop_depth == 0);
 
     scope_destroy(&scope);
     cfg_destroy(&cfg);

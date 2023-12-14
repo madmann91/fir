@@ -19,7 +19,6 @@
     bool fir_node_##pred(const struct fir_node* node) { \
         return fir_node_tag_##pred(node->tag); \
     }
-    
 
 pred_func(is_ty, FIR_TYPE_LIST)
 pred_func(is_nominal, FIR_NOMINAL_NODE_LIST)
@@ -136,6 +135,23 @@ bool fir_node_is_branch(const struct fir_node* node) {
 
 bool fir_node_is_switch(const struct fir_node* node) {
     return fir_node_is_jump(node) && fir_node_is_choice(node->ops[0]);
+}
+
+bool fir_node_is_speculatable(const struct fir_node* node) {
+    switch (node->tag) {
+        case FIR_CALL:
+        case FIR_LOAD:
+        case FIR_STORE:
+            return false;
+        case FIR_SDIV:
+        case FIR_UDIV:
+        case FIR_SREM:
+        case FIR_UREM:
+            // It is fine to speculate a division by a constant that is not zero
+            return node->ops[1]->tag == FIR_CONST && !fir_node_is_zero(node->ops[1]);
+        default:
+            return true;
+    }
 }
 
 const char* fir_node_tag_to_string(enum fir_node_tag tag) {

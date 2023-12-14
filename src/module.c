@@ -154,6 +154,18 @@ static void free_node(struct fir_node* node) {
     free(node);
 }
 
+[[nodiscard]]
+static inline enum fir_node_props compute_props(const struct fir_node* node) {
+    enum fir_node_props props = node->tag == FIR_PARAM ? 0 : FIR_PROP_INVARIANT;
+    for (size_t i = 0; i < node->op_count; ++i) {
+        if (fir_node_is_nominal(node->ops[i]))
+            continue;
+        if (!(node->ops[i]->props & FIR_PROP_INVARIANT))
+            props &= ~FIR_PROP_INVARIANT;
+    }
+    return props;
+}
+
 static inline const struct fir_node* insert_node(struct fir_mod* mod, const struct fir_node* node) {
     assert(!fir_node_tag_is_nominal(node->tag));
     assert(fir_node_mod(node) == mod);
@@ -171,6 +183,7 @@ static inline const struct fir_node* insert_node(struct fir_mod* mod, const stru
     memcpy(new_node, node, sizeof(struct fir_node) + sizeof(struct fir_node*) * node->op_count);
     for (size_t i = 0; i < node->op_count; ++i)
         record_use(new_node, i);
+    new_node->props = compute_props(new_node);
     new_node->id = mod->cur_id++;
 
     [[maybe_unused]] bool was_inserted = internal_node_set_insert(&mod->nodes, (const struct fir_node* const*)&new_node);
@@ -219,8 +232,7 @@ static void visit_node(
 {
     node_vec_push(stack, &node);
     while (stack->elem_count > 0) {
-        const struct fir_node* top = stack->elems[stack->elem_count - 1];
-        node_vec_pop(stack);
+        const struct fir_node* top = *node_vec_pop(stack);
         if (!node_set_insert(visited_nodes, &top))
             continue;
 

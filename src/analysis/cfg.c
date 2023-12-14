@@ -5,16 +5,6 @@
 
 #include "fir/node.h"
 
-enum {
-    CFG_POST_ORDER_INDEX,
-    CFG_POST_ORDER_BACK_INDEX,
-    CFG_DEPTH_FIRST_ORDER_INDEX,
-    CFG_DOM_TREE_INDEX,
-    CFG_POST_DOM_TREE_INDEX,
-    CFG_LOOP_TREE_INDEX,
-    CFG_USER_DATA_COUNT
-};
-
 static inline struct node_cspan jump_targets(const struct fir_node* node) {
     assert(fir_node_is_jump(node));
     if (fir_node_is_choice(node->ops[0])) {
@@ -25,18 +15,15 @@ static inline struct node_cspan jump_targets(const struct fir_node* node) {
 }
 
 struct cfg cfg_create(const struct scope* scope) {
-    struct cfg cfg = { .graph = graph_create(CFG_USER_DATA_COUNT) };
-
     assert(fir_func_entry(scope->func));
     assert(fir_func_return(scope->func));
 
-    graph_connect(&cfg.graph,
-        graph_source(&cfg.graph, GRAPH_DIR_FORWARD),
-        graph_insert(&cfg.graph, (void*)fir_func_entry(scope->func)));
-
-    graph_connect(&cfg.graph,
-        graph_insert(&cfg.graph, (void*)fir_func_return(scope->func)),
-        graph_sink(&cfg.graph, GRAPH_DIR_FORWARD));
+    struct cfg cfg = {
+        .graph = graph_create(
+            CFG_USER_DATA_COUNT,
+            (void*)fir_func_entry(scope->func),
+            (void*)fir_func_return(scope->func))
+    };
 
     SET_FOREACH(const struct fir_node*, node_ptr, scope->nodes) {
         const struct fir_node* func = *node_ptr;
@@ -82,6 +69,18 @@ void cfg_destroy(struct cfg* cfg) {
     dom_tree_destroy(&cfg->post_dom_tree);
     loop_tree_destroy(&cfg->loop_tree);
     memset(cfg, 0, sizeof(struct cfg));
+}
+
+struct fir_node* cfg_block_func(const struct graph_node* node) {
+    return (struct fir_node*)node->key;
+}
+
+struct graph_node* cfg_find(struct cfg* cfg, const struct fir_node* node) {
+    assert(node->tag == FIR_FUNC);
+    assert(fir_node_is_cont_ty(node->ty));
+    struct graph_node* graph_node = graph_find(&cfg->graph, (void*)node);
+    assert(graph_node);
+    return graph_node;
 }
 
 struct dom_tree_node* cfg_dom_tree_node(const struct graph_node* node) {

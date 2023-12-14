@@ -19,8 +19,8 @@ TEST(heap) {
     }
 
     for (size_t i = count; i > 0; --i) {
-        int value;
-        heap_pop(values, i, sizeof(int), &value, less_than_int);
+        int value = values[0];
+        heap_pop(values, i, sizeof(int), less_than_int);
         values[i - 1] = value;
     }
 

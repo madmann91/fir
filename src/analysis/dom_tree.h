@@ -21,3 +21,8 @@ struct dom_tree {
     enum graph_dir dir);
 
 void dom_tree_destroy(struct dom_tree*);
+
+[[nodiscard]] struct dom_tree_node* dom_tree_least_common_ancestor(
+    struct dom_tree_node* left,
+    struct dom_tree_node* right,
+    size_t dom_tree_index);

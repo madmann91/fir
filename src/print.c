@@ -6,6 +6,7 @@
 
 #include "analysis/scope.h"
 #include "analysis/cfg.h"
+#include "analysis/schedule.h"
 
 #include <inttypes.h>
 
@@ -124,12 +125,32 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
 
         struct scope scope = scope_create(funcs[i]);
         struct cfg cfg = cfg_create(&scope);
-        SET_FOREACH(const struct fir_node*, node_ptr, scope.nodes) {
+        struct schedule schedule = schedule_create(&cfg);
+
+        VEC_REV_FOREACH(struct graph_node*, block_ptr, cfg.post_order) {
+            if ((*block_ptr) == cfg.graph.sink)
+                continue;
+
+            const struct fir_node* block_func = cfg_block_func(*block_ptr);
+
             print_indent(file, options->indent + 1, options->tab);
-            fir_node_print(file, *node_ptr, options);
+            fir_node_print(file, block_func, options);
             fprintf(file, "\n");
+
+            struct node_cspan block_contents = schedule_block_contents(&schedule, *block_ptr);
+            CSPAN_FOREACH(const struct fir_node*, node_ptr, block_contents) {
+                print_indent(file, options->indent + 2, options->tab);
+                fir_node_print(file, *node_ptr, options);
+                fprintf(file, "\n");
+            }
         }
-        graph_print(file, &cfg.graph);
+
+        fprintf(file, "\n");
+        print_indent(file, options->indent + 1, options->tab);
+        fir_node_print(file, funcs[i]->ops[0], options);
+        fprintf(file, "\n");
+
+        schedule_destroy(&schedule);
         scope_destroy(&scope);
         cfg_destroy(&cfg);
     }

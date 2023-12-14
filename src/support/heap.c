@@ -26,8 +26,7 @@ void heap_push(void* begin, size_t count, size_t size, const void* elem, bool (*
     memcpy(elem_at(begin, size, i), elem, size);
 }
 
-void heap_pop(void* begin, size_t count, size_t size, void* elem, bool (*less_than)(const void*, const void*)) {
-    memcpy(elem, begin, size);
+void heap_pop(void* begin, size_t count, size_t size, bool (*less_than)(const void*, const void*)) {
     size_t i = 0;
     while (true) {
         size_t left  = child_of(i, 0);

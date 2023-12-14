@@ -29,7 +29,8 @@
     VISIBILITY(vis) void name##_destroy(struct name*); \
     VISIBILITY(vis) void name##_resize(struct name*, size_t); \
     VISIBILITY(vis) void name##_push(struct name*, elem_ty const*); \
-    VISIBILITY(vis) void name##_pop(struct name*); \
+    VISIBILITY(vis) elem_ty* name##_pop(struct name*); \
+    VISIBILITY(vis) elem_ty* name##_last(struct name*); \
     VISIBILITY(vis) void name##_clear(struct name*);
 
 #define VEC_IMPL(name, elem_ty, vis) \
@@ -60,8 +61,11 @@
         name##_resize(vec, vec->elem_count + 1); \
         vec->elems[vec->elem_count - 1] = *elem; \
     } \
-    VISIBILITY(vis) void name##_pop(struct name* vec) { \
-        vec->elem_count--; \
+    VISIBILITY(vis) elem_ty* name##_pop(struct name* vec) { \
+        return &vec->elems[--vec->elem_count]; \
+    } \
+    VISIBILITY(vis) elem_ty* name##_last(struct name* vec) { \
+        return &vec->elems[vec->elem_count - 1]; \
     } \
     VISIBILITY(vis) void name##_clear(struct name* vec) { \
         vec->elem_count = 0; \
@@ -82,7 +86,8 @@
     VISIBILITY(vis) void name##_destroy(struct name*); \
     VISIBILITY(vis) void name##_resize(struct name*, size_t); \
     VISIBILITY(vis) void name##_push(struct name*, elem_ty const*); \
-    VISIBILITY(vis) void name##_pop(struct name*); \
+    VISIBILITY(vis) elem_ty* name##_pop(struct name*); \
+    VISIBILITY(vis) elem_ty* name##_last(struct name*); \
     VISIBILITY(vis) void name##_clear(struct name*);
 
 #define SMALL_VEC_IMPL(name, elem_ty, vis) \
@@ -114,8 +119,11 @@
         name##_resize(vec, vec->elem_count + 1); \
         vec->elems[vec->elem_count - 1] = *elem; \
     } \
-    VISIBILITY(vis) void name##_pop(struct name* vec) { \
-        vec->elem_count--; \
+    VISIBILITY(vis) elem_ty* name##_pop(struct name* vec) { \
+        return &vec->elems[--vec->elem_count]; \
+    } \
+    VISIBILITY(vis) elem_ty* name##_last(struct name* vec) { \
+        return &vec->elems[vec->elem_count - 1]; \
     } \
     VISIBILITY(vis) void name##_clear(struct name* vec) { \
         vec->elem_count = 0; \

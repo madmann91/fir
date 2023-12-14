@@ -1,0 +1,57 @@
+#pragma once
+
+#include "visibility.h"
+#include "heap.h"
+#include "vec.h"
+
+#include <assert.h>
+
+#define QUEUE_DEFINE(name, elem_ty, cmp, vis) \
+    QUEUE_DECL(name, elem_ty, vis) \
+    QUEUE_IMPL(name, elem_ty, cmp, vis)
+
+#define QUEUE_DECL(name, elem_ty, vis) \
+    VEC_DECL(name##_vec, elem_ty, vis) \
+    struct name { \
+        struct name##_vec vec; \
+    }; \
+    [[nodiscard]] VISIBILITY(vis) struct name name##_create(void); \
+    VISIBILITY(vis) void name##_destroy(struct name*); \
+    VISIBILITY(vis) elem_ty const* name##_top(const struct name*); \
+    VISIBILITY(vis) bool name##_is_empty(const struct name*); \
+    VISIBILITY(vis) void name##_push(struct name*, elem_ty const*); \
+    VISIBILITY(vis) void name##_pop(struct name*); \
+    VISIBILITY(vis) void name##_clear(struct name*);
+
+#define QUEUE_IMPL(name, elem_ty, cmp, vis) \
+    static inline bool name##_cmp_wrapper(const void* left, const void* right) { \
+        return cmp((elem_ty const*)left, (elem_ty const*)right); \
+    } \
+    VEC_IMPL(name##_vec, elem_ty, vis) \
+    VISIBILITY(vis) struct name name##_create(void) { \
+        return (struct name) { .vec = name##_vec_create() }; \
+    } \
+    VISIBILITY(vis) void name##_destroy(struct name* queue) { \
+        name##_vec_destroy(&queue->vec); \
+        memset(queue, 0, sizeof(struct name)); \
+    } \
+    VISIBILITY(vis) elem_ty const* name##_top(const struct name* queue) { \
+        assert(!name##_is_empty(queue)); \
+        return &queue->vec.elems[0]; \
+    } \
+    VISIBILITY(vis) bool name##_is_empty(const struct name* queue) { \
+        return queue->vec.elem_count == 0; \
+    } \
+    VISIBILITY(vis) void name##_push(struct name* queue, elem_ty const* elem) { \
+        size_t elem_count = queue->vec.elem_count; \
+        name##_vec_resize(&queue->vec, elem_count + 1); \
+        heap_push(queue->vec.elems, elem_count, sizeof(elem_ty), elem, name##_cmp_wrapper); \
+    } \
+    VISIBILITY(vis) void name##_pop(struct name* queue) { \
+        assert(!name##_is_empty(queue)); \
+        heap_pop(queue->vec.elems, queue->vec.elem_count, sizeof(elem_ty), name##_cmp_wrapper); \
+        name##_vec_pop(&queue->vec); \
+    } \
+    VISIBILITY(vis) void name##_clear(struct name* queue) { \
+        name##_vec_clear(&queue->vec); \
+    }

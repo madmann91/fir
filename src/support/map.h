@@ -9,15 +9,27 @@
 #define MAP_DEFAULT_CAPACITY 4
 #define MAP_PREFIX map_very_long_prefix_
 
-#define MAP_FOREACH_KEY(key_ty, key, map) \
+#define MAP_FOREACH_COMMON(map, ...) \
     for (size_t MAP_PREFIX##i = 0; MAP_PREFIX##i < (map).hash_table.capacity; ++MAP_PREFIX##i) \
         if (hash_table_is_bucket_occupied(&(map).hash_table, MAP_PREFIX##i)) \
             for (bool MAP_PREFIX##once = true; MAP_PREFIX##once; MAP_PREFIX##once = false) \
-                for (key_ty const* key = &((key_ty const*)(map).hash_table.keys)[MAP_PREFIX##i]; MAP_PREFIX##once; MAP_PREFIX##once = false) \
+                __VA_ARGS__
+
+#define MAP_FOREACH_ACCESS(ty, val, elems) \
+    for (ty const* val = &((ty const*)(elems))[MAP_PREFIX##i]; MAP_PREFIX##once; MAP_PREFIX##once = false) \
 
 #define MAP_FOREACH(key_ty, key, val_ty, val, map) \
-    MAP_FOREACH_KEY(key_ty, key, map) \
-        for (val_ty const* val = &((val_ty const*)(map).hash_table.vals)[MAP_PREFIX##i]; MAP_PREFIX##once; MAP_PREFIX##once = false) \
+    MAP_FOREACH_COMMON(map, \
+        MAP_FOREACH_ACCESS(key_ty, key, (map).hash_table.keys) \
+        MAP_FOREACH_ACCESS(val_ty, val, (map).hash_table.elems))
+
+#define MAP_FOREACH_KEY(key_ty, key, map) \
+    MAP_FOREACH_COMMON(map, \
+        MAP_FOREACH_ACCESS(key_ty, key, (map).hash_table.keys)) \
+
+#define MAP_FOREACH_VAL(val_ty, val, map) \
+    MAP_FOREACH_COMMON(map, \
+        MAP_FOREACH_ACCESS(val_ty, val, (map).hash_table.vals))
 
 #define MAP_DEFINE(name, key_ty, val_ty, hash, cmp, vis) \
     MAP_DECL(name, key_ty, val_ty, vis) \

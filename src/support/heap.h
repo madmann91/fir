@@ -14,5 +14,4 @@ void heap_pop(
     void* begin,
     size_t count,
     size_t size,
-    void* elem,
     bool (*less_than)(const void*, const void*));

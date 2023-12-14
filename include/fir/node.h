@@ -66,10 +66,18 @@ union fir_node_data {
     size_t array_dim;           ///< Array dimension, for fixed-size array types.
 };
 
+/// Properties of structural nodes.
+enum fir_node_props {
+    /// The node's value does not depend on a parameter, directly or indirectly. Such nodes are
+    /// constants from the point of view of the IR.
+    FIR_PROP_INVARIANT = 0x01
+};
+
 /// Members of the @ref fir_node structure.
 #define FIR_NODE(n) \
     uint64_t id; \
     enum fir_node_tag tag; \
+    enum fir_node_props props; \
     union fir_node_data data; \
     const struct fir_use* uses; \
     const struct fir_dbg_info* dbg_info; \
@@ -204,6 +212,12 @@ FIR_SYMBOL bool fir_node_is_branch(const struct fir_node*);
 /// @return `true` if the given node is a indexed jump.
 /// @see fir_switch.
 FIR_SYMBOL bool fir_node_is_switch(const struct fir_node*);
+
+/// @return `true` if the given node can be speculated. A node can be speculated if its execution in
+/// a control path that does not require its value does not change the semantics of the program.
+/// For example, a `load` or `store` operation has side effects, and thus cannot be executed in
+/// control paths that do not require the result of their execution.
+FIR_SYMBOL bool fir_node_is_speculatable(const struct fir_node*);
 
 /// @}
 

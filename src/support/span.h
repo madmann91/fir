@@ -3,6 +3,9 @@
 #define SPAN_FOREACH(elem_ty, elem, span) \
     for (elem_ty* elem = (span).elems; elem != (span).elems + (span).elem_count; ++elem)
 
+#define SPAN_REV_FOREACH(elem_ty, elem, span) \
+    for (elem_ty* elem = (span).elems + (span).elem_count; elem-- != (span).elems; )
+
 #define SPAN_DECL(name, elem_ty) \
     struct name { \
         elem_ty* elems; \
@@ -11,6 +14,9 @@
 
 #define CSPAN_FOREACH(elem_ty, elem, span) \
     for (elem_ty const* elem = (span).elems; elem != (span).elems + (span).elem_count; ++elem)
+
+#define CSPAN_REV_FOREACH(elem_ty, elem, span) \
+    for (elem_ty const* elem = (span).elems + (span).elem_count; elem-- != (span).elems; )
 
 #define CSPAN_DECL(name, elem_ty) \
     struct name { \

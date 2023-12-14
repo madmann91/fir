@@ -14,6 +14,7 @@ enum loop_type {
 
 struct loop_tree_node {
     size_t depth;
+    size_t loop_depth;
     enum loop_type type;
     struct graph_node* parent;
 };

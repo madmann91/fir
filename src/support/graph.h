@@ -27,10 +27,10 @@ struct graph_edge {
     struct graph_edge* next_out;
 };
 
-enum graph_node_id {
-    GRAPH_SOURCE_ID,
-    GRAPH_SINK_ID,
-    GRAPH_OTHER_ID
+enum graph_node_index {
+    GRAPH_SOURCE_INDEX,
+    GRAPH_SINK_INDEX,
+    GRAPH_OTHER_INDEX
 };
 
 union graph_node_data {
@@ -39,7 +39,7 @@ union graph_node_data {
 };
 
 struct graph_node {
-    uint64_t id;
+    size_t index;
     void* key;
     struct graph_edge* ins;
     struct graph_edge* outs;
@@ -48,11 +48,13 @@ struct graph_node {
 
 SET_DECL(graph_edge_set, struct graph_edge*, PUBLIC)
 VEC_DECL(graph_node_vec, struct graph_node*, PUBLIC)
-MAP_DECL(graph_node_key_map, void*, struct graph_node*, PUBLIC)
+MAP_DECL(graph_node_map, struct graph_node*, void*, PUBLIC)
 SET_DECL(graph_node_set, struct graph_node*, PUBLIC)
 
+MAP_DECL(graph_node_key_map, void*, struct graph_node*, PUBLIC)
+
 struct graph {
-    uint64_t cur_id;
+    size_t node_count;
     size_t data_size;
     struct graph_node* source;
     struct graph_node* sink;
@@ -72,9 +74,10 @@ enum graph_dir {
 [[nodiscard]] struct graph_node* graph_source(struct graph*, enum graph_dir);
 [[nodiscard]] struct graph_node* graph_sink(struct graph*, enum graph_dir);
 
-[[nodiscard]] struct graph graph_create(size_t);
+[[nodiscard]] struct graph graph_create(size_t, void*, void*);
 void graph_destroy(struct graph*);
 
+[[nodiscard]] struct graph_node* graph_find(struct graph*, void* key);
 struct graph_node* graph_insert(struct graph*, void* key);
 struct graph_edge* graph_connect(struct graph*, struct graph_node*, struct graph_node*);
 

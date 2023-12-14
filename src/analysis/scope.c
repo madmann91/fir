@@ -13,8 +13,7 @@ struct scope scope_create(const struct fir_node* func) {
     struct node_vec node_stack = node_vec_create();
     node_vec_push(&node_stack, &param);
     while (node_stack.elem_count > 0) {
-        const struct fir_node* node = node_stack.elems[node_stack.elem_count - 1];
-        node_vec_pop(&node_stack);
+        const struct fir_node* node = *node_vec_pop(&node_stack);
 
         if (node == func || !node_set_insert(&nodes, &node))
             continue;

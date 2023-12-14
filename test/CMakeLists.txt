@@ -4,6 +4,7 @@ add_executable(unit_tests
     unit/dbg_info.c
     unit/module.c
     unit/parse.c
+    unit/support/queue.c
     unit/support/mem_pool.c
     unit/support/map.c
     unit/support/set.c

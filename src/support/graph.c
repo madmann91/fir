@@ -6,8 +6,8 @@
 #include <string.h>
 
 static inline uint32_t hash_graph_edge(uint32_t h, struct graph_edge* const* edge_ptr) {
-    h = hash_uint64(h, (*edge_ptr)->from->id);
-    h = hash_uint64(h, (*edge_ptr)->to->id);
+    h = hash_uint64(h, (*edge_ptr)->from->index);
+    h = hash_uint64(h, (*edge_ptr)->to->index);
     return h;
 }
 
@@ -21,7 +21,7 @@ static inline bool cmp_graph_edge(
 }
 
 static inline uint32_t hash_graph_node(uint32_t h, struct graph_node* const* node_ptr) {
-    return hash_uint64(h, (*node_ptr)->id);
+    return hash_uint64(h, (*node_ptr)->index);
 }
 
 static inline bool cmp_graph_node(
@@ -29,6 +29,13 @@ static inline bool cmp_graph_node(
     struct graph_node* const* other_ptr)
 {
     return (*node_ptr)->key == (*other_ptr)->key;
+}
+
+static inline bool cmp_graph_node_by_ptr(
+    struct graph_node* const* node_ptr,
+    struct graph_node* const* other_ptr)
+{
+    return *node_ptr == *other_ptr;
 }
 
 static inline uint32_t hash_raw_ptr(uint32_t h, void* const* ptr) {
@@ -41,8 +48,10 @@ static inline bool cmp_raw_ptr(void* const* ptr, void* const* other) {
 
 SET_IMPL(graph_node_set, struct graph_node*, hash_graph_node, cmp_graph_node, PUBLIC)
 SET_IMPL(graph_edge_set, struct graph_edge*, hash_graph_edge, cmp_graph_edge, PUBLIC)
-MAP_IMPL(graph_node_key_map, void*, struct graph_node*, hash_raw_ptr, cmp_raw_ptr, PUBLIC)
+MAP_IMPL(graph_node_map, struct graph_node*, void*, hash_graph_node, cmp_graph_node_by_ptr, PUBLIC)
 VEC_IMPL(graph_node_vec, struct graph_node*, PUBLIC)
+
+MAP_IMPL(graph_node_key_map, void*, struct graph_node*, hash_raw_ptr, cmp_raw_ptr, PUBLIC)
 
 enum graph_dir graph_dir_reverse(enum graph_dir dir) {
     return dir == GRAPH_DIR_FORWARD ? GRAPH_DIR_BACKWARD : GRAPH_DIR_FORWARD;
@@ -72,17 +81,28 @@ static inline struct graph_node* alloc_graph_node(size_t data_size) {
     return xcalloc(1, sizeof(struct graph_node) + data_size * sizeof(union graph_node_data));
 }
 
-struct graph graph_create(size_t data_size) {
+struct graph graph_create(size_t data_size, void* source_key, void* sink_key) {
+    assert((source_key == NULL && sink_key == NULL) || source_key != sink_key);
+
     struct graph_node* source = alloc_graph_node(data_size);
     struct graph_node* sink   = alloc_graph_node(data_size);
-    source->id = GRAPH_SOURCE_ID;
-    sink->id = GRAPH_SINK_ID;
+    source->index = GRAPH_SOURCE_INDEX;
+    sink->index = GRAPH_SINK_INDEX;
+    source->key = source_key;
+    sink->key = sink_key;
+
+    struct graph_node_key_map nodes = graph_node_key_map_create();
+    if (source_key)
+        graph_node_key_map_insert(&nodes, &source_key, &source);
+    if (sink_key)
+        graph_node_key_map_insert(&nodes, &sink_key, &sink);
+
     return (struct graph) {
         .source = source,
         .sink = sink,
-        .cur_id = GRAPH_OTHER_ID,
-         data_size = data_size,
-        .nodes = graph_node_key_map_create(),
+        .node_count = GRAPH_OTHER_INDEX,
+        .data_size = data_size,
+        .nodes = nodes,
         .edges = graph_edge_set_create()
     };
 }
@@ -91,9 +111,9 @@ void graph_destroy(struct graph* graph) {
     free(graph->source);
     free(graph->sink);
 
-    MAP_FOREACH(void*, key_ptr, struct graph_node*, node_ptr, graph->nodes) {
-        (void)key_ptr;
-        free(*node_ptr);
+    MAP_FOREACH_VAL(struct graph_node*, node_ptr, graph->nodes) {
+        if (*node_ptr != graph->source && *node_ptr != graph->sink)
+            free(*node_ptr);
     }
     graph_node_key_map_destroy(&graph->nodes);
 
@@ -104,13 +124,18 @@ void graph_destroy(struct graph* graph) {
     memset(graph, 0, sizeof(struct graph));
 }
 
-struct graph_node* graph_insert(struct graph* graph, void* key) {
+struct graph_node* graph_find(struct graph* graph, void* key) {
     struct graph_node* const* node_ptr = graph_node_key_map_find(&graph->nodes, &key);
-    if (node_ptr)
-        return *node_ptr;
+    return node_ptr ? *node_ptr : NULL;
+}
 
-    struct graph_node* node = alloc_graph_node(graph->data_size);
-    node->id = graph->cur_id++;
+struct graph_node* graph_insert(struct graph* graph, void* key) {
+    struct graph_node* node = graph_find(graph, key);
+    if (node)
+        return node;
+
+    node = alloc_graph_node(graph->data_size);
+    node->index = graph->node_count++;
     node->key = key;
     [[maybe_unused]] bool was_inserted = graph_node_key_map_insert(&graph->nodes, &key, &node);
     assert(was_inserted);
@@ -193,12 +218,12 @@ restart:
 }
 
 static inline void print_node(FILE* file, const struct graph_node* node) {
-    if (node->id == GRAPH_SOURCE_ID)
+    if (node->index == GRAPH_SOURCE_INDEX)
         fprintf(file, "source");
-    else if (node->id == GRAPH_SINK_ID)
+    else if (node->index == GRAPH_SINK_INDEX)
         fprintf(file, "sink");
     else
-        fprintf(file, "%"PRIu64, node->id);
+        fprintf(file, "%"PRIu64, node->index);
 }
 
 void graph_print(FILE* file, const struct graph* graph) {

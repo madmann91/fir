@@ -93,8 +93,7 @@ struct loop_tree loop_tree_create(
             nodes[i].type = LOOP_REDUCIBLE;
 
         while (worklist.elem_count > 0) {
-            size_t node = worklist.elems[worklist.elem_count - 1];
-            index_vec_pop(&worklist);
+            size_t node = *index_vec_pop(&worklist);
 
             VEC_FOREACH(size_t, non_back_pred, non_back_preds[node]) {
                 size_t header = union_find(headers, *non_back_pred);
@@ -120,6 +119,7 @@ struct loop_tree loop_tree_create(
         size_t header = headers[i] == i ? 0 : headers[i];
         nodes[i].parent = depth_first_order->elems[header];
         nodes[i].depth = nodes[header].depth + 1;
+        nodes[i].loop_depth = nodes[header].loop_depth + (nodes[i].type != LOOP_NONHEADER ? 1 : 0);
     }
 
     free(headers);
