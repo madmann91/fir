@@ -1,6 +1,8 @@
 #include "heap.h"
+#include "alloc.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 static inline size_t parent_of(size_t i) {
     return (i - 1) / 2;
@@ -40,5 +42,21 @@ void heap_pop(void* begin, size_t count, size_t size, bool (*less_than)(const vo
         if (largest == count - 1)
             break;
         i = largest;
+    }
+}
+
+void heap_sort(
+    void* begin, size_t count, size_t size,
+    bool (*less_than)(const void*, const void*))
+{
+    alignas(max_align_t) char tmp_elem[size];
+    for (size_t i = 0; i < count; ++i) {
+        memcpy(tmp_elem, elem_at(begin, size, i), size);
+        heap_push(begin, i, size, tmp_elem, less_than);
+    }
+    for (size_t i = count; i > 0; --i) {
+        memcpy(tmp_elem, begin, size);
+        heap_pop(begin, i, size, less_than);
+        memcpy(elem_at(begin, size, i - 1), tmp_elem, size);
     }
 }

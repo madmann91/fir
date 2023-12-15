@@ -71,6 +71,7 @@ char* type_to_string(const struct type*);
 size_t type_find_field(const struct type* record_type, const char* field_name);
 
 bool type_is_subtype(const struct type*, const struct type*);
+bool type_is_unit(const struct type*);
 bool type_is_prim(const struct type*);
 bool type_is_int(const struct type*);
 bool type_is_float(const struct type*);
@@ -91,6 +92,8 @@ const struct type* type_prim(struct type_set*, enum type_tag);
 
 const struct type* type_ptr(struct type_set*, const struct type* pointee_type, bool is_const);
 const struct type* type_ref(struct type_set*, const struct type* pointee_type, bool is_const);
+
+const struct type* type_unit(struct type_set*);
 
 const struct type* type_func(
     struct type_set*,

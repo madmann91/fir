@@ -126,6 +126,10 @@ static void bind(struct name_binder* name_binder, struct ast* ast) {
             for (struct ast* arg = ast->tuple_type.args; arg; arg = arg->next)
                 bind(name_binder, arg);
             break;
+        case AST_BLOCK_EXPR:
+            for (struct ast* stmt = ast->block_expr.stmts; stmt; stmt = stmt->next)
+                bind(name_binder, stmt);
+            break;
         default:
             assert(false && "invalid AST node");
             break;

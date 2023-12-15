@@ -229,9 +229,13 @@ static struct ast* parse_func_decl(struct parser* parser) {
     if (accept_token(parser, TOK_THIN_ARROW))
         ret_type = parse_type(parser);
     struct ast* body = NULL;
-    if (accept_token(parser, TOK_EQ))
+    if (parser->ahead->tag == TOK_LBRACE) {
         body = parse_expr(parser);
-    expect_token(parser, TOK_SEMICOLON);
+    } else if (accept_token(parser, TOK_EQ)) {
+        body = parse_expr(parser);
+        expect_token(parser, TOK_SEMICOLON);
+    } else
+        expect_token(parser, TOK_SEMICOLON);
     return alloc_ast(parser, &begin_pos, &(struct ast) {
         .tag = AST_FUNC_DECL,
         .func_decl = {
@@ -345,6 +349,52 @@ static struct ast* parse_array_expr(struct parser* parser) {
     });
 }
 
+static struct ast* parse_block_expr(struct parser* parser) {
+    const struct fir_source_pos begin_pos = parser->ahead->source_range.begin;
+    eat_token(parser, TOK_LBRACE);
+    bool ends_with_semicolon = false;
+    struct ast* stmts = NULL;
+    struct ast** prev = &stmts;
+    while (parser->ahead->tag != TOK_RBRACE) {
+        struct ast* stmt = NULL;
+        ends_with_semicolon = false;
+        switch (parser->ahead->tag) {
+            case TOK_TRUE:
+            case TOK_FALSE:
+            case TOK_IDENT:
+            case TOK_INT:
+            case TOK_FLOAT:
+            case TOK_LPAREN:
+            case TOK_LBRACE:
+            case TOK_LBRACKET:
+                stmt = parse_expr(parser);
+                break;
+            case TOK_VAR:
+            case TOK_CONST:
+            case TOK_FUNC:
+                stmt = parse_decl(parser);
+                break;
+            default:
+                break;
+        }
+        if (!stmt)
+            break;
+        *prev = stmt;
+        prev = &(*prev)->next;
+        ends_with_semicolon = accept_token(parser, TOK_SEMICOLON);
+        if (!ends_with_semicolon && ast_needs_semicolon(stmt))
+            break;
+    }
+    expect_token(parser, TOK_RBRACE);
+    return alloc_ast(parser, &begin_pos, &(struct ast) {
+        .tag = AST_BLOCK_EXPR,
+        .block_expr = {
+            .stmts = stmts,
+            .ends_with_semicolon = ends_with_semicolon
+        }
+    });
+}
+
 static struct ast* parse_expr(struct parser* parser) {
     switch (parser->ahead->tag) {
         case TOK_TRUE:     return parse_bool_literal(parser, true);
@@ -353,6 +403,7 @@ static struct ast* parse_expr(struct parser* parser) {
         case TOK_INT:      return parse_int_literal(parser);
         case TOK_FLOAT:    return parse_float_literal(parser);
         case TOK_LPAREN:   return parse_tuple(parser, AST_TUPLE_EXPR, parse_expr);
+        case TOK_LBRACE:   return parse_block_expr(parser);
         case TOK_LBRACKET:
             if (parser->ahead[1].tag == TOK_RBRACKET ||
                 (parser->ahead[1].tag == TOK_IDENT && parser->ahead[2].tag == TOK_EQ))

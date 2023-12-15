@@ -132,6 +132,7 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
                 continue;
 
             const struct fir_node* block_func = cfg_block_func(*block_ptr);
+            assert(block_func);
 
             print_indent(file, options->indent + 1, options->tab);
             fir_node_print(file, block_func, options);

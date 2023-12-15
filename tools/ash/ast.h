@@ -64,7 +64,8 @@ enum ast_tag {
     AST_ARRAY_EXPR,
     AST_TUPLE_EXPR,
     AST_UNARY_EXPR,
-    AST_BINARY_EXPR
+    AST_BINARY_EXPR,
+    AST_BLOCK_EXPR
 };
 
 enum prim_type_tag {
@@ -167,6 +168,10 @@ struct ast {
             enum unary_expr_tag tag;
             struct ast* arg;
         } unary_expr;
+        struct {
+            struct ast* stmts;
+            bool ends_with_semicolon;
+        } block_expr;
     };
 };
 
@@ -186,3 +191,5 @@ void ast_emit(struct ast*, struct fir_mod*);
 
 const char* unary_expr_tag_to_string(enum unary_expr_tag);
 const char* binary_expr_tag_to_string(enum binary_expr_tag);
+
+bool ast_needs_semicolon(const struct ast*);

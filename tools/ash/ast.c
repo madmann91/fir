@@ -15,6 +15,11 @@ static inline bool cmp_ast(struct ast* const* ast_ptr, struct ast* const* other_
 
 SET_IMPL(ast_set, struct ast*, hash_ast, cmp_ast, PUBLIC)
 
+static inline void print_indent(FILE* file, size_t indent, const char* tab) {
+    for (size_t i = 0; i < indent; ++i)
+        fputs(tab, file);
+}
+
 static inline void print_many(
     FILE* file,
     const char* begin,
@@ -117,6 +122,25 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
         case AST_TUPLE_PATTERN:
             print_many(file, "(", ", ", ")", ast->tuple_type.args, options);
             break;
+        case AST_BLOCK_EXPR:
+            if (!ast->block_expr.stmts) {
+                fprintf(file, "{}");
+            } else {
+                struct fir_print_options block_options = *options;
+                block_options.indent++;
+                fprintf(file, "{\n");
+                for (struct ast* stmt = ast->block_expr.stmts; stmt; stmt = stmt->next) {
+                    print_indent(file, block_options.indent, block_options.tab);
+                    ast_print(file, stmt, &block_options);
+                    if ((stmt->next && ast_needs_semicolon(stmt)) ||
+                        (!stmt->next && ast->block_expr.ends_with_semicolon))
+                        fprintf(file, ";");
+                    fprintf(file, "\n");
+                }
+                print_indent(file, options->indent, options->tab);
+                fprintf(file, "}");
+            }
+            break;
         case AST_FUNC_DECL:
             fprintf(file, "%sfunc%s %s", keyword_style, reset_style, ast->func_decl.name);
             print_with_parens(file, ast->func_decl.param, options);
@@ -161,5 +185,16 @@ const char* unary_expr_tag_to_string(enum unary_expr_tag tag) {
         default:
             assert(false && "invalid unary expression");
             return "";
+    }
+}
+
+bool ast_needs_semicolon(const struct ast* ast) {
+    switch (ast->tag) {
+        case AST_LITERAL:
+        case AST_TUPLE_EXPR:
+        case AST_BLOCK_EXPR:
+            return true;
+        default:
+            return false;
     }
 }

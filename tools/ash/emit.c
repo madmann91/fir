@@ -113,6 +113,16 @@ static const struct fir_node* emit_literal(
     return NULL;
 }
 
+static const struct fir_node* emit_block_expr(struct emitter* emitter, struct ast* block) {
+    const struct fir_node* last_val = NULL;
+    for (struct ast* stmt = block->block_expr.stmts; stmt; stmt = stmt->next) {
+        last_val = emit(emitter, stmt);
+        if (stmt->next || block->block_expr.ends_with_semicolon)
+            last_val = NULL;
+    }
+    return last_val ? last_val : fir_unit(emitter->mod);
+}
+
 static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
     switch (ast->tag) {
         case AST_LITERAL:
@@ -125,6 +135,8 @@ static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
             return ast->node = emit_tuple_expr(emitter, ast);
         case AST_RECORD_EXPR:
             return ast->node = emit_record_expr(emitter, ast);
+        case AST_BLOCK_EXPR:
+            return ast->node = emit_block_expr(emitter, ast);
         case AST_FIELD_EXPR:
             return ast->node = emit(emitter, ast->field_expr.arg);
         default:

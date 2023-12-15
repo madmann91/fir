@@ -236,6 +236,10 @@ bool type_is_subtype(const struct type* left, const struct type* right) {
     return false;
 }
 
+bool type_is_unit(const struct type* type) {
+    return type->tag == TYPE_TUPLE && type->tuple_type.arg_count == 0;
+}
+
 bool type_is_prim(const struct type* type) { return type_tag_is_prim(type->tag); }
 bool type_is_float(const struct type* type) { return type_tag_is_float(type->tag); }
 bool type_is_int(const struct type* type) { return type_tag_is_int(type->tag); }
@@ -401,6 +405,10 @@ const struct type* type_ref(struct type_set* type_set, const struct type* pointe
             .is_const = is_const
         }
     });
+}
+
+const struct type* type_unit(struct type_set* type_set) {
+    return type_tuple(type_set, NULL, 0);
 }
 
 const struct type* type_func(

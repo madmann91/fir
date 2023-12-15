@@ -85,14 +85,36 @@ static const struct type* coerce(
     return expr_type;
 }
 
+static const struct type* check_block(
+    struct type_checker* type_checker,
+    struct ast* block,
+    const struct type* expected_type)
+{
+    struct ast* last_stmt = NULL;
+    for (struct ast* stmt = block->block_expr.stmts; stmt; stmt = stmt->next) {
+        if (stmt->next || block->block_expr.ends_with_semicolon)
+            deref(type_checker, &stmt);
+        else
+            last_stmt = stmt;
+    }
+    if (last_stmt) {
+        if (expected_type)
+            return coerce(type_checker, &last_stmt, expected_type);
+        return deref(type_checker, &last_stmt);
+    }
+    return type_unit(type_checker->type_set);
+}
+
 static const struct type* check(
     struct type_checker* type_checker,
     struct ast* ast,
-    const struct type* type)
+    const struct type* expected_type)
 {
     switch (ast->tag) {
+        case AST_BLOCK_EXPR:
+            return ast->type = check_block(type_checker, ast->block_expr.stmts, expected_type);
         default:
-            return ast->type = expect_type(type_checker, &ast->source_range, infer(type_checker, ast), type);
+            return ast->type = expect_type(type_checker, &ast->source_range, infer(type_checker, ast), expected_type);
     }
 }
 
@@ -193,6 +215,8 @@ static const struct type* infer(struct type_checker* type_checker, struct ast* a
         case AST_RECORD_EXPR:
         case AST_RECORD_PATTERN:
             return ast->type = infer_record(type_checker, ast->record_type.fields);
+        case AST_BLOCK_EXPR:
+            return ast->type = check_block(type_checker, ast, NULL);
         default:
             assert(false && "invalid AST node");
             return ast->type = type_top(type_checker->type_set);

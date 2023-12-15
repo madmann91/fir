@@ -29,3 +29,20 @@ TEST(heap) {
 
     free(values);
 }
+
+TEST(heap_sort) {
+    size_t count = 60;
+    uint32_t rng = 42;
+    int* values = xmalloc(sizeof(int) * count);
+
+    for (size_t i = 0; i < count; ++i) {
+        values[i] = minstd_gen(&rng) % count;
+    }
+
+    heap_sort(values, count, sizeof(int), less_than_int);
+
+    for (size_t i = 1; i < count; ++i)
+        REQUIRE(values[i - 1] <= values[i]);
+
+    free(values);
+}
