@@ -3,6 +3,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdalign.h>
 
 static inline size_t parent_of(size_t i) {
     return (i - 1) / 2;
