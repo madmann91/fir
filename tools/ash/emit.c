@@ -11,11 +11,31 @@
 
 struct emitter {
     struct fir_mod* mod;
-    struct fir_block* block;
+    struct fir_block block;
 };
 
 static const struct fir_node* emit(struct emitter*, struct ast*);
-static void emit_pattern(struct emitter*, struct ast*, const struct fir_node*);
+
+static void emit_pattern(
+    struct emitter* emitter,
+    struct ast* pattern,
+    const struct fir_node* val)
+{
+    switch (pattern->tag) {
+        case AST_TUPLE_PATTERN: {
+            size_t i = 0;
+            for (struct ast* arg = pattern->tuple_pattern.args; arg; arg = arg->next)
+                emit_pattern(emitter, arg, fir_ext_at(val, i++));
+            break;
+        }
+        case AST_IDENT_PATTERN:
+            pattern->node = val;
+            break;
+        default:
+            assert(false && "invalid pattern");
+            break;
+    }
+}
 
 static const struct fir_node* convert_type(struct emitter* emitter, const struct type* type) {
     switch (type->tag) {
@@ -60,13 +80,10 @@ static const struct fir_node* emit_func_decl(struct emitter* emitter, struct ast
     assert(func_decl->tag == AST_FUNC_DECL);
     struct fir_node* func = fir_func(convert_type(emitter, func_decl->type));
     func->data.linkage = FIR_LINKAGE_EXPORTED;
-    struct fir_block entry;
-    const struct fir_node* param = fir_block_start(&entry, func);
-    emitter->block = &entry;
+    const struct fir_node* param = fir_block_start(&emitter->block, func);
     emit_pattern(emitter, func_decl->func_decl.param, param);
     const struct fir_node* ret_val = emit(emitter, func_decl->func_decl.body);
-    fir_block_return(emitter->block, ret_val);
-    emitter->block = NULL;
+    fir_block_return(&emitter->block, ret_val);
     return func;
 }
 
@@ -113,14 +130,53 @@ static const struct fir_node* emit_literal(
     return NULL;
 }
 
-static const struct fir_node* emit_block_expr(struct emitter* emitter, struct ast* block) {
+static const struct fir_node* emit_block_expr(struct emitter* emitter, struct ast* block_expr) {
     const struct fir_node* last_val = NULL;
-    for (struct ast* stmt = block->block_expr.stmts; stmt; stmt = stmt->next) {
+    for (struct ast* stmt = block_expr->block_expr.stmts; stmt; stmt = stmt->next) {
         last_val = emit(emitter, stmt);
-        if (stmt->next || block->block_expr.ends_with_semicolon)
+        if (stmt->next || block_expr->block_expr.ends_with_semicolon)
             last_val = NULL;
     }
     return last_val ? last_val : fir_unit(emitter->mod);
+}
+
+static const struct fir_node* emit_if_expr(struct emitter* emitter, struct ast* if_expr) {
+    const struct fir_node* cond = emit(emitter, if_expr->if_expr.cond);
+    const struct fir_node* alloc_ty = NULL;
+    const struct fir_node* alloc = NULL;
+
+    if (!type_is_unit(if_expr->type)) {
+        alloc_ty = convert_type(emitter, if_expr->type);
+        alloc = fir_block_alloc(&emitter->block, alloc_ty);
+    }
+
+    struct fir_block then_block;
+    struct fir_block else_block;
+    struct fir_block merge_block;
+    fir_block_branch(&emitter->block, cond, &then_block, &else_block, &merge_block);
+
+    emitter->block = then_block;
+    const struct fir_node* then_val = emit(emitter, if_expr->if_expr.then_block);
+    if (alloc)
+        fir_block_store(&emitter->block, alloc, then_val);
+    fir_block_jump(&emitter->block, &merge_block);
+
+    emitter->block = else_block;
+    if (if_expr->if_expr.else_block) {
+        const struct fir_node* else_val = emit(emitter, if_expr->if_expr.else_block);
+        if (alloc)
+            fir_block_store(&emitter->block, alloc, else_val);
+    }
+    fir_block_jump(&emitter->block, &merge_block);
+
+    emitter->block = merge_block;
+    return alloc ? fir_block_load(&emitter->block, alloc_ty, alloc) : fir_unit(emitter->mod);
+}
+
+static const struct fir_node* emit_const_decl(struct emitter* emitter, struct ast* const_decl) {
+    const struct fir_node* const_val = emit(emitter, const_decl->const_decl.init);
+    emit_pattern(emitter, const_decl->const_decl.pattern, const_val);
+    return fir_unit(emitter->mod);
 }
 
 static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
@@ -129,6 +185,8 @@ static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
             return ast->node = emit_literal(emitter, &ast->literal, ast->type);
         case AST_FUNC_DECL:
             return ast->node = emit_func_decl(emitter, ast);
+        case AST_CONST_DECL:
+            return ast->node = emit_const_decl(emitter, ast);
         case AST_IDENT_EXPR:
             return ast->node = ast->ident_expr.bound_to->node;
         case AST_TUPLE_EXPR:
@@ -137,32 +195,13 @@ static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
             return ast->node = emit_record_expr(emitter, ast);
         case AST_BLOCK_EXPR:
             return ast->node = emit_block_expr(emitter, ast);
+        case AST_IF_EXPR:
+            return ast->node = emit_if_expr(emitter, ast);
         case AST_FIELD_EXPR:
             return ast->node = emit(emitter, ast->field_expr.arg);
         default:
             assert(false && "invalid AST node");
             return NULL;
-    }
-}
-
-static void emit_pattern(
-    struct emitter* emitter,
-    struct ast* pattern,
-    const struct fir_node* val)
-{
-    switch (pattern->tag) {
-        case AST_TUPLE_PATTERN: {
-            size_t i = 0;
-            for (struct ast* arg = pattern->tuple_pattern.args; arg; arg = arg->next)
-                emit_pattern(emitter, arg, fir_ext_at(val, i++));
-            break;
-        }
-        case AST_IDENT_PATTERN:
-            pattern->node = val;
-            break;
-        default:
-            assert(false && "invalid pattern");
-            break;
     }
 }
 

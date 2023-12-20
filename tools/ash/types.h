@@ -88,6 +88,7 @@ void type_set_destroy(struct type_set*);
 const struct type* type_top(struct type_set*);
 const struct type* type_bottom(struct type_set*);
 
+const struct type* type_bool(struct type_set*);
 const struct type* type_prim(struct type_set*, enum type_tag);
 
 const struct type* type_ptr(struct type_set*, const struct type* pointee_type, bool is_const);

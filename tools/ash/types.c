@@ -382,6 +382,10 @@ const struct type* type_bottom(struct type_set* type_set) {
     return insert_type(type_set, &(struct type) { .tag = TYPE_BOTTOM });
 }
 
+const struct type* type_bool(struct type_set* type_set) {
+    return type_prim(type_set, TYPE_BOOL);
+}
+
 const struct type* type_prim(struct type_set* type_set, enum type_tag tag) {
     assert(type_tag_is_prim(tag));
     return insert_type(type_set, &(struct type) { .tag = tag, });

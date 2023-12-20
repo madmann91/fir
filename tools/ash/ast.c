@@ -141,6 +141,16 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
                 fprintf(file, "}");
             }
             break;
+        case AST_IF_EXPR:
+            fprintf(file, "%sif%s ", keyword_style, reset_style);
+            ast_print(file, ast->if_expr.cond, options);
+            fprintf(file, " ");
+            ast_print(file, ast->if_expr.then_block, options);
+            if (ast->if_expr.else_block) {
+                fprintf(file, " %selse%s ", keyword_style, reset_style);
+                ast_print(file, ast->if_expr.else_block, options);
+            }
+            break;
         case AST_FUNC_DECL:
             fprintf(file, "%sfunc%s %s", keyword_style, reset_style, ast->func_decl.name);
             print_with_parens(file, ast->func_decl.param, options);
@@ -152,6 +162,22 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
                 fprintf(file, " = ");
                 ast_print(file, ast->func_decl.body, options);
             }
+            fprintf(file, ";");
+            break;
+        case AST_VAR_DECL:
+            fprintf(file, "%svar%s ", keyword_style, reset_style);
+            ast_print(file, ast->var_decl.pattern, options);
+            if (ast->var_decl.init) {
+                fprintf(file, " = ");
+                ast_print(file, ast->var_decl.init, options);
+            }
+            fprintf(file, ";");
+            break;
+        case AST_CONST_DECL:
+            fprintf(file, "%sconst%s ", keyword_style, reset_style);
+            ast_print(file, ast->const_decl.pattern, options);
+            fprintf(file, " = ");
+            ast_print(file, ast->const_decl.init, options);
             fprintf(file, ";");
             break;
         default:

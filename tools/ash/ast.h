@@ -65,7 +65,8 @@ enum ast_tag {
     AST_TUPLE_EXPR,
     AST_UNARY_EXPR,
     AST_BINARY_EXPR,
-    AST_BLOCK_EXPR
+    AST_BLOCK_EXPR,
+    AST_IF_EXPR,
 };
 
 enum prim_type_tag {
@@ -172,6 +173,11 @@ struct ast {
             struct ast* stmts;
             bool ends_with_semicolon;
         } block_expr;
+        struct {
+            struct ast* cond;
+            struct ast* then_block;
+            struct ast* else_block;
+        } if_expr;
     };
 };
 

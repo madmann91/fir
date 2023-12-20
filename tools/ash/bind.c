@@ -101,6 +101,12 @@ static void bind(struct name_binder* name_binder, struct ast* ast) {
             bind(name_binder, ast->func_decl.body);
             pop_env(name_binder);
             break;
+        case AST_VAR_DECL:
+        case AST_CONST_DECL:
+            if (ast->const_decl.init)
+                bind(name_binder, ast->const_decl.init);
+            bind(name_binder, ast->const_decl.pattern);
+            break;
         case AST_IDENT_EXPR:
             ast->ident_expr.bound_to = find_symbol(name_binder, &ast->source_range, ast->ident_expr.name);
             break;
@@ -129,6 +135,12 @@ static void bind(struct name_binder* name_binder, struct ast* ast) {
         case AST_BLOCK_EXPR:
             for (struct ast* stmt = ast->block_expr.stmts; stmt; stmt = stmt->next)
                 bind(name_binder, stmt);
+            break;
+        case AST_IF_EXPR:
+            bind(name_binder, ast->if_expr.cond);
+            bind(name_binder, ast->if_expr.then_block);
+            if (ast->if_expr.else_block)
+                bind(name_binder, ast->if_expr.else_block);
             break;
         default:
             assert(false && "invalid AST node");

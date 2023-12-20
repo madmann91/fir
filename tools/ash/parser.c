@@ -367,6 +367,7 @@ static struct ast* parse_block_expr(struct parser* parser) {
             case TOK_LPAREN:
             case TOK_LBRACE:
             case TOK_LBRACKET:
+            case TOK_IF:
                 stmt = parse_expr(parser);
                 break;
             case TOK_VAR:
@@ -395,6 +396,30 @@ static struct ast* parse_block_expr(struct parser* parser) {
     });
 }
 
+static struct ast* parse_block_expr_or_error(struct parser* parser) {
+    if (parser->ahead->tag == TOK_LBRACE)
+        return parse_block_expr(parser);
+    return parse_error(parser, "block");
+}
+
+static struct ast* parse_if_expr(struct parser* parser) {
+    const struct fir_source_pos begin_pos = parser->ahead->source_range.begin;
+    eat_token(parser, TOK_IF);
+    struct ast* cond = parse_expr(parser);
+    struct ast* then_block = parse_block_expr_or_error(parser);
+    struct ast* else_block = NULL;
+    if (accept_token(parser, TOK_ELSE))
+        else_block = parse_block_expr_or_error(parser);
+    return alloc_ast(parser, &begin_pos, &(struct ast) {
+        .tag = AST_IF_EXPR,
+        .if_expr = {
+            .cond = cond,
+            .then_block = then_block,
+            .else_block = else_block
+        }
+    });
+}
+
 static struct ast* parse_expr(struct parser* parser) {
     switch (parser->ahead->tag) {
         case TOK_TRUE:     return parse_bool_literal(parser, true);
@@ -404,6 +429,7 @@ static struct ast* parse_expr(struct parser* parser) {
         case TOK_FLOAT:    return parse_float_literal(parser);
         case TOK_LPAREN:   return parse_tuple(parser, AST_TUPLE_EXPR, parse_expr);
         case TOK_LBRACE:   return parse_block_expr(parser);
+        case TOK_IF:       return parse_if_expr(parser);
         case TOK_LBRACKET:
             if (parser->ahead[1].tag == TOK_RBRACKET ||
                 (parser->ahead[1].tag == TOK_IDENT && parser->ahead[2].tag == TOK_EQ))
