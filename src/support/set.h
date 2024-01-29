@@ -15,9 +15,9 @@
             for (bool SET_PREFIX##once = true; SET_PREFIX##once; SET_PREFIX##once = false) \
                 for (elem_ty const* elem = &((elem_ty const*)(set).hash_table.keys)[SET_PREFIX##i]; SET_PREFIX##once; SET_PREFIX##once = false) \
 
-#define SET_DEFINE(name, elem_ty, hash, cmp, vis) \
+#define SET_DEFINE(name, elem_ty, hash, is_equal, vis) \
     SET_DECL(name, elem_ty, vis) \
-    SET_IMPL(name, elem_ty, hash, cmp, vis)
+    SET_IMPL(name, elem_ty, hash, is_equal, vis)
 
 #define SET_DECL(name, elem_ty, vis) \
     struct name { \
@@ -32,9 +32,9 @@
     VISIBILITY(vis) elem_ty const* name##_find(const struct name*, elem_ty const*); \
     VISIBILITY(vis) bool name##_remove(struct name*, elem_ty const*);
 
-#define SET_IMPL(name, elem_ty, hash, cmp, vis) \
-    static inline bool name##_cmp_wrapper(const void* left, const void* right) { \
-        return cmp((elem_ty const*)left, (elem_ty const*)right); \
+#define SET_IMPL(name, elem_ty, hash, is_equal, vis) \
+    static inline bool name##_is_equal_wrapper(const void* left, const void* right) { \
+        return is_equal((elem_ty const*)left, (elem_ty const*)right); \
     } \
     VISIBILITY(vis) struct name name##_create_with_capacity(size_t capacity) { \
         return (struct name) { \
@@ -52,7 +52,7 @@
         set->elem_count = 0; \
     } \
     VISIBILITY(vis) bool name##_insert(struct name* set, elem_ty const* elem) { \
-        if (hash_table_insert(&set->hash_table, elem, NULL, sizeof(elem_ty), 0, hash(hash_init(), elem), name##_cmp_wrapper)) { \
+        if (hash_table_insert(&set->hash_table, elem, NULL, sizeof(elem_ty), 0, hash(hash_init(), elem), name##_is_equal_wrapper)) { \
             if (hash_table_needs_rehash(&set->hash_table, set->elem_count)) \
                 hash_table_grow(&set->hash_table, sizeof(elem_ty), 0); \
             set->elem_count++; \
@@ -62,12 +62,12 @@
     } \
     VISIBILITY(vis) elem_ty const* name##_find(const struct name* set, elem_ty const* elem) { \
         size_t idx; \
-        if (!hash_table_find(&set->hash_table, &idx, elem, sizeof(elem_ty), hash(hash_init(), elem), name##_cmp_wrapper)) \
+        if (!hash_table_find(&set->hash_table, &idx, elem, sizeof(elem_ty), hash(hash_init(), elem), name##_is_equal_wrapper)) \
            return NULL; \
         return ((elem_ty const*)set->hash_table.keys) + idx; \
     } \
     VISIBILITY(vis) bool name##_remove(struct name* set, elem_ty const* elem) { \
-        if (hash_table_remove(&set->hash_table, elem, sizeof(elem_ty), 0, hash(hash_init(), elem), name##_cmp_wrapper)) { \
+        if (hash_table_remove(&set->hash_table, elem, sizeof(elem_ty), 0, hash(hash_init(), elem), name##_is_equal_wrapper)) { \
             set->elem_count--; \
             return true; \
         } \

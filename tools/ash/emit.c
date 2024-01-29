@@ -79,11 +79,11 @@ static const struct fir_node* convert_type(struct emitter* emitter, const struct
 static const struct fir_node* emit_func_decl(struct emitter* emitter, struct ast* func_decl) {
     assert(func_decl->tag == AST_FUNC_DECL);
     struct fir_node* func = fir_func(convert_type(emitter, func_decl->type));
-    func->data.linkage = FIR_LINKAGE_EXPORTED;
     const struct fir_node* param = fir_block_start(&emitter->block, func);
     emit_pattern(emitter, func_decl->func_decl.param, param);
     const struct fir_node* ret_val = emit(emitter, func_decl->func_decl.body);
     fir_block_return(&emitter->block, ret_val);
+    fir_node_make_external(func);
     return func;
 }
 
@@ -158,19 +158,19 @@ static const struct fir_node* emit_if_expr(struct emitter* emitter, struct ast* 
     emitter->block = then_block;
     const struct fir_node* then_val = emit(emitter, if_expr->if_expr.then_block);
     if (alloc)
-        fir_block_store(&emitter->block, alloc, then_val);
+        fir_block_store(&emitter->block, alloc, then_val, FIR_MEM_NON_NULL);
     fir_block_jump(&emitter->block, &merge_block);
 
     emitter->block = else_block;
     if (if_expr->if_expr.else_block) {
         const struct fir_node* else_val = emit(emitter, if_expr->if_expr.else_block);
         if (alloc)
-            fir_block_store(&emitter->block, alloc, else_val);
+            fir_block_store(&emitter->block, alloc, else_val, FIR_MEM_NON_NULL);
     }
     fir_block_jump(&emitter->block, &merge_block);
 
     emitter->block = merge_block;
-    return alloc ? fir_block_load(&emitter->block, alloc_ty, alloc) : fir_unit(emitter->mod);
+    return alloc ? fir_block_load(&emitter->block, alloc_ty, alloc, FIR_MEM_NON_NULL) : fir_unit(emitter->mod);
 }
 
 static const struct fir_node* emit_const_decl(struct emitter* emitter, struct ast* const_decl) {

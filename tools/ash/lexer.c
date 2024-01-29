@@ -115,7 +115,7 @@ static inline struct token parse_literal(struct lexer* lexer) {
 }
 
 static inline enum token_tag find_keyword(struct str_view ident) {
-#define x(tag, str) if (str_view_cmp(&ident, &STR_VIEW(str))) return TOK_##tag;
+#define x(tag, str) if (str_view_is_equal(&ident, &STR_VIEW(str))) return TOK_##tag;
     KEYWORD_LIST(x)
 #undef x
     return TOK_ERR;

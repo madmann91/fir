@@ -33,9 +33,13 @@ static inline void jump(
 }
 
 const struct fir_node* fir_block_start(struct fir_block* entry, struct fir_node* func) {
+    struct fir_mod* mod = fir_node_mod(func);
+    const struct fir_node* ret_ty = fir_cont_ty(func->ty->ops[1]);
+    const struct fir_node* start_ty = fir_tup_ty(mod,
+        (const struct fir_node*[]) { fir_frame_ty(mod), ret_ty }, 2);
     const struct fir_node* mem = fir_ext_mem(fir_param(func));
     assert(mem);
-    *entry = make_block(fir_cont(fir_cont_ty(func->ty->ops[1])), func, mem, true);
+    *entry = make_block(fir_cont(start_ty), func, mem, true);
     entry->is_merge_block = false;
     fir_node_set_op(func, 0, fir_start(entry->block));
     return fir_node_chop(fir_param(func), 1);
@@ -106,26 +110,25 @@ const struct fir_node* fir_block_call(
 }
 
 const struct fir_node* fir_block_alloc(struct fir_block* block, const struct fir_node* ty) {
-    assert(!block->is_terminated);
-    const struct fir_node* alloc = fir_alloc(block->mem, ty);
-    block->mem = fir_ext_at(alloc, 0);
-    return fir_ext_at(alloc, 1);
+    return fir_alloc(fir_func_frame(block->func), fir_bot(ty));
 }
 
 const struct fir_node* fir_block_load(
     struct fir_block* block,
     const struct fir_node* ty,
-    const struct fir_node* ptr)
+    const struct fir_node* ptr,
+    enum fir_mem_flags mem_flags)
 {
     assert(!block->is_terminated);
-    return fir_load(block->mem, ptr, ty);
+    return fir_load(block->mem, ptr, ty, mem_flags);
 }
 
 void fir_block_store(
     struct fir_block* block,
     const struct fir_node* ptr,
-    const struct fir_node* val)
+    const struct fir_node* val,
+    enum fir_mem_flags mem_flags)
 {
     assert(!block->is_terminated);
-    block->mem = fir_store(block->mem, ptr, val);
+    block->mem = fir_store(block->mem, ptr, val, mem_flags);
 }

@@ -2,6 +2,7 @@
 #define FIR_BLOCK_H
 
 #include "fir/platform.h"
+#include "fir/node.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -100,13 +101,15 @@ FIR_SYMBOL const struct fir_node* fir_block_alloc(struct fir_block*, const struc
 FIR_SYMBOL const struct fir_node* fir_block_load(
     struct fir_block*,
     const struct fir_node* ty,
-    const struct fir_node* ptr);
+    const struct fir_node* ptr,
+    enum fir_mem_flags mem_flags);
 
 /// Stores a value at the given address, in the given block.
 FIR_SYMBOL void fir_block_store(
     struct fir_block*,
     const struct fir_node* ptr,
-    const struct fir_node* val);
+    const struct fir_node* val,
+    enum fir_mem_flags mem_flags);
 
 /// @}
 

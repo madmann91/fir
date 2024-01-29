@@ -21,7 +21,7 @@ struct str {
     size_t capacity;
 };
 
-[[nodiscard]] static inline bool str_view_cmp(const struct str_view* str_view, const struct str_view* other) {
+[[nodiscard]] static inline bool str_view_is_equal(const struct str_view* str_view, const struct str_view* other) {
     return
         str_view->length == other->length &&
         !memcmp(str_view->data, other->data, str_view->length);

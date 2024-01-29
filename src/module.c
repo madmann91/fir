@@ -17,8 +17,8 @@ typedef int64_t signed_int_val;
 static_assert(sizeof(signed_int_val) == sizeof(fir_int_val));
 
 static uint32_t hash_node_data(uint32_t h, const struct fir_node* node) {
-    if (fir_node_is_nominal(node))
-        h = hash_uint32(h, node->data.linkage);
+    if (fir_node_has_mem_flags(node))
+        h = hash_uint32(h, node->data.mem_flags);
     else if (fir_node_has_fp_flags(node))
         h = hash_uint32(h, node->data.fp_flags);
     else if (node->tag == FIR_ARRAY_TY)
@@ -44,9 +44,9 @@ static uint32_t hash_node(uint32_t h, const struct fir_node* const* node_ptr) {
     return h;
 }
 
-static inline bool cmp_node_data(const struct fir_node* node, const struct fir_node* other) {
-    if (fir_node_is_nominal(node))
-        return node->data.linkage == other->data.linkage;
+static inline bool has_same_node_data(const struct fir_node* node, const struct fir_node* other) {
+    if (fir_node_has_mem_flags(node))
+        return node->data.mem_flags == other->data.mem_flags;
     else if (fir_node_has_fp_flags(node))
         return node->data.fp_flags == other->data.fp_flags;
     else if (node->tag == FIR_CONST && node->ty->tag == FIR_INT_TY)
@@ -60,7 +60,7 @@ static inline bool cmp_node_data(const struct fir_node* node, const struct fir_n
     return true;
 }
 
-static inline bool cmp_node(
+static inline bool is_node_equal(
     const struct fir_node* const* node_ptr,
     const struct fir_node* const* other_ptr)
 {
@@ -70,7 +70,7 @@ static inline bool cmp_node(
         return false;
     if (!fir_node_is_ty(node) && node->ty != other->ty)
         return false;
-    if (!cmp_node_data(node, other))
+    if (!has_same_node_data(node, other))
         return false;
     for (size_t i = 0; i < node->op_count; ++i) {
         if (node->ops[i] != other->ops[i])
@@ -79,23 +79,24 @@ static inline bool cmp_node(
     return true;
 }
 
-SET_DEFINE(internal_node_set, const struct fir_node*, hash_node, cmp_node, PRIVATE)
-VEC_DEFINE(func_vec, struct fir_node*, PRIVATE)
-VEC_DEFINE(global_vec, struct fir_node*, PRIVATE)
+SET_DEFINE(internal_node_set, const struct fir_node*, hash_node, is_node_equal, PRIVATE)
+VEC_DEFINE(nominal_node_vec, struct fir_node*, PRIVATE)
 
 struct fir_mod {
     char* name;
     uint64_t cur_id;
-    struct func_vec funcs;
-    struct global_vec globals;
+    struct nominal_node_vec funcs;
+    struct nominal_node_vec globals;
+    struct nominal_node_vec allocs;
     struct internal_node_set nodes;
+    struct node_set external_nodes;
     const struct fir_node* mem_ty;
+    const struct fir_node* frame_ty;
     const struct fir_node* noret_ty;
     const struct fir_node* ptr_ty;
     const struct fir_node* unit_ty;
     const struct fir_node* unit;
     const struct fir_node* bool_ty;
-    const struct fir_node* alloc_ty;
     const struct fir_node* index_ty;
     struct fir_use* free_uses;
 };
@@ -154,14 +155,40 @@ static void free_node(struct fir_node* node) {
     free(node);
 }
 
+static inline bool has_side_effect(const struct fir_node* node) {
+    switch (node->tag) {
+        case FIR_CALL:
+        case FIR_STORE:
+            return true;
+        case FIR_LOAD:
+            return
+                (node->data.mem_flags & FIR_MEM_NON_NULL) != 0 &&
+                (node->data.mem_flags & FIR_MEM_VOLATILE) == 0;
+        case FIR_SDIV:
+        case FIR_UDIV:
+        case FIR_SREM:
+        case FIR_UREM:
+            // It is fine to speculate a division by a constant that is not zero
+            return node->ops[1]->tag == FIR_CONST && !fir_node_is_zero(node->ops[1]);
+        default:
+            return false;
+    }
+}
+
 [[nodiscard]]
 static inline enum fir_node_props compute_props(const struct fir_node* node) {
-    enum fir_node_props props = node->tag == FIR_PARAM ? 0 : FIR_PROP_INVARIANT;
+    enum fir_node_props props = 0;
+    if (node->tag != FIR_PARAM)
+        props |= FIR_PROP_INVARIANT;
+    if (!has_side_effect(node))
+        props |= FIR_PROP_SPECULATABLE;
     for (size_t i = 0; i < node->op_count; ++i) {
         if (fir_node_is_nominal(node->ops[i]))
             continue;
         if (!(node->ops[i]->props & FIR_PROP_INVARIANT))
             props &= ~FIR_PROP_INVARIANT;
+        if (!(node->ops[i]->props & FIR_PROP_SPECULATABLE))
+            props &= ~FIR_PROP_SPECULATABLE;
     }
     return props;
 }
@@ -196,13 +223,14 @@ struct fir_mod* fir_mod_create(const char* name) {
     mod->name = strdup(name);
     mod->cur_id = 0;
     mod->nodes   = internal_node_set_create();
+    mod->external_nodes = node_set_create();
     mod->mem_ty   = insert_node(mod, &(struct fir_node) { .tag = FIR_MEM_TY,   .mod = mod });
+    mod->frame_ty = insert_node(mod, &(struct fir_node) { .tag = FIR_FRAME_TY, .mod = mod });
     mod->noret_ty = insert_node(mod, &(struct fir_node) { .tag = FIR_NORET_TY, .mod = mod });
     mod->ptr_ty   = insert_node(mod, &(struct fir_node) { .tag = FIR_PTR_TY,   .mod = mod });
     mod->unit_ty  = insert_node(mod, &(struct fir_node) { .tag = FIR_TUP_TY,   .mod = mod });
     mod->unit     = insert_node(mod, &(struct fir_node) { .tag = FIR_TUP,      .ty = mod->unit_ty });
     mod->bool_ty  = fir_int_ty(mod, 1);
-    mod->alloc_ty = fir_tup_ty(mod, (const struct fir_node*[]) { fir_mem_ty(mod), fir_ptr_ty(mod) }, 2);
     mod->index_ty = fir_int_ty(mod, 64);
     return mod;
 }
@@ -218,9 +246,14 @@ void fir_mod_destroy(struct fir_mod* mod) {
     VEC_FOREACH(struct fir_node*, global_ptr, mod->globals) {
         free_node((struct fir_node*)*global_ptr);
     }
+    VEC_FOREACH(struct fir_node*, alloc_ptr, mod->allocs) {
+        free_node((struct fir_node*)*alloc_ptr);
+    }
+    node_set_destroy(&mod->external_nodes);
     internal_node_set_destroy(&mod->nodes);
-    func_vec_destroy(&mod->funcs);
-    global_vec_destroy(&mod->globals);
+    nominal_node_vec_destroy(&mod->funcs);
+    nominal_node_vec_destroy(&mod->globals);
+    nominal_node_vec_destroy(&mod->allocs);
     free_uses(mod->free_uses);
     free(mod);
 }
@@ -247,11 +280,11 @@ static struct node_set collect_live_nodes(struct fir_mod* mod) {
     struct node_set live_nodes = node_set_create();
     struct node_vec stack = node_vec_create();
     VEC_FOREACH(struct fir_node*, func_ptr, mod->funcs) {
-        if ((*func_ptr)->data.linkage == FIR_LINKAGE_EXPORTED)
+        if (fir_node_is_exported(*func_ptr))
             visit_node(*func_ptr, &stack, &live_nodes);
     }
     VEC_FOREACH(struct fir_node*, global_ptr, mod->globals) {
-        if ((*global_ptr)->data.linkage == FIR_LINKAGE_EXPORTED)
+        if (fir_node_is_exported(*global_ptr))
             visit_node(*global_ptr, &stack, &live_nodes);
     }
     node_vec_destroy(&stack);
@@ -281,22 +314,19 @@ static void fix_uses(struct fir_mod* mod, const struct node_set* live_nodes) {
     }
 }
 
-#define cleanup_nominals(name) \
-    static void cleanup_##name##s(struct name##_vec* vec, const struct node_set* live_nodes) { \
-        size_t name##_count = 0; \
-        for (size_t i = 0; i < vec->elem_count; ++i) { \
-            if (node_set_find(live_nodes, (const struct fir_node*const*)&vec->elems[i])) \
-                vec->elems[name##_count++] = vec->elems[i]; \
-            else \
-                free_node(vec->elems[i]); \
-        } \
-        name##_vec_resize(vec, name##_count); \
+static inline void cleanup_nominal_nodes(
+    struct nominal_node_vec* nodes,
+    const struct node_set* live_nodes)
+{
+    size_t node_count = 0;
+    for (size_t i = 0; i < nodes->elem_count; ++i) {
+        if (node_set_find(live_nodes, (const struct fir_node*const*)&nodes->elems[i]))
+            nodes->elems[node_count++] = nodes->elems[i];
+        else
+            free_node(nodes->elems[i]);
     }
-
-cleanup_nominals(func)
-cleanup_nominals(global)
-
-#undef cleanup_nominals
+    nominal_node_vec_resize(nodes, node_count);
+}
 
 void fir_mod_cleanup(struct fir_mod* mod) {
     struct node_set live_nodes = collect_live_nodes(mod);
@@ -317,8 +347,9 @@ void fir_mod_cleanup(struct fir_mod* mod) {
         free_node((struct fir_node*)*node_ptr);
     }
 
-    cleanup_funcs(&mod->funcs, &live_nodes);
-    cleanup_globals(&mod->globals, &live_nodes);
+    cleanup_nominal_nodes(&mod->funcs, &live_nodes);
+    cleanup_nominal_nodes(&mod->globals, &live_nodes);
+    cleanup_nominal_nodes(&mod->allocs, &live_nodes);
 
     node_vec_destroy(&dead_nodes);
     node_set_destroy(&live_nodes);
@@ -331,6 +362,21 @@ void fir_node_set_op(struct fir_node* node, size_t op_index, const struct fir_no
     node->ops[op_index] = op;
     if (op)
         record_use(node, op_index);
+}
+
+bool fir_node_is_external(const struct fir_node* node) {
+    return node_set_find(&fir_node_mod(node)->external_nodes, &node) != NULL;
+}
+
+void fir_node_make_external(struct fir_node* node) {
+    assert(!fir_node_is_external(node));
+    assert(fir_node_can_be_external(node));
+    node_set_insert(&fir_node_mod(node)->external_nodes, (const struct fir_node**)&node);
+}
+
+void fir_node_make_internal(struct fir_node* node) {
+    assert(fir_node_is_external(node));
+    node_set_remove(&fir_node_mod(node)->external_nodes, (const struct fir_node**)&node);
 }
 
 struct fir_node* const* fir_mod_funcs(const struct fir_mod* mod) {
@@ -350,6 +396,7 @@ size_t fir_mod_global_count(const struct fir_mod* mod) {
 }
 
 const struct fir_node* fir_mem_ty(struct fir_mod* mod) { return mod->mem_ty; }
+const struct fir_node* fir_frame_ty(struct fir_mod* mod) { return mod->frame_ty; }
 const struct fir_node* fir_noret_ty(struct fir_mod* mod) { return mod->noret_ty; }
 const struct fir_node* fir_ptr_ty(struct fir_mod* mod) { return mod->ptr_ty; }
 
@@ -468,9 +515,9 @@ struct fir_node* fir_func(const struct fir_node* func_ty) {
     func->id = mod->cur_id++;
     func->tag = FIR_FUNC;
     func->ty = func_ty;
-    func->data.linkage = FIR_LINKAGE_INTERNAL;
     func->op_count = 1;
-    func_vec_push(&mod->funcs, &func);
+    func->props |= FIR_PROP_INVARIANT;
+    nominal_node_vec_push(&mod->funcs, &func);
     return func;
 }
 
@@ -487,9 +534,9 @@ struct fir_node* fir_global(struct fir_mod* mod) {
     global->id = mod->cur_id++;
     global->tag = FIR_GLOBAL;
     global->ty = fir_ptr_ty(mod);
-    global->data.linkage = FIR_LINKAGE_INTERNAL;
     global->op_count = 1;
-    global_vec_push(&mod->globals, &global);
+    global->props |= FIR_PROP_INVARIANT;
+    nominal_node_vec_push(&mod->globals, &global);
     return global;
 }
 
@@ -1329,36 +1376,41 @@ const struct fir_node* fir_choice(
 }
 
 const struct fir_node* fir_alloc(
-    const struct fir_node* mem,
-    const struct fir_node* ty)
+    const struct fir_node* frame,
+    const struct fir_node* init)
 {
-    assert(mem->ty->tag == FIR_MEM_TY);
-    struct fir_mod* mod = fir_node_mod(mem);
-    return insert_node(mod, (const struct fir_node*)&(struct { FIR_NODE(2) }) {
-        .tag = FIR_ALLOC,
-        .op_count = 2,
-        .ty = mod->alloc_ty,
-        .ops = { mem, ty }
-    });
+    assert(frame->ty->tag == FIR_FRAME_TY);
+    struct fir_mod* mod = fir_node_mod(frame);
+    struct fir_node* alloc = alloc_node(2);
+    alloc->id = mod->cur_id++;
+    alloc->tag = FIR_ALLOC;
+    alloc->ty = fir_ptr_ty(mod);
+    alloc->op_count = 2;
+    fir_node_set_op(alloc, 0, frame);
+    fir_node_set_op(alloc, 1, init);
+    nominal_node_vec_push(&mod->allocs, &alloc);
+    return alloc;
 }
 
 const struct fir_node* fir_load(
     const struct fir_node* mem,
     const struct fir_node* ptr,
-    const struct fir_node* ty)
+    const struct fir_node* ty,
+    enum fir_mem_flags flags)
 {
     assert(mem->ty->tag == FIR_MEM_TY);
     assert(ptr->ty->tag == FIR_PTR_TY);
     assert(is_valid_pointee_ty(ty));
 
     // load(store(mem, ptr, val), ptr) -> val
-    if (mem->tag == FIR_STORE && mem->ops[1] == ptr && mem->ops[2]->ty == ty)
+    if (mem->tag == FIR_STORE && mem->ops[1] == ptr && mem->ops[2]->ty == ty && (flags & FIR_MEM_VOLATILE) == 0)
         return mem->ops[2];
 
     return insert_node(fir_node_mod(mem), (const struct fir_node*)&(struct { FIR_NODE(2) }) {
         .tag = FIR_LOAD,
         .op_count = 2,
         .ty = ty,
+        .data.mem_flags = flags,
         .ops = { mem, ptr }
     });
 }
@@ -1366,20 +1418,22 @@ const struct fir_node* fir_load(
 const struct fir_node* fir_store(
     const struct fir_node* mem,
     const struct fir_node* ptr,
-    const struct fir_node* val)
+    const struct fir_node* val,
+    enum fir_mem_flags flags)
 {
     assert(mem->ty->tag == FIR_MEM_TY);
     assert(ptr->ty->tag == FIR_PTR_TY);
     assert(is_valid_pointee_ty(val->ty));
 
     // store(store(mem, ptr, x), ptr, y) -> store(mem, ptr, y)
-    if (mem->tag == FIR_STORE && mem->ops[1] == ptr)
+    if (mem->tag == FIR_STORE && mem->ops[1] == ptr && (flags & FIR_MEM_VOLATILE) == 0)
         mem = mem->ops[0];
 
     return insert_node(fir_node_mod(mem), (const struct fir_node*)&(struct { FIR_NODE(3) }) {
         .tag = FIR_STORE,
         .op_count = 3,
         .ty = mem->ty,
+        .data.mem_flags = flags,
         .ops = { mem, ptr, val }
     });
 }
@@ -1430,10 +1484,12 @@ const struct fir_node* fir_param(const struct fir_node* func) {
 const struct fir_node* fir_start(const struct fir_node* block) {
     assert(block->tag == FIR_FUNC);
     assert(block->ty->tag == FIR_FUNC_TY);
-    assert(block->ty->ops[0]->tag == FIR_FUNC_TY);
     assert(block->ty->ops[1]->tag == FIR_NORET_TY);
-    assert(block->ty->ops[0]->ops[1]->tag == FIR_NORET_TY);
-    const struct fir_node* ret_ty = block->ty->ops[0]->ops[0];
+    assert(block->ty->ops[0]->tag == FIR_TUP_TY);
+    assert(block->ty->ops[0]->op_count == 2);
+    assert(block->ty->ops[0]->ops[0]->tag == FIR_FRAME_TY);
+    assert(fir_node_is_cont_ty(block->ty->ops[0]->ops[1]));
+    const struct fir_node* ret_ty = block->ty->ops[0]->ops[1]->ops[0];
     return insert_node(fir_node_mod(block), (const struct fir_node*)&(struct { FIR_NODE(1) }) {
         .tag = FIR_START,
         .op_count = 1,

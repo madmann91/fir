@@ -94,12 +94,12 @@ static inline bool hash_table_insert(
     size_t key_size,
     size_t val_size,
     uint32_t hash,
-    bool (*cmp) (const void*, const void*))
+    bool (*is_equal) (const void*, const void*))
 {
     hash |= HASH_TABLE_OCCUPIED_FLAG;
     size_t idx = mod_prime(hash, hash_table->capacity);
     for (; hash_table_is_bucket_occupied(hash_table, idx); idx = hash_table_next_bucket(hash_table, idx)) {
-        if (hash_table->hashes[idx] == hash && cmp(hash_table->keys + idx * key_size, key))
+        if (hash_table->hashes[idx] == hash && is_equal(hash_table->keys + idx * key_size, key))
             return false;
     }
     hash_table->hashes[idx] = hash;
@@ -114,12 +114,12 @@ static inline bool hash_table_find(
     const void* key,
     size_t key_size,
     uint32_t hash,
-    bool (*cmp) (const void*, const void*))
+    bool (*is_equal) (const void*, const void*))
 {
     hash |= HASH_TABLE_OCCUPIED_FLAG;
     size_t idx = mod_prime(hash, hash_table->capacity);
     for (; hash_table_is_bucket_occupied(hash_table, idx); idx = hash_table_next_bucket(hash_table, idx)) {
-        if (hash_table->hashes[idx] == hash && cmp(hash_table->keys + idx * key_size, key)) {
+        if (hash_table->hashes[idx] == hash && is_equal(hash_table->keys + idx * key_size, key)) {
             *found_idx = idx;
             return true;
         }
@@ -133,11 +133,11 @@ static inline bool hash_table_remove(
     size_t key_size,
     size_t val_size,
     uint32_t hash,
-    bool (*cmp) (const void*, const void*))
+    bool (*is_equal) (const void*, const void*))
 {
     hash |= HASH_TABLE_OCCUPIED_FLAG;
     size_t idx;
-    if (!hash_table_find(hash_table, &idx, key, key_size, hash, cmp))
+    if (!hash_table_find(hash_table, &idx, key, key_size, hash, is_equal))
         return false;
 
     size_t next_idx = hash_table_next_bucket(hash_table, idx);

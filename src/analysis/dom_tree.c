@@ -86,3 +86,13 @@ void dom_tree_destroy(struct dom_tree* dom_tree) {
     free(dom_tree->nodes);
     memset(dom_tree, 0, sizeof(struct dom_tree));
 }
+
+bool dom_tree_node_is_dominated_by(
+    struct dom_tree_node* node_ptr,
+    struct dom_tree_node* other_ptr,
+    size_t dom_tree_index)
+{
+    while (node_ptr->depth > other_ptr->depth)
+        node_ptr = node_ptr->idom->data[dom_tree_index].ptr;
+    return node_ptr == other_ptr;
+}

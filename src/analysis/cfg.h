@@ -37,5 +37,7 @@ void cfg_destroy(struct cfg*);
 [[nodiscard]] struct dom_tree_node*  cfg_post_dom_tree_node(const struct graph_node*);
 [[nodiscard]] struct loop_tree_node* cfg_loop_tree_node(const struct graph_node*);
 
+[[nodiscard]] bool cfg_is_dominated_by(const struct graph_node*, const struct graph_node*);
+
 void cfg_print(FILE*, const struct cfg*);
 void cfg_dump(const struct cfg*);

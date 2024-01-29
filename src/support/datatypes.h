@@ -5,6 +5,7 @@
 #include "vec.h"
 #include "span.h"
 #include "str.h"
+#include "unique_stack.h"
 
 struct fir_node;
 struct fir_use;
@@ -17,5 +18,6 @@ VEC_DECL(node_vec, const struct fir_node*, PUBLIC)
 VEC_DECL(use_vec, const struct fir_use*, PUBLIC)
 SMALL_VEC_DECL(small_node_vec, const struct fir_node*, PUBLIC)
 SPAN_DECL(node_span, const struct fir_node*)
-CSPAN_DECL(node_cspan, const struct fir_node*)
+CONST_SPAN_DECL(const_node_span, const struct fir_node*)
 MAP_DECL(use_map, const struct fir_use*, void*, PUBLIC)
+UNIQUE_STACK_DECL(unique_node_stack, const struct fir_node*, PUBLIC)

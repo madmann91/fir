@@ -21,3 +21,8 @@ struct dom_tree {
     enum graph_dir dir);
 
 void dom_tree_destroy(struct dom_tree*);
+
+[[nodiscard]] bool dom_tree_node_is_dominated_by(
+    struct dom_tree_node*,
+    struct dom_tree_node*,
+    size_t dom_tree_index);

@@ -1,12 +1,11 @@
 #include "macros.h"
 
 #include "support/set.h"
-#include "support/hash.h"
 
 static inline uint32_t hash_int(uint32_t h, const int* i) { return hash_uint32(h, *i); }
-static inline bool cmp_int(const int* i, const int* j) { return *i == *j; }
+static inline bool is_int_equal(const int* i, const int* j) { return *i == *j; }
 
-SET_DEFINE(int_set, int, hash_int, cmp_int, PRIVATE)
+SET_DEFINE(int_set, int, hash_int, is_int_equal, PRIVATE)
 
 TEST(set) {
     const int n = 100;

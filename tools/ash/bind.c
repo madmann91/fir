@@ -5,7 +5,7 @@
 
 #include <assert.h>
 
-MAP_DEFINE(symbol_table, struct str_view, struct ast*, str_view_hash, str_view_cmp, PRIVATE)
+MAP_DEFINE(symbol_table, struct str_view, struct ast*, str_view_hash, str_view_is_equal, PRIVATE)
 
 struct env {
     struct symbol_table symbol_table;

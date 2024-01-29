@@ -40,12 +40,24 @@ bool fir_node_tag_has_fp_flags(enum fir_node_tag tag) {
     return fir_node_tag_is_farith_op(tag);
 }
 
+bool fir_node_tag_has_mem_flags(enum fir_node_tag tag) {
+    return tag == FIR_STORE || tag == FIR_LOAD;
+}
+
 bool fir_node_tag_has_bitwidth(enum fir_node_tag tag) {
     return tag == FIR_INT_TY || tag == FIR_FLOAT_TY;
 }
 
+bool fir_node_tag_can_be_external(enum fir_node_tag tag) {
+    return tag == FIR_GLOBAL || tag == FIR_FUNC;
+}
+
 bool fir_node_has_fp_flags(const struct fir_node* node) {
     return fir_node_tag_has_fp_flags(node->tag);
+}
+
+bool fir_node_has_mem_flags(const struct fir_node* node) {
+    return fir_node_tag_has_mem_flags(node->tag);
 }
 
 bool fir_node_has_bitwidth(const struct fir_node* node) {
@@ -137,21 +149,24 @@ bool fir_node_is_switch(const struct fir_node* node) {
     return fir_node_is_jump(node) && fir_node_is_choice(node->ops[0]);
 }
 
-bool fir_node_is_speculatable(const struct fir_node* node) {
-    switch (node->tag) {
-        case FIR_CALL:
-        case FIR_LOAD:
-        case FIR_STORE:
+static inline bool has_non_null_ops(const struct fir_node* node, bool flip) {
+    for (size_t i = 0; i < node->op_count; ++i) {
+        if (flip ^ (node->ops[i] == NULL))
             return false;
-        case FIR_SDIV:
-        case FIR_UDIV:
-        case FIR_SREM:
-        case FIR_UREM:
-            // It is fine to speculate a division by a constant that is not zero
-            return node->ops[1]->tag == FIR_CONST && !fir_node_is_zero(node->ops[1]);
-        default:
-            return true;
     }
+    return true;
+}
+
+bool fir_node_is_imported(const struct fir_node* node) {
+    return fir_node_is_external(node) && has_non_null_ops(node, true);
+}
+
+bool fir_node_is_exported(const struct fir_node* node) {
+    return fir_node_is_external(node) && has_non_null_ops(node, false);
+}
+
+bool fir_node_can_be_external(const struct fir_node* node) {
+    return fir_node_tag_can_be_external(node->tag);
 }
 
 const char* fir_node_tag_to_string(enum fir_node_tag tag) {
@@ -219,6 +234,8 @@ const struct fir_node* fir_node_rebuild(
         case FIR_EXT:    return fir_ext(ops[0], ops[1]);
         case FIR_INS:    return fir_ins(ops[0], ops[1], ops[2]);
         case FIR_ADDROF: return fir_addrof(ops[0], ops[1], ops[2]);
+        case FIR_STORE:  return fir_store(ops[0], ops[1], ops[2], node->data.mem_flags);
+        case FIR_LOAD:   return fir_load(ops[0], ops[1], ty, node->data.mem_flags);
         case FIR_CALL:   return fir_call(ops[0], ops[1]);
         case FIR_PARAM:  return fir_param(ops[0]);
         case FIR_START:  return fir_start(ops[0]);
@@ -312,9 +329,24 @@ const struct fir_node* fir_func_return(const struct fir_node* func) {
     if (!entry)
         return NULL;
     const struct fir_node* param = fir_param(entry);
-    assert(fir_node_is_cont_ty(param->ty));
-    assert(param->ty->ops[0] == func->ty->ops[1]);
-    return param;
+    assert(param->ty->tag == FIR_TUP_TY);
+    assert(param->ty->op_count == 2);
+    const struct fir_node* ret = fir_ext_at(param, 1);
+    assert(fir_node_is_cont_ty(ret->ty));
+    assert(ret->ty->ops[0] == func->ty->ops[1]);
+    return ret;
+}
+
+const struct fir_node* fir_func_frame(const struct fir_node* func) {
+    const struct fir_node* entry = fir_func_entry(func);
+    if (!entry)
+        return NULL;
+    const struct fir_node* param = fir_param(entry);
+    assert(param->ty->tag == FIR_TUP_TY);
+    assert(param->ty->op_count == 2);
+    const struct fir_node* frame = fir_ext_at(param, 0);
+    assert(frame->ty->tag == FIR_FRAME_TY);
+    return frame;
 }
 
 const struct fir_node* fir_func_mem_param(const struct fir_node* func) {

@@ -12,13 +12,13 @@
         size_t elem_count; \
     };
 
-#define CSPAN_FOREACH(elem_ty, elem, span) \
+#define CONST_SPAN_FOREACH(elem_ty, elem, span) \
     for (elem_ty const* elem = (span).elems; elem != (span).elems + (span).elem_count; ++elem)
 
-#define CSPAN_REV_FOREACH(elem_ty, elem, span) \
+#define CONST_SPAN_REV_FOREACH(elem_ty, elem, span) \
     for (elem_ty const* elem = (span).elems + (span).elem_count; elem-- != (span).elems; )
 
-#define CSPAN_DECL(name, elem_ty) \
+#define CONST_SPAN_DECL(name, elem_ty) \
     struct name { \
         elem_ty const* elems; \
         size_t elem_count; \

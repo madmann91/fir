@@ -31,9 +31,9 @@
     MAP_FOREACH_COMMON(map, \
         MAP_FOREACH_ACCESS(val_ty, val, (map).hash_table.vals))
 
-#define MAP_DEFINE(name, key_ty, val_ty, hash, cmp, vis) \
+#define MAP_DEFINE(name, key_ty, val_ty, hash, is_equal, vis) \
     MAP_DECL(name, key_ty, val_ty, vis) \
-    MAP_IMPL(name, key_ty, val_ty, hash, cmp, vis)
+    MAP_IMPL(name, key_ty, val_ty, hash, is_equal, vis)
 
 #define MAP_DECL(name, key_ty, val_ty, vis) \
     struct name { \
@@ -48,9 +48,9 @@
     VISIBILITY(vis) val_ty const* name##_find(const struct name*, key_ty const*); \
     VISIBILITY(vis) bool name##_remove(struct name*, key_ty const*);
 
-#define MAP_IMPL(name, key_ty, val_ty, hash, cmp, vis) \
-    static inline bool name##_cmp_wrapper(const void* left, const void* right) { \
-        return cmp((key_ty const*)left, (key_ty const*)right); \
+#define MAP_IMPL(name, key_ty, val_ty, hash, is_equal, vis) \
+    static inline bool name##_is_equal_wrapper(const void* left, const void* right) { \
+        return is_equal((key_ty const*)left, (key_ty const*)right); \
     } \
     VISIBILITY(vis) struct name name##_create_with_capacity(size_t capacity) { \
         return (struct name) { \
@@ -68,7 +68,7 @@
         map->elem_count = 0; \
     } \
     VISIBILITY(vis) bool name##_insert(struct name* map, key_ty const* key, val_ty const* val) { \
-        if (hash_table_insert(&map->hash_table, key, val, sizeof(key_ty), sizeof(val_ty), hash(hash_init(), key), name##_cmp_wrapper)) { \
+        if (hash_table_insert(&map->hash_table, key, val, sizeof(key_ty), sizeof(val_ty), hash(hash_init(), key), name##_is_equal_wrapper)) { \
             if (hash_table_needs_rehash(&map->hash_table, map->elem_count)) \
                 hash_table_grow(&map->hash_table, sizeof(key_ty), sizeof(val_ty)); \
             map->elem_count++; \
@@ -78,12 +78,12 @@
     } \
     VISIBILITY(vis) val_ty const* name##_find(const struct name* map, key_ty const* key) { \
         size_t idx; \
-        if (!hash_table_find(&map->hash_table, &idx, key, sizeof(key_ty), hash(hash_init(), key), name##_cmp_wrapper)) \
+        if (!hash_table_find(&map->hash_table, &idx, key, sizeof(key_ty), hash(hash_init(), key), name##_is_equal_wrapper)) \
            return NULL; \
         return ((val_ty const*)map->hash_table.vals) + idx; \
     } \
     VISIBILITY(vis) bool name##_remove(struct name* map, key_ty const* key) { \
-        if (hash_table_remove(&map->hash_table, key, sizeof(key_ty), sizeof(val_ty), hash(hash_init(), key), name##_cmp_wrapper)) { \
+        if (hash_table_remove(&map->hash_table, key, sizeof(key_ty), sizeof(val_ty), hash(hash_init(), key), name##_is_equal_wrapper)) { \
             map->elem_count--; \
             return true; \
         } \

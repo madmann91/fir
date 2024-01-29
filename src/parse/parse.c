@@ -16,7 +16,7 @@
 
 #define TOKEN_LOOKAHEAD 1
 
-MAP_DEFINE(symbol_table, struct str_view, const struct fir_node*, str_view_hash, str_view_cmp, PRIVATE)
+MAP_DEFINE(symbol_table, struct str_view, const struct fir_node*, str_view_hash, str_view_is_equal, PRIVATE)
 
 struct delayed_op {
     size_t op_index;
@@ -89,24 +89,14 @@ static inline void unknown_identifier(
         (int)ident.length, ident.data);
 }
 
-static inline void invalid_fp_flag(
+static inline void invalid_flag(
     struct parser* parser,
     const struct fir_source_range* source_range,
-    struct str_view fp_flag)
+    const char* flag_type,
+    struct str_view flag_name)
 {
     log_error(&parser->log, source_range,
-        "invalid floating-point flag '%.*s'",
-        (int)fp_flag.length, fp_flag.data);
-}
-
-static inline void invalid_linkage(
-    struct parser* parser,
-    const struct fir_source_range* source_range,
-    struct str_view linkage)
-{
-    log_error(&parser->log, source_range,
-        "invalid linkage '%.*s'",
-        (int)linkage.length, linkage.data);
+        "invalid %s flag '%.*s'", flag_type, (int)flag_name.length, flag_name.data);
 }
 
 static inline const struct fir_node* parse_ty(struct parser*);
@@ -123,29 +113,30 @@ static inline double parse_float_val(struct parser* parser) {
     return float_val;
 }
 
-static inline enum fir_linkage parse_linkage(struct parser* parser) {
-    enum fir_linkage linkage = FIR_LINKAGE_INTERNAL;
-    struct str_view ident = token_str_view(parser->lexer.data, parser->ahead);
-    if (str_view_cmp(&ident, &STR_VIEW("internal")))      linkage = FIR_LINKAGE_INTERNAL;
-    else if (str_view_cmp(&ident, &STR_VIEW("imported"))) linkage = FIR_LINKAGE_IMPORTED;
-    else if (str_view_cmp(&ident, &STR_VIEW("exported"))) linkage = FIR_LINKAGE_EXPORTED;
-    else invalid_linkage(parser, &parser->ahead->source_range, ident);
-    expect_token(parser, TOK_IDENT);
-    return linkage;
-}
-
 static inline enum fir_fp_flags parse_fp_flags(struct parser* parser) {
     enum fir_fp_flags fp_flags = FIR_FP_STRICT;
     while (accept_token(parser, TOK_PLUS)) {
         struct str_view ident = token_str_view(parser->lexer.data, parser->ahead);
-        if (str_view_cmp(&ident, &STR_VIEW("fo")))       fp_flags |= FIR_FP_FINITE_ONLY;
-        else if (str_view_cmp(&ident, &STR_VIEW("nsz"))) fp_flags |= FIR_FP_NO_SIGNED_ZERO;
-        else if (str_view_cmp(&ident, &STR_VIEW("a")))   fp_flags |= FIR_FP_ASSOCIATIVE;
-        else if (str_view_cmp(&ident, &STR_VIEW("d")))   fp_flags |= FIR_FP_DISTRIBUTIVE;
-        else invalid_fp_flag(parser, &parser->ahead->source_range, ident);
+        if (str_view_is_equal(&ident, &STR_VIEW("fo")))       fp_flags |= FIR_FP_FINITE_ONLY;
+        else if (str_view_is_equal(&ident, &STR_VIEW("nsz"))) fp_flags |= FIR_FP_NO_SIGNED_ZERO;
+        else if (str_view_is_equal(&ident, &STR_VIEW("a")))   fp_flags |= FIR_FP_ASSOCIATIVE;
+        else if (str_view_is_equal(&ident, &STR_VIEW("d")))   fp_flags |= FIR_FP_DISTRIBUTIVE;
+        else invalid_flag(parser, &parser->ahead->source_range, "floating-point", ident);
         expect_token(parser, TOK_IDENT);
     }
     return fp_flags;
+}
+
+static inline enum fir_mem_flags parse_mem_flags(struct parser* parser) {
+    enum fir_mem_flags mem_flags = 0;
+    while (accept_token(parser, TOK_PLUS)) {
+        struct str_view ident = token_str_view(parser->lexer.data, parser->ahead);
+        if (str_view_is_equal(&ident, &STR_VIEW("nn")))     mem_flags |= FIR_MEM_NON_NULL;
+        else if (str_view_is_equal(&ident, &STR_VIEW("v"))) mem_flags |= FIR_MEM_VOLATILE;
+        else invalid_flag(parser, &parser->ahead->source_range, "memory", ident);
+        expect_token(parser, TOK_IDENT);
+    }
+    return mem_flags;
 }
 
 static inline uint64_t parse_array_dim(struct parser* parser) {
@@ -266,19 +257,18 @@ static inline union fir_node_data parse_node_data(
     const struct fir_node* ty)
 {
     union fir_node_data data = {};
-    if (tag == FIR_CONST || fir_node_tag_has_fp_flags(tag)) {
+    if (tag == FIR_CONST || fir_node_tag_has_fp_flags(tag) || fir_node_tag_has_mem_flags(tag)) {
         expect_token(parser, TOK_LBRACKET);
         if (tag == FIR_CONST && ty->tag == FIR_INT_TY) {
             data.int_val = parse_int_val(parser) & make_bitmask(ty->data.bitwidth);
         } else if (tag == FIR_CONST && ty->tag == FIR_FLOAT_TY) {
             data.float_val = parse_float_val(parser);
-        } else {
-            assert(fir_node_tag_has_fp_flags(tag));
+        } else if (fir_node_tag_has_fp_flags(tag)) {
             data.fp_flags = parse_fp_flags(parser);
+        } else {
+            assert(fir_node_tag_has_mem_flags(tag));
+            data.mem_flags = parse_mem_flags(parser);
         }
-        expect_token(parser, TOK_RBRACKET);
-    } else if (fir_node_tag_is_nominal(tag) && accept_token(parser, TOK_LBRACKET)) {
-        data.linkage = parse_linkage(parser);
         expect_token(parser, TOK_RBRACKET);
     }
     return data;
@@ -299,13 +289,8 @@ static inline const struct fir_node* parse_node_body(
     union fir_node_data data = parse_node_data(parser, tag, ty);
 
     struct fir_node* nominal_node = NULL;
-    if (fir_node_tag_is_nominal(tag)) {
-        nominal_node = fir_node_clone(
-            parser->mod, &(struct fir_node) {
-                .tag = tag,
-                .data.linkage = data.linkage
-            }, ty);
-    }
+    if (fir_node_tag_is_nominal(tag))
+        nominal_node = fir_node_clone(parser->mod, &(struct fir_node) { .tag = tag }, ty);
 
     bool valid_ops = true;
     size_t op_count = 0;
@@ -346,6 +331,7 @@ static inline const struct fir_node* parse_node_body(
 }
 
 static inline const struct fir_node* parse_node(struct parser* parser) {
+    bool is_external = accept_token(parser, TOK_EXTERN);
     const struct fir_node* ty = parse_ty(parser);
     if (!ty)
         return NULL;
@@ -359,6 +345,16 @@ static inline const struct fir_node* parse_node(struct parser* parser) {
                 &ident_range,
                 "identifier '%.*s' already exists",
                 (int)ident.length, ident.data);
+        }
+        if (is_external) {
+            if (!fir_node_can_be_external(body)) {
+                log_error(&parser->log,
+                    &ident_range,
+                    "node '%.*s' cannot be external",
+                    (int)ident.length, ident.data);
+            } else {
+                fir_node_make_external((struct fir_node*)body);
+            }
         }
     }
     return body;

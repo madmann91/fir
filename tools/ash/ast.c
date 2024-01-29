@@ -9,11 +9,11 @@ static inline uint32_t hash_ast(uint32_t h, struct ast* const* ast_ptr) {
     return hash_uint64(h, (uintptr_t)*ast_ptr);
 }
 
-static inline bool cmp_ast(struct ast* const* ast_ptr, struct ast* const* other_ptr) {
+static inline bool is_ast_equal(struct ast* const* ast_ptr, struct ast* const* other_ptr) {
     return *ast_ptr == *other_ptr;
 }
 
-SET_IMPL(ast_set, struct ast*, hash_ast, cmp_ast, PUBLIC)
+SET_IMPL(ast_set, struct ast*, hash_ast, is_ast_equal, PUBLIC)
 
 static inline void print_indent(FILE* file, size_t indent, const char* tab) {
     for (size_t i = 0; i < indent; ++i)

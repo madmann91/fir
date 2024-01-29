@@ -5,6 +5,7 @@
 #include "analysis/dom_tree.h"
 #include "analysis/loop_tree.h"
 #include "analysis/cfg.h"
+#include "analysis/liveness.h"
 
 #include "support/datatypes.h"
 #include "support/graph.h"
@@ -12,6 +13,7 @@
 #include "support/vec.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 // Scheduler based on the ideas outlined in C. Click's "Global Code Motion -- Global Value Numbering"
 // paper. The difference is that this scheduler does not produce partially-dead code, unlike
@@ -19,288 +21,374 @@
 // assigned to (potentially) multiple basic-blocks. Second, in order to avoid partially-dead code,
 // a live range analysis is run before deciding the block assignment.
 
-static bool cmp_dom_tree_depth(
-    struct graph_node* const* graph_node_ptr,
+static inline uint32_t hash_block(uint32_t h, struct graph_node* const* block) {
+    return hash_uint64(h, (*block)->index);
+}
+
+static inline int cmp_block(
+    struct graph_node* const* block_ptr,
     struct graph_node* const* other_ptr)
 {
-    return cfg_dom_tree_node(*graph_node_ptr)->depth < cfg_dom_tree_node(*other_ptr)->depth;
+    size_t block_index = (*block_ptr)->index;
+    size_t other_index = (*other_ptr)->index;
+    if (block_index < other_index)
+        return -1;
+    else if (block_index > other_index)
+        return 1;
+    else
+        return 0;
 }
 
-QUEUE_DEFINE(live_block_queue, struct graph_node*, cmp_dom_tree_depth, PRIVATE)
+IMMUTABLE_SET_IMPL(block_list, struct graph_node*, hash_block, cmp_block, PUBLIC)
 
-struct scheduler_data {
+struct scheduler {
     struct cfg* cfg;
-
-    struct node_map late_blocks;
     struct node_map early_blocks;
+    struct node_map late_blocks; 
     struct node_vec early_stack;
     struct node_vec late_stack;
-
-    struct node_vec visit_stack;
-    struct node_set visit_set;
-
+    struct unique_node_stack visit_stack;
+    struct liveness liveness;
     struct node_vec* block_contents;
-
-    struct graph_node_vec use_blocks;
-    struct live_block_queue live_block_queue;
-    struct graph_node_set live_blocks;
+    struct block_list_pool block_list_pool;
 };
 
-static inline struct graph_node* find_trivial_block(struct scheduler_data* scheduler, const struct fir_node* node) {
-    if (fir_node_is_nominal(node) || (node->props & FIR_PROP_INVARIANT))
-        return scheduler->cfg->graph.source;
-
-    if (node->tag == FIR_PARAM) {
-        // The node might be the parameter of a block, or the parameter of the surrounding function.
-        // We therefore return the block itself in the former case, or the entry block in the latter.
-        if (fir_node_is_cont_ty(node->ops[0]->ty)) {
-            struct graph_node* block = cfg_find(scheduler->cfg, node->ops[0]);
-            assert(block && "accessing block that is not in CFG");
-            return block;
-        } else {
-            return scheduler->cfg->graph.source;
-        }
-    }
-
-    return NULL;
+static inline bool is_in_schedule(const struct fir_node* node) {
+    return
+        (node->props & FIR_PROP_INVARIANT) == 0 &&
+        !fir_node_is_ty(node) &&
+        node->tag != FIR_FUNC &&
+        node->tag != FIR_GLOBAL;
 }
 
-static inline struct graph_node* find_early_block(struct scheduler_data* scheduler, const struct fir_node* node) {
-    struct graph_node* trivial_block = find_trivial_block(scheduler, node);
-    if (trivial_block)
-        return trivial_block;
+static inline struct graph_node* find_func_block(struct cfg* cfg, const struct fir_node* func) {
+    // The node might be the parameter of a block, or the parameter of the surrounding function.
+    // We therefore return the block itself in the former case, or the entry block in the latter.
+    assert(func->tag == FIR_FUNC);
+    if (fir_node_is_cont_ty(func->ty)) {
+        struct graph_node* block = cfg_find(cfg, func);
+        assert(block && "accessing block that is not in CFG");
+        return block;
+    }
+    return cfg->graph.source;
+}
 
+static inline struct graph_node* find_early_block(
+    const struct scheduler* scheduler,
+    const struct fir_node* node)
+{
     struct graph_node** block_ptr = (struct graph_node**)node_map_find(&scheduler->early_blocks, &node);
     return block_ptr ? *block_ptr : NULL;
 }
 
+static inline const struct block_list* find_late_blocks(
+    const struct scheduler* scheduler,
+    const struct fir_node* node)
+{
+    struct block_list** late_blocks = (struct block_list**)node_map_find(&scheduler->late_blocks, &node);
+    return late_blocks ? *late_blocks : NULL;
+}
+
+static inline struct graph_node* find_deepest_dom_block(
+    struct graph_node* block,
+    struct graph_node* other_block)
+{
+    return cfg_dom_tree_node(block)->depth > cfg_dom_tree_node(other_block)->depth ? block : other_block;
+}
+
+static inline struct graph_node* compute_early_block(struct scheduler* scheduler, const struct fir_node* node) {
+    struct graph_node* early_block = scheduler->cfg->graph.source;
+    for (size_t i = 0; i < node->op_count; ++i) {
+        if (!is_in_schedule(node))
+            continue;
+
+        struct graph_node* op_block = find_early_block(scheduler, node->ops[i]);
+        if (!op_block) {
+            node_vec_push(&scheduler->early_stack, &node->ops[i]);
+            return NULL;
+        }
+
+        // Pick the node that is the deepest in the dominator tree.
+        early_block = find_deepest_dom_block(early_block, op_block);
+    }
+
+    if (node->tag == FIR_STORE) {
+        // Stores need to be scheduled at the earliest _after_ all the loads on the same memory object.
+        for (const struct fir_use* use = node->ops[0]->uses; use; use = use->next) {
+            if (use->user->tag != FIR_LOAD)
+                continue;
+
+            struct graph_node* load_block = find_early_block(scheduler, use->user);
+            if (!load_block) {
+                node_vec_push(&scheduler->early_stack, &use->user);
+                return NULL;
+            }
+
+            early_block = find_deepest_dom_block(early_block, load_block);
+        }
+    }
+
+    return early_block;
+}
+
 static inline struct graph_node* schedule_early(
-    struct scheduler_data* scheduler,
+    struct scheduler* scheduler,
     const struct fir_node* target_node)
 {
-    node_vec_clear(&scheduler->early_stack);
+    assert(node_vec_is_empty(&scheduler->early_stack));
+    struct graph_node* early_block = find_early_block(scheduler, target_node);
+    if (early_block)
+        return early_block;
     node_vec_push(&scheduler->early_stack, &target_node);
 
 restart:
-    while (scheduler->early_stack.elem_count > 0) {
+    while (!node_vec_is_empty(&scheduler->early_stack)) {
         const struct fir_node* node = *node_vec_last(&scheduler->early_stack);
-        if (find_early_block(scheduler, node)) {
-            node_vec_pop(&scheduler->early_stack);
-            continue;
-        }
+        assert(!find_early_block(scheduler, node));
 
-        struct graph_node* early_block = scheduler->cfg->graph.source;
-        for (size_t i = 0; i < node->op_count; ++i) {
-            struct graph_node* op_block = find_early_block(scheduler, node->ops[i]);
-            if (!op_block) {
-                node_vec_push(&scheduler->early_stack, &node->ops[i]);
+        struct graph_node* early_block = NULL;
+        if (node->tag == FIR_PARAM) {
+            early_block = find_func_block(scheduler->cfg, node->ops[0]);
+        } else if ((node->props & FIR_PROP_INVARIANT) || fir_node_is_nominal(node)) {
+            early_block = scheduler->cfg->graph.source;
+        } else {
+            early_block = compute_early_block(scheduler, node);
+            if (!early_block)
                 goto restart;
-            }
-            early_block = cfg_dom_tree_node(op_block)->depth > cfg_dom_tree_node(early_block)->depth
-                ? op_block : early_block;
         }
-
         assert(early_block);
+
         node_map_insert(&scheduler->early_blocks, &node, (void*)&early_block);
         node_vec_pop(&scheduler->early_stack);
     }
 
-    struct graph_node* early_block = find_early_block(scheduler, target_node);
+    early_block = find_early_block(scheduler, target_node);
     assert(early_block);
     return early_block;
 }
 
-static inline void enqueue_live_block(struct scheduler_data* scheduler, struct graph_node* block) {
-    if (graph_node_set_insert(&scheduler->live_blocks, &block)) {
-        struct graph_node* idom = cfg_dom_tree_node(block)->idom;
-        live_block_queue_push(&scheduler->live_block_queue, &idom);
-    }
-}
-
-static inline struct graph_node* find_best_block(
-    struct scheduler_data* scheduler,
-    struct graph_node* use_block,
-    struct graph_node* early_block,
-    bool is_speculatable)
+static inline bool collect_late_blocks(
+    struct scheduler* scheduler,
+    struct small_graph_node_vec* uses_blocks,
+    const struct fir_node* node)
 {
-    assert(cfg_dom_tree_node(use_block)->depth >= cfg_dom_tree_node(early_block)->depth);
-    struct graph_node* best_block = use_block;
-    struct graph_node* cur_block  = use_block;
-
-    const size_t early_depth = cfg_loop_tree_node(early_block)->loop_depth;
-    size_t best_depth = cfg_loop_tree_node(best_block)->loop_depth;
-
-    while (cur_block != early_block) {
-        cur_block = cfg_dom_tree_node(cur_block)->idom;
-
-        const size_t loop_depth = cfg_loop_tree_node(cur_block)->loop_depth;
-        if (!graph_node_set_find(&scheduler->live_blocks, &cur_block)) {
-            if (!is_speculatable || loop_depth <= early_depth)
-                break;
-        }
-
-        if (loop_depth < best_depth) {
-            best_block = cur_block;
-            best_depth = loop_depth;
-        }
+    const struct block_list* blocks = find_late_blocks(scheduler, node);
+    if (!blocks) {
+        node_vec_push(&scheduler->late_stack, &node);
+        return false;
     }
 
-    return best_block;
-}
-
-static inline struct graph_node_set* find_late_blocks(struct scheduler_data* scheduler, const struct fir_node* node) {
-    struct graph_node_set** late_blocks = (struct graph_node_set**)node_map_find(&scheduler->late_blocks, &node);
-    return late_blocks ? *late_blocks : NULL;
-}
-
-static inline bool mark_live_blocks(struct scheduler_data* scheduler, const struct fir_node* node) {
-    live_block_queue_clear(&scheduler->live_block_queue);
-    graph_node_set_clear(&scheduler->live_blocks);
-
-    // Mark the blocks where the value is used as live
-    for (const struct fir_use* use = node->uses; use; use = use->next) {
-        struct graph_node_set* late_blocks = find_late_blocks(scheduler, use->user);
-        if (!late_blocks) {
-            node_vec_push(&scheduler->late_stack, &use->user);
-            return false;
-        }
-        SET_FOREACH(struct graph_node*, block_ptr, *late_blocks)
-            enqueue_live_block(scheduler, *block_ptr);
-    }
-
-    // Copy the places where the set blocks where the node is used
-    graph_node_vec_clear(&scheduler->use_blocks);
-    SET_FOREACH(struct graph_node*, block_ptr, scheduler->live_blocks)
-        graph_node_vec_push(&scheduler->use_blocks, block_ptr);
-
-    // Walk up the dominator tree from those nodes, starting from the deepest ones to the shallowest
-    // ones, using a priority queue.
-    struct graph_node* early_block = schedule_early(scheduler, node);
-restart:
-    while (!live_block_queue_is_empty(&scheduler->live_block_queue)) {
-        struct graph_node* top = *live_block_queue_top(&scheduler->live_block_queue);
-        live_block_queue_pop(&scheduler->live_block_queue);
-
-        // Stop the search when the earliest position has been reached, or when the current node has
-        // already been visited.
-        if (cfg_dom_tree_node(top)->depth < cfg_dom_tree_node(early_block)->depth ||
-            graph_node_set_find(&scheduler->live_blocks, &top))
-            continue;
-
-        GRAPH_FOREACH_OUTGOING_EDGE(edge, top) {
-            if (!graph_node_set_find(&scheduler->live_blocks, &edge->to))
-                goto restart;
-        }
-
-        enqueue_live_block(scheduler, top);
-    }
-
+    IMMUTABLE_SET_FOREACH(struct graph_node*, block_ptr, *blocks)
+        small_graph_node_vec_push(uses_blocks, block_ptr);
     return true;
 }
 
-static inline void compute_late_blocks(
-    struct scheduler_data* scheduler,
-    const struct fir_node* node,
-    struct graph_node_set* late_blocks)
+static inline void compute_liveness(
+    struct liveness* liveness,
+    const struct small_graph_node_vec* uses_blocks,
+    struct graph_node* early_block)
 {
-    // Find the best blocks to place the node in, based on the live range analysis above
-    const bool is_speculatable = fir_node_is_speculatable(node);
-    struct graph_node* early_block = schedule_early(scheduler, node);
-    VEC_FOREACH(struct graph_node*, block_ptr, scheduler->use_blocks) {
-        struct graph_node* best_block = find_best_block(scheduler, *block_ptr, early_block, is_speculatable);
-        graph_node_set_insert(late_blocks, &best_block);
+    liveness_reset(liveness);
+    VEC_FOREACH(struct graph_node*, block_ptr, *uses_blocks)
+        liveness_mark_blocks(liveness, early_block, *block_ptr);
+    liveness_finalize(liveness);
+}
+
+static inline void prune_live_blocks(struct liveness* liveness, struct small_graph_node_vec* uses_blocks) {
+    // Remove and replace nodes that are dominated by fully live nodes. This is done by counting,
+    // for each live block, how many uses blocks it dominates. If that number is >1, the uses blocks
+    // are removed and the live block is used instead.
+    SET_FOREACH(struct graph_node*, live_block_ptr, liveness->fully_live_blocks) {
+        if (uses_blocks->elem_count <= 1)
+            return;
+
+        size_t dominated_count = 0;
+        VEC_FOREACH(struct graph_node*, use_block_ptr, *uses_blocks) {
+            dominated_count += cfg_is_dominated_by(*use_block_ptr, *live_block_ptr) ? 1 : 0;
+            if (dominated_count > 1)
+                break;
+        }
+
+        if (dominated_count > 1) {
+            size_t elem_count = 0;
+            for (size_t i = 0; i < uses_blocks->elem_count; ++i) {
+                if (!cfg_is_dominated_by(uses_blocks->elems[i], *live_block_ptr))
+                    uses_blocks->elems[elem_count++] = uses_blocks->elems[i];
+            }
+            assert(elem_count <= uses_blocks->elem_count - 1);
+            uses_blocks->elems[elem_count++] = *live_block_ptr;
+            small_graph_node_vec_resize(uses_blocks, elem_count);
+        }
     }
 }
 
-static inline const struct graph_node_set* schedule_late(
-    struct scheduler_data* scheduler,
-    const struct fir_node* target_node)
+static inline struct graph_node* find_shallowest_loop_block(
+    struct graph_node* early_block,
+    struct graph_node* use_block)
 {
-    node_vec_clear(&scheduler->late_stack);
-    node_vec_push(&scheduler->late_stack, &target_node);
-    while (scheduler->late_stack.elem_count > 0) {
-        const struct fir_node* node = *node_vec_last(&scheduler->late_stack);
-        if (find_late_blocks(scheduler, node)) {
-            node_vec_pop(&scheduler->late_stack);
+    // Tries to move the use block to an earlier position if it reduces the loop depth.
+    assert(cfg_dom_tree_node(early_block)->depth <= cfg_dom_tree_node(use_block)->depth);
+    size_t min_depth = cfg_loop_tree_node(early_block)->loop_depth;
+    if (cfg_loop_tree_node(use_block)->loop_depth == min_depth)
+        return use_block;
+    for (struct graph_node* block = use_block; block != early_block; block = cfg_dom_tree_node(block)->idom) {
+        size_t depth = cfg_loop_tree_node(block)->loop_depth;
+        if (depth < cfg_loop_tree_node(use_block)->loop_depth)
+            use_block = block;
+        if (depth == min_depth)
+            break;
+    }
+    return use_block;
+}
+
+static inline void prune_dominated_blocks(struct small_graph_node_vec* blocks) {
+    if (blocks->elem_count <= 1)
+        return;
+    size_t elem_count = 0;
+    for (size_t i = 0; i < blocks->elem_count; ++i) {
+        bool needs_pruning = true;
+        for (size_t j = 0; j < blocks->elem_count; ++j) {
+            if (i == j)
+                continue;
+            needs_pruning &= dom_tree_node_is_dominated_by(
+                cfg_dom_tree_node(blocks->elems[i]),
+                cfg_dom_tree_node(blocks->elems[j]),
+                CFG_DOM_TREE_INDEX);
+        }
+        if (needs_pruning)
             continue;
+        blocks->elems[elem_count++] = blocks->elems[i];
+    }
+    small_graph_node_vec_resize(blocks, elem_count);
+}
+
+static inline const struct block_list* compute_late_blocks(
+    struct scheduler* scheduler,
+    const struct fir_node* node)
+{
+    // Collect the blocks where the node is used.
+    struct small_graph_node_vec late_blocks;
+    small_graph_node_vec_init(&late_blocks);
+    for (const struct fir_use* use = node->uses; use; use = use->next) {
+        if (!collect_late_blocks(scheduler, &late_blocks, use->user))
+            return NULL;
+    }
+
+    // Loads should be scheduled _before_ the stores that write to their memory object.
+    if (node->tag == FIR_LOAD) {
+        for (const struct fir_use* use = node->ops[0]->uses; use; use = use->next) {
+            if (use->user->tag != FIR_STORE)
+                continue;
+            if (!collect_late_blocks(scheduler, &late_blocks, use->user))
+                return NULL;
+        }
+    }
+    assert(late_blocks.elem_count > 0);
+
+    // Try to group and/or move the definitions of the node earlier. This is not possible for
+    // control-flow instructions, which have to appear where they are needed, always.
+    if (node->ty->tag != FIR_NORET_TY) {
+        struct graph_node* early_block = schedule_early(scheduler, node);
+        if (late_blocks.elem_count > 1) {
+            compute_liveness(&scheduler->liveness, &late_blocks, early_block);
+            prune_live_blocks(&scheduler->liveness, &late_blocks);
         }
 
-        struct graph_node* trivial_block = find_trivial_block(scheduler, node);
-        if (!trivial_block && !mark_live_blocks(scheduler, node))
-            continue;
+        if (node->props & FIR_PROP_SPECULATABLE) {
+            VEC_FOREACH(struct graph_node*, block_ptr, late_blocks)
+                *block_ptr = find_shallowest_loop_block(early_block, *block_ptr);
+        }
+        prune_dominated_blocks(&late_blocks);
+    }
 
-        struct graph_node_set* late_blocks = xmalloc(sizeof(struct graph_node_set));
-        *late_blocks = graph_node_set_create();
-        if (trivial_block)
-            graph_node_set_insert(late_blocks, &trivial_block);
-        else
-            compute_late_blocks(scheduler, node, late_blocks);
+    const struct block_list* block_list = block_list_pool_insert(
+        &scheduler->block_list_pool, late_blocks.elems, late_blocks.elem_count);
 
-        node_map_insert(&scheduler->late_blocks, &node, (void*)&late_blocks);
+    small_graph_node_vec_destroy(&late_blocks);
+    return block_list;
+}
+
+static inline const struct block_list* schedule_late(
+    struct scheduler* scheduler,
+    const struct fir_node* target_node)
+{
+    assert(node_vec_is_empty(&scheduler->late_stack));
+    node_vec_push(&scheduler->late_stack, &target_node);
+restart:
+    while (!node_vec_is_empty(&scheduler->late_stack)) {
+        const struct fir_node* node = *node_vec_last(&scheduler->late_stack);
+
+        const struct block_list* late_blocks = NULL;
+        if (node->tag == FIR_PARAM) {
+            struct graph_node* param_block = find_func_block(scheduler->cfg, node->ops[0]);
+            late_blocks = block_list_pool_insert(&scheduler->block_list_pool, &param_block, 1);
+        } else if (node->tag == FIR_FUNC && fir_node_is_cont_ty(node->ty)) {
+            struct graph_node* block = find_func_block(scheduler->cfg, node);
+            late_blocks = block_list_pool_insert(&scheduler->block_list_pool, &block, 1);
+        } else if ((node->props & FIR_PROP_INVARIANT) || fir_node_is_nominal(node)) {
+            late_blocks = block_list_pool_insert(&scheduler->block_list_pool, &scheduler->cfg->graph.source, 1);
+        } else {
+            late_blocks = compute_late_blocks(scheduler, node);
+            if (!late_blocks)
+                goto restart;
+        }
+        assert(late_blocks);
+        assert(late_blocks->elem_count > 0);
+
+        node_map_insert(&scheduler->late_blocks, &node, (void**)&late_blocks);
         node_vec_pop(&scheduler->late_stack);
     }
 
-    struct graph_node_set* late_blocks = find_late_blocks(scheduler, target_node);
+    const struct block_list* late_blocks = find_late_blocks(scheduler, target_node);
     assert(late_blocks);
     return late_blocks;
 }
 
-static void visit_operands(struct scheduler_data* scheduler, const struct fir_node* node) {
+static void visit_node(struct scheduler* scheduler, const struct fir_node* node) {
     // Visit operands in post-order, and place them in the blocks in which they have been scheduled
-    node_vec_clear(&scheduler->visit_stack);
-    node_vec_push(&scheduler->visit_stack, &node);
+    unique_node_stack_push(&scheduler->visit_stack, &node);
 restart:
-    while (scheduler->visit_stack.elem_count > 0) {
-        const struct fir_node* node = *node_vec_last(&scheduler->visit_stack);
-        if (node_set_find(&scheduler->visit_set, &node)) {
-            node_vec_pop(&scheduler->visit_stack);
-            continue;
+    while (!unique_node_stack_is_empty(&scheduler->visit_stack)) {
+        const struct fir_node* node = *unique_node_stack_last(&scheduler->visit_stack);
+        assert(is_in_schedule(node));
+
+        for (size_t i = 0; i < node->op_count; ++i) {
+            if (is_in_schedule(node->ops[i]) && unique_node_stack_push(&scheduler->visit_stack, &node->ops[i]))
+                goto restart;
         }
 
-        if (!find_trivial_block(scheduler, node)) {
-            for (size_t i = 0; i < node->op_count; ++i) {
-                if (!node_set_find(&scheduler->visit_set, &node->ops[i])) {
-                    node_vec_push(&scheduler->visit_stack, &node->ops[i]);
-                    goto restart;
-                }
-            }
-        }
-
-        node_vec_pop(&scheduler->visit_stack);
-        node_set_insert(&scheduler->visit_set, &node);
+        unique_node_stack_pop(&scheduler->visit_stack);
 
         if (!fir_node_is_nominal(node)) {
-            const struct graph_node_set* late_blocks = schedule_late(scheduler, node);
-            SET_FOREACH(struct graph_node*, late_block_ptr, *late_blocks)
-                node_vec_push(&scheduler->block_contents[(*late_block_ptr)->index], &node);
+            const struct block_list* late_blocks = schedule_late(scheduler, node);
+            for (size_t i = 0; i < late_blocks->elem_count; ++i)
+                node_vec_push(&scheduler->block_contents[late_blocks->elems[i]->index], &node);
         }
     }
 }
 
-static void run_scheduler(struct scheduler_data* scheduler) {
-    // List blocks in reverse post-order
-    node_set_clear(&scheduler->visit_set);
-    VEC_REV_FOREACH(struct graph_node*, block_ptr, scheduler->cfg->post_order) {
+static void run_scheduler(struct scheduler* scheduler) {
+    // List blocks in post-order
+    unique_node_stack_clear(&scheduler->visit_stack);
+    VEC_FOREACH(struct graph_node*, block_ptr, scheduler->cfg->post_order) {
         const struct fir_node* func = cfg_block_func(*block_ptr);
-        if (!func)
+        if (!func || !is_in_schedule(func->ops[0]))
             continue;
-        visit_operands(scheduler, func->ops[0]);
+        visit_node(scheduler, func->ops[0]);
     }
 }
 
 struct schedule schedule_create(struct cfg* cfg) {
-    struct scheduler_data scheduler = {
+    struct scheduler scheduler = {
         .cfg = cfg,
         .early_blocks = node_map_create(),
         .late_blocks = node_map_create(),
         .early_stack = node_vec_create(),
         .late_stack = node_vec_create(),
-        .visit_stack = node_vec_create(),
-        .visit_set = node_set_create(),
+        .liveness = liveness_create(),
+        .visit_stack = unique_node_stack_create(),
+        .block_list_pool = block_list_pool_create(),
         .block_contents = xcalloc(cfg->graph.node_count, sizeof(struct node_vec)),
-        .use_blocks = graph_node_vec_create(),
-        .live_block_queue = live_block_queue_create(),
-        .live_blocks = graph_node_set_create()
     };
 
     run_scheduler(&scheduler);
@@ -309,40 +397,35 @@ struct schedule schedule_create(struct cfg* cfg) {
     node_vec_destroy(&scheduler.early_stack);
     node_vec_destroy(&scheduler.late_stack);
 
-    node_set_destroy(&scheduler.visit_set);
-    node_vec_destroy(&scheduler.visit_stack);
+    unique_node_stack_destroy(&scheduler.visit_stack);
 
-    graph_node_vec_destroy(&scheduler.use_blocks);
-    live_block_queue_destroy(&scheduler.live_block_queue);
-    graph_node_set_destroy(&scheduler.live_blocks);
+    liveness_destroy(&scheduler.liveness);
 
     return (struct schedule) {
         .cfg = cfg,
         .blocks = scheduler.late_blocks,
-        .block_contents = scheduler.block_contents
+        .block_contents = scheduler.block_contents,
+        .block_list_pool = scheduler.block_list_pool
     };
 }
 
 void schedule_destroy(struct schedule* schedule) {
-    MAP_FOREACH_VAL(void*, late_blocks_ptr, schedule->blocks) {
-        graph_node_set_destroy((struct graph_node_set*)*late_blocks_ptr);
-        free(*late_blocks_ptr);
-    }
     for (size_t i = 0; i < schedule->cfg->graph.node_count; ++i)
         node_vec_destroy(&schedule->block_contents[i]);
 
+    block_list_pool_destroy(&schedule->block_list_pool);
     node_map_destroy(&schedule->blocks);
     free(schedule->block_contents);
     memset(schedule, 0, sizeof(struct schedule));
 }
 
-struct node_cspan schedule_block_contents(const struct schedule* schedule, const struct graph_node* block) {
+struct const_node_span schedule_block_contents(const struct schedule* schedule, const struct graph_node* block) {
     const struct node_vec* block_contents = &schedule->block_contents[block->index];
-    return (struct node_cspan) { block_contents->elems, block_contents->elem_count };
+    return (struct const_node_span) { block_contents->elems, block_contents->elem_count };
 }
 
-const struct graph_node_set* schedule_blocks_of(const struct schedule* schedule, const struct fir_node* node) {
-    struct graph_node_set** blocks = (struct graph_node_set**)node_map_find(&schedule->blocks, &node);
+const struct block_list* schedule_blocks_of(const struct schedule* schedule, const struct fir_node* node) {
+    const struct block_list** blocks = (const struct block_list**)node_map_find(&schedule->blocks, &node);
     return blocks ? *blocks : NULL;
 }
 
@@ -351,6 +434,6 @@ bool schedule_is_in_block(
     const struct fir_node* node,
     struct graph_node* block)
 {
-    const struct graph_node_set* blocks = schedule_blocks_of(schedule, node);
-    return blocks ? (graph_node_set_find(blocks, &block) != NULL) : false;
+    const struct block_list* blocks = schedule_blocks_of(schedule, node);
+    return blocks ? (block_list_find(blocks, &block) != NULL) : false;
 }

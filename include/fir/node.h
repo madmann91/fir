@@ -29,13 +29,6 @@ enum fir_node_tag {
 #undef x
 };
 
-/// Linkage for nominal nodes.
-enum fir_linkage {
-    FIR_LINKAGE_INTERNAL, ///< The nominal node is internal to the module and is defined in it.
-    FIR_LINKAGE_EXPORTED, ///< The nominal node is defined in the module and exported.
-    FIR_LINKAGE_IMPORTED  ///< The nominal node is defined outside of the module and imported.
-};
-
 /// A _use_ of a node by another node.
 struct fir_use {
     size_t index;                ///< The operand index where the node is used.
@@ -56,21 +49,31 @@ typedef uint64_t fir_int_val;
 /// is the exact floating-point type.
 typedef double fir_float_val;
 
+/// Flags for memory operations.
+enum fir_mem_flags {
+    FIR_MEM_NON_NULL = 0x01, ///< Pointer arguments are non-null.
+    FIR_MEM_VOLATILE = 0x02  ///< The value pointed to may change outside of the program.
+};
+
 /// Node data that is not representable via operands.
 union fir_node_data {
-    enum fir_linkage linkage;   ///< Linkage mode, for nominal nodes.
-    enum fir_fp_flags fp_flags; ///< Floating-point flags, for floating-point instructions.
-    fir_int_val int_val;        ///< Integer value, for integer constants.
-    fir_float_val float_val;    ///< Floating-point value, for floating-point constants.
-    size_t bitwidth;            ///< Bitwidth, for integer or floating-point types.
-    size_t array_dim;           ///< Array dimension, for fixed-size array types.
+    enum fir_mem_flags mem_flags; ///< Flags for operations that deal with memory.
+    enum fir_fp_flags fp_flags;   ///< Floating-point flags, for floating-point instructions.
+    fir_int_val int_val;          ///< Integer value, for integer constants.
+    fir_float_val float_val;      ///< Floating-point value, for floating-point constants.
+    size_t bitwidth;              ///< Bitwidth, for integer or floating-point types.
+    size_t array_dim;             ///< Array dimension, for fixed-size array types.
 };
 
 /// Properties of structural nodes.
 enum fir_node_props {
-    /// The node's value does not depend on a parameter, directly or indirectly. Such nodes are
-    /// constants from the point of view of the IR.
-    FIR_PROP_INVARIANT = 0x01
+    /// The value of invariant nodes do not depend on a parameter, directly or indirectly. Such
+    /// nodes are constants from the point of view of the IR.
+    FIR_PROP_INVARIANT = 0x01,
+    /// Nodes that do not generate side-effects during evaluation are considered speculatable, which
+    /// is an indication for the scheduler that they can be moved in locations that produce
+    /// partially-dead code.
+    FIR_PROP_SPECULATABLE = 0x02
 };
 
 /// Members of the @ref fir_node structure.
@@ -134,8 +137,14 @@ FIR_SYMBOL bool fir_node_tag_is_control_op(enum fir_node_tag);
 
 /// @return `true` if the given node tag represents a node that carries floating-point flags.
 FIR_SYMBOL bool fir_node_tag_has_fp_flags(enum fir_node_tag);
+/// @return `true` if the given node tag represents a node that carries memory flags.
+FIR_SYMBOL bool fir_node_tag_has_mem_flags(enum fir_node_tag);
 /// @return `true` if the given node tag represents a type with a bitwidth.
 FIR_SYMBOL bool fir_node_tag_has_bitwidth(enum fir_node_tag);
+
+/// @return `true` if the given node tag corresponds to a node that can be made external. Such nodes
+/// can be marked by setting the FIR_PROP_EXTERNAL bit on their properties.
+FIR_SYMBOL bool fir_node_tag_can_be_external(enum fir_node_tag);
 
 /// @see fir_node_tag_is_ty.
 FIR_SYMBOL bool fir_node_is_ty(const struct fir_node*);
@@ -164,6 +173,8 @@ FIR_SYMBOL bool fir_node_is_control_op(const struct fir_node*);
 
 /// @see fir_node_tag_has_fp_flags.
 FIR_SYMBOL bool fir_node_has_fp_flags(const struct fir_node*);
+/// @see fir_node_tag_has_mem_flags.
+FIR_SYMBOL bool fir_node_has_mem_flags(const struct fir_node*);
 /// @see fir_node_tag_has_bitwidth.
 FIR_SYMBOL bool fir_node_has_bitwidth(const struct fir_node*);
 
@@ -213,11 +224,17 @@ FIR_SYMBOL bool fir_node_is_branch(const struct fir_node*);
 /// @see fir_switch.
 FIR_SYMBOL bool fir_node_is_switch(const struct fir_node*);
 
-/// @return `true` if the given node can be speculated. A node can be speculated if its execution in
-/// a control path that does not require its value does not change the semantics of the program.
-/// For example, a `load` or `store` operation has side effects, and thus cannot be executed in
-/// control paths that do not require the result of their execution.
-FIR_SYMBOL bool fir_node_is_speculatable(const struct fir_node*);
+/// @return `true` if the given node is external.
+/// External nodes are either imported or exported.
+FIR_SYMBOL bool fir_node_is_external(const struct fir_node*);
+/// @return `true` if the given node is imported.
+/// @see fir_node_is_exported.
+FIR_SYMBOL bool fir_node_is_imported(const struct fir_node*);
+/// @return `true` if the given node is exported.
+/// @see fir_node_is_imported.
+FIR_SYMBOL bool fir_node_is_exported(const struct fir_node*);
+/// @see fir_node_tag_can_be_external.
+FIR_SYMBOL bool fir_node_can_be_external(const struct fir_node*);
 
 /// @}
 
@@ -231,6 +248,13 @@ FIR_SYMBOL const char* fir_node_name(const struct fir_node*);
 FIR_SYMBOL void fir_node_set_dbg_info(const struct fir_node*, const struct fir_dbg_info*);
 /// Sets the operand of a nominal node.
 FIR_SYMBOL void fir_node_set_op(struct fir_node* node, size_t op_index, const struct fir_node* op);
+
+/// Marks a node as external. Not all nodes can be made external.
+/// @see fir_node_can_be_external.
+FIR_SYMBOL void fir_node_make_external(struct fir_node*);
+/// Marks a node as internal. Only valid for nodes that are external already.
+/// @see fir_node_make_external.
+FIR_SYMBOL void fir_node_make_internal(struct fir_node*);
 
 /// Rebuilds the given _structural_ node with new operands and type into the given module.
 /// Constant values and other node-specific data is taken from the original node.
@@ -298,10 +322,10 @@ FIR_SYMBOL const struct fir_node* fir_node_chop(const struct fir_node* node, siz
 
 /// Returns the first basic-block of a function, or `NULL` if it is not set.
 FIR_SYMBOL const struct fir_node* fir_func_entry(const struct fir_node*);
-
 /// Returns the return continuation of a function, or `NULL` if it is not set.
 FIR_SYMBOL const struct fir_node* fir_func_return(const struct fir_node*);
-
+/// Returns the stack frame of this function, or `NULL` if it is not set.
+FIR_SYMBOL const struct fir_node* fir_func_frame(const struct fir_node*);
 /// Returns the memory parameter of the given function, or `NULL` if it does not exist.
 FIR_SYMBOL const struct fir_node* fir_func_mem_param(const struct fir_node*);
 

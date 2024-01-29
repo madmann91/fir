@@ -21,31 +21,25 @@ static void print_fp_flags(FILE* file, enum fir_fp_flags flags) {
     if (flags & FIR_FP_ASSOCIATIVE)    fprintf(file, "+a");
     if (flags & FIR_FP_DISTRIBUTIVE)   fprintf(file, "+d");
 }
-
-static const char* linkage_to_string(enum fir_linkage linkage) {
-    switch (linkage) {
-        case FIR_LINKAGE_INTERNAL: return "internal";
-        case FIR_LINKAGE_EXPORTED: return "exported";
-        case FIR_LINKAGE_IMPORTED: return "imported";
-        default:
-            assert(false && "invalid linkage");
-            return "";
-    }
+static void print_mem_flags(FILE* file, enum fir_mem_flags flags) {
+    if (flags & FIR_MEM_NON_NULL) fprintf(file, "+nn");
+    if (flags & FIR_MEM_VOLATILE) fprintf(file, "+v");
 }
 
 static void print_node(FILE* file, const struct fir_node* node, const struct fir_print_options* options) {
-    const char* value_style = options->disable_colors ? "" : TERM2(TERM_FG_GREEN, TERM_BOLD);
-    const char* type_style  = options->disable_colors ? "" : TERM1(TERM_FG_BLUE);
-    const char* reset_style = options->disable_colors ? "" : TERM1(TERM_RESET);
-    const char* data_style  = options->disable_colors ? "" : TERM1(TERM_FG_CYAN);
-    const char* error_style = options->disable_colors ? "" : TERM2(TERM_FG_RED, TERM_BOLD);
+    const char* value_style   = options->disable_colors ? "" : TERM2(TERM_FG_GREEN, TERM_BOLD);
+    const char* type_style    = options->disable_colors ? "" : TERM1(TERM_FG_BLUE);
+    const char* keyword_style = type_style;
+    const char* reset_style   = options->disable_colors ? "" : TERM1(TERM_RESET);
+    const char* data_style    = options->disable_colors ? "" : TERM1(TERM_FG_CYAN);
+    const char* error_style   = options->disable_colors ? "" : TERM2(TERM_FG_RED, TERM_BOLD);
+    if (fir_node_is_external(node))
+        fprintf(file, "%sextern%s ", keyword_style, reset_style);
     fprintf(file, "%s%s%s",
         fir_node_is_ty(node) ? type_style : value_style,
         fir_node_tag_to_string(node->tag),
         reset_style);
-    if (fir_node_is_nominal(node) && (node->data.linkage != FIR_LINKAGE_INTERNAL || options->verbosity == FIR_VERBOSITY_HIGH))
-        fprintf(file, "[%s%s%s]", data_style, linkage_to_string(node->data.linkage), reset_style);
-    else if (fir_node_has_bitwidth(node))
+    if (fir_node_has_bitwidth(node))
         fprintf(file, "[%s%zu%s]", data_style, node->data.bitwidth, reset_style);
     else if (node->tag == FIR_CONST && node->ty->tag == FIR_INT_TY)
         fprintf(file, "[%s%"PRIu64"%s]", data_style, node->data.int_val, reset_style);
@@ -53,7 +47,11 @@ static void print_node(FILE* file, const struct fir_node* node, const struct fir
         fprintf(file, "[%s%a%s]", data_style, node->data.float_val, reset_style);
     else if (node->tag == FIR_ARRAY_TY)
         fprintf(file, "[%s%zu%s]", data_style, node->data.array_dim, reset_style);
-    else if (fir_node_has_fp_flags(node)) {
+    else if (fir_node_has_mem_flags(node)) {
+        fprintf(file, "[%s", data_style);
+        print_mem_flags(file, node->data.mem_flags);
+        fprintf(file, "%s]", reset_style);
+    } else if (fir_node_has_fp_flags(node)) {
         fprintf(file, "[%s", data_style);
         print_fp_flags(file, node->data.fp_flags);
         fprintf(file, "%s]", reset_style);
@@ -138,15 +136,15 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
             fir_node_print(file, block_func, options);
             fprintf(file, "\n");
 
-            struct node_cspan block_contents = schedule_block_contents(&schedule, *block_ptr);
-            CSPAN_FOREACH(const struct fir_node*, node_ptr, block_contents) {
+            struct const_node_span block_contents = schedule_block_contents(&schedule, *block_ptr);
+            CONST_SPAN_FOREACH(const struct fir_node*, node_ptr, block_contents) {
                 print_indent(file, options->indent + 2, options->tab);
                 fir_node_print(file, *node_ptr, options);
                 fprintf(file, "\n");
             }
+            fprintf(file, "\n");
         }
 
-        fprintf(file, "\n");
         print_indent(file, options->indent + 1, options->tab);
         fir_node_print(file, funcs[i]->ops[0], options);
         fprintf(file, "\n");

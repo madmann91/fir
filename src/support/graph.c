@@ -11,7 +11,7 @@ static inline uint32_t hash_graph_edge(uint32_t h, struct graph_edge* const* edg
     return h;
 }
 
-static inline bool cmp_graph_edge(
+static inline bool is_graph_edge_equal(
     struct graph_edge* const* edge_ptr,
     struct graph_edge* const* other_ptr)
 {
@@ -24,14 +24,14 @@ static inline uint32_t hash_graph_node(uint32_t h, struct graph_node* const* nod
     return hash_uint64(h, (*node_ptr)->index);
 }
 
-static inline bool cmp_graph_node(
+static inline bool is_graph_node_equal(
     struct graph_node* const* node_ptr,
     struct graph_node* const* other_ptr)
 {
     return (*node_ptr)->key == (*other_ptr)->key;
 }
 
-static inline bool cmp_graph_node_by_ptr(
+static inline bool is_graph_node_ptr_equal(
     struct graph_node* const* node_ptr,
     struct graph_node* const* other_ptr)
 {
@@ -42,16 +42,17 @@ static inline uint32_t hash_raw_ptr(uint32_t h, void* const* ptr) {
     return hash_uint64(h, (uintptr_t)*ptr);
 }
 
-static inline bool cmp_raw_ptr(void* const* ptr, void* const* other) {
+static inline bool is_raw_ptr_equal(void* const* ptr, void* const* other) {
     return *ptr == *other;
 }
 
-SET_IMPL(graph_node_set, struct graph_node*, hash_graph_node, cmp_graph_node, PUBLIC)
-SET_IMPL(graph_edge_set, struct graph_edge*, hash_graph_edge, cmp_graph_edge, PUBLIC)
-MAP_IMPL(graph_node_map, struct graph_node*, void*, hash_graph_node, cmp_graph_node_by_ptr, PUBLIC)
+SET_IMPL(graph_node_set, struct graph_node*, hash_graph_node, is_graph_node_equal, PUBLIC)
+SET_IMPL(graph_edge_set, struct graph_edge*, hash_graph_edge, is_graph_edge_equal, PUBLIC)
+MAP_IMPL(graph_node_map, struct graph_node*, void*, hash_graph_node, is_graph_node_ptr_equal, PUBLIC)
 VEC_IMPL(graph_node_vec, struct graph_node*, PUBLIC)
+SMALL_VEC_IMPL(small_graph_node_vec, struct graph_node*, PUBLIC)
 
-MAP_IMPL(graph_node_key_map, void*, struct graph_node*, hash_raw_ptr, cmp_raw_ptr, PUBLIC)
+MAP_IMPL(graph_node_key_map, void*, struct graph_node*, hash_raw_ptr, is_raw_ptr_equal, PUBLIC)
 
 enum graph_dir graph_dir_reverse(enum graph_dir dir) {
     return dir == GRAPH_DIR_FORWARD ? GRAPH_DIR_BACKWARD : GRAPH_DIR_FORWARD;

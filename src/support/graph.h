@@ -3,6 +3,7 @@
 #include "vec.h"
 #include "set.h"
 #include "map.h"
+#include "span.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -48,6 +49,9 @@ struct graph_node {
 
 SET_DECL(graph_edge_set, struct graph_edge*, PUBLIC)
 VEC_DECL(graph_node_vec, struct graph_node*, PUBLIC)
+SMALL_VEC_DECL(small_graph_node_vec, struct graph_node*, PUBLIC)
+CONST_SPAN_DECL(const_graph_node_span, struct graph_node*)
+SPAN_DECL(graph_node_span, struct graph_node*)
 MAP_DECL(graph_node_map, struct graph_node*, void*, PUBLIC)
 SET_DECL(graph_node_set, struct graph_node*, PUBLIC)
 

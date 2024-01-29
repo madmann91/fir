@@ -5,13 +5,13 @@
 
 #include "fir/node.h"
 
-static inline struct node_cspan jump_targets(const struct fir_node* node) {
+static inline struct const_node_span jump_targets(const struct fir_node* node) {
     assert(fir_node_is_jump(node));
     if (fir_node_is_choice(node->ops[0])) {
         const struct fir_node* array = node->ops[0]->ops[0];
-        return (struct node_cspan) { .elems = array->ops, .elem_count = array->op_count };
+        return (struct const_node_span) { .elems = array->ops, .elem_count = array->op_count };
     }
-    return (struct node_cspan) { .elems = &node->ops[0], .elem_count = 1 };
+    return (struct const_node_span) { .elems = &node->ops[0], .elem_count = 1 };
 }
 
 struct cfg cfg_create(const struct scope* scope) {
@@ -31,8 +31,8 @@ struct cfg cfg_create(const struct scope* scope) {
             continue;
 
         struct graph_node* from = graph_insert(&cfg.graph, (void*)func);
-        struct node_cspan targets = jump_targets(func->ops[0]);
-        CSPAN_FOREACH(const struct fir_node*, target_ptr, targets) {
+        struct const_node_span targets = jump_targets(func->ops[0]);
+        CONST_SPAN_FOREACH(const struct fir_node*, target_ptr, targets) {
             if (scope_contains(scope, *target_ptr)) {
                 struct graph_node* to = graph_insert(&cfg.graph, (void*)*target_ptr);
                 graph_connect(&cfg.graph, from, to);
@@ -93,4 +93,8 @@ struct dom_tree_node* cfg_post_dom_tree_node(const struct graph_node* node) {
 
 struct loop_tree_node* cfg_loop_tree_node(const struct graph_node* node) {
     return (struct loop_tree_node*)node->data[CFG_LOOP_TREE_INDEX].ptr;
+}
+
+bool cfg_is_dominated_by(const struct graph_node* block, const struct graph_node* other_block) {
+    return dom_tree_node_is_dominated_by(cfg_dom_tree_node(block), cfg_dom_tree_node(other_block), CFG_DOM_TREE_INDEX);
 }

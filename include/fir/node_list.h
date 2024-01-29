@@ -10,6 +10,7 @@
 /// Lists all types.
 #define FIR_TYPE_LIST(x) \
     x(MEM_TY,      "mem_ty") \
+    x(FRAME_TY,    "frame_ty") \
     x(PTR_TY,      "ptr_ty") \
     x(NORET_TY,    "noret_ty") \
     x(INT_TY,      "int_ty") \

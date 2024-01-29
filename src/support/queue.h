@@ -6,9 +6,9 @@
 
 #include <assert.h>
 
-#define QUEUE_DEFINE(name, elem_ty, cmp, vis) \
+#define QUEUE_DEFINE(name, elem_ty, is_less_than, vis) \
     QUEUE_DECL(name, elem_ty, vis) \
-    QUEUE_IMPL(name, elem_ty, cmp, vis)
+    QUEUE_IMPL(name, elem_ty, is_less_than, vis)
 
 #define QUEUE_DECL(name, elem_ty, vis) \
     VEC_DECL(name##_vec, elem_ty, vis) \
@@ -23,9 +23,9 @@
     VISIBILITY(vis) void name##_pop(struct name*); \
     VISIBILITY(vis) void name##_clear(struct name*);
 
-#define QUEUE_IMPL(name, elem_ty, cmp, vis) \
-    static inline bool name##_cmp_wrapper(const void* left, const void* right) { \
-        return cmp((elem_ty const*)left, (elem_ty const*)right); \
+#define QUEUE_IMPL(name, elem_ty, is_less_than, vis) \
+    static inline bool name##_is_less_than_wrapper(const void* left, const void* right) { \
+        return is_less_than((elem_ty const*)left, (elem_ty const*)right); \
     } \
     VEC_IMPL(name##_vec, elem_ty, vis) \
     VISIBILITY(vis) struct name name##_create(void) { \
@@ -45,11 +45,11 @@
     VISIBILITY(vis) void name##_push(struct name* queue, elem_ty const* elem) { \
         size_t elem_count = queue->vec.elem_count; \
         name##_vec_resize(&queue->vec, elem_count + 1); \
-        heap_push(queue->vec.elems, elem_count, sizeof(elem_ty), elem, name##_cmp_wrapper); \
+        heap_push(queue->vec.elems, elem_count, sizeof(elem_ty), elem, name##_is_less_than_wrapper); \
     } \
     VISIBILITY(vis) void name##_pop(struct name* queue) { \
         assert(!name##_is_empty(queue)); \
-        heap_pop(queue->vec.elems, queue->vec.elem_count, sizeof(elem_ty), name##_cmp_wrapper); \
+        heap_pop(queue->vec.elems, queue->vec.elem_count, sizeof(elem_ty), name##_is_less_than_wrapper); \
         name##_vec_pop(&queue->vec); \
     } \
     VISIBILITY(vis) void name##_clear(struct name* queue) { \

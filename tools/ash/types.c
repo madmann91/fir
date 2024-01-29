@@ -54,7 +54,7 @@ static inline uint32_t hash_type(uint32_t h, const struct type* const* type_ptr)
     return h;
 }
 
-static inline bool cmp_type(
+static inline bool is_type_equal(
     const struct type* const* type_ptr,
     const struct type* const* other_ptr)
 {
@@ -111,7 +111,7 @@ static inline bool cmp_type(
     }
 }
 
-SET_DEFINE(internal_type_set, const struct type*, hash_type, cmp_type, PRIVATE)
+SET_DEFINE(internal_type_set, const struct type*, hash_type, is_type_equal, PRIVATE)
 
 struct type_set {
     uint64_t cur_id;

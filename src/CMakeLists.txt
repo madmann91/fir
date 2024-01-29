@@ -13,6 +13,7 @@ add_library(libfir_support STATIC
     support/primes.c)
 
 add_library(libfir_analysis STATIC
+    analysis/liveness.c
     analysis/schedule.c
     analysis/loop_tree.c
     analysis/dom_tree.c

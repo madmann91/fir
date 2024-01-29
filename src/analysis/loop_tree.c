@@ -10,12 +10,12 @@ static inline uint32_t hash_index(uint32_t h, const size_t* index_ptr) {
     return hash_uint64(h, *index_ptr);
 }
 
-static inline bool cmp_index(const size_t* index_ptr, const size_t* other_ptr) {
+static inline bool is_index_equal(const size_t* index_ptr, const size_t* other_ptr) {
     return *index_ptr == *other_ptr;
 }
 
 VEC_DEFINE(index_vec, size_t, PRIVATE)
-SET_DEFINE(index_set, size_t, hash_index, cmp_index, PRIVATE)
+SET_DEFINE(index_set, size_t, hash_index, is_index_equal, PRIVATE)
 
 static inline size_t* compute_last_descendants(
     const struct graph_node_vec* depth_first_order,
