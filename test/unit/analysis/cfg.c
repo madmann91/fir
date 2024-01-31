@@ -203,7 +203,7 @@ TEST(cfg_iter_pow) {
     //          |  |            |
     //          v  v            |
     //    is_zero  is_non_zero --
-    //       |         
+    //       |
     //       v
     //     done
     //       |

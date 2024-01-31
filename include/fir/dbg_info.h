@@ -31,7 +31,7 @@ struct fir_source_range {
 struct fir_dbg_info {
     const char* name;       ///< Object name.
     const char* file_name;  ///< File name, or `NULL`.
-                                      
+
     /// Source file range that corresponds to the object, ignored when file_name is `NULL`.
     struct fir_source_range source_range;
 };

@@ -44,7 +44,7 @@ IMMUTABLE_SET_IMPL(block_list, struct graph_node*, hash_block, cmp_block, PUBLIC
 struct scheduler {
     struct cfg* cfg;
     struct node_map early_blocks;
-    struct node_map late_blocks; 
+    struct node_map late_blocks;
     struct node_vec early_stack;
     struct node_vec late_stack;
     struct unique_node_stack visit_stack;

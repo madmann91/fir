@@ -307,7 +307,7 @@ struct type_set* type_set_create(void) {
     return type_set;
 }
 
-void type_set_destroy(struct type_set* type_set) { 
+void type_set_destroy(struct type_set* type_set) {
     str_pool_destroy(type_set->str_pool);
     mem_pool_destroy(&type_set->mem_pool);
     internal_type_set_destroy(&type_set->types);

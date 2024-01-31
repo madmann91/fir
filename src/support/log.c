@@ -117,20 +117,20 @@ void log_msg(
 void log_error(struct log* log, const struct fir_source_range* source_range, const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    log_msg(MSG_ERR, log, source_range, fmt, args);    
+    log_msg(MSG_ERR, log, source_range, fmt, args);
     va_end(args);
 }
 
 void log_warn(struct log* log, const struct fir_source_range* source_range, const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    log_msg(MSG_WARN, log, source_range, fmt, args);    
+    log_msg(MSG_WARN, log, source_range, fmt, args);
     va_end(args);
 }
 
 void log_note(struct log* log, const struct fir_source_range* source_range, const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    log_msg(MSG_NOTE, log, source_range, fmt, args);    
+    log_msg(MSG_NOTE, log, source_range, fmt, args);
     va_end(args);
 }

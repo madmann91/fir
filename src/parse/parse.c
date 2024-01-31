@@ -233,7 +233,7 @@ static inline const struct fir_node* parse_op(
 {
     if (token_tag_is_ty(parser->ahead->tag))
         return parse_ty(parser);
-    struct fir_source_range ident_range = parser->ahead->source_range; 
+    struct fir_source_range ident_range = parser->ahead->source_range;
     struct str_view ident = parse_ident(parser);
     const struct fir_node* const* symbol = symbol_table_find(&parser->symbol_table, &ident);
     if (symbol)
