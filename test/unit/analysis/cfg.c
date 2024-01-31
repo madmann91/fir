@@ -172,18 +172,18 @@ static inline struct fir_node* build_iter_pow(struct fir_mod* mod) {
     struct fir_block is_zero;
     struct fir_block is_non_zero;
     struct fir_block merge_block;
-    const struct fir_node* cur_i = fir_block_load(&loop, int32_ty, i, FIR_MEM_NON_NULL);
+    const struct fir_node* cur_i = fir_block_load(&loop, i, int32_ty, FIR_MEM_NON_NULL);
     const struct fir_node* cond = fir_icmp_op(FIR_ICMPEQ, cur_i, fir_zero(int32_ty));
     fir_block_branch(&loop, cond, &is_zero, &is_non_zero, &merge_block);
     fir_block_jump(&is_zero, &done);
 
-    const struct fir_node* q = fir_iarith_op(FIR_IMUL, fir_block_load(&is_non_zero, int32_ty, p, FIR_MEM_NON_NULL), x);
-    const struct fir_node* j = fir_iarith_op(FIR_ISUB, fir_block_load(&is_non_zero, int32_ty, i, FIR_MEM_NON_NULL), fir_one(int32_ty));
+    const struct fir_node* q = fir_iarith_op(FIR_IMUL, fir_block_load(&is_non_zero, p, int32_ty, FIR_MEM_NON_NULL), x);
+    const struct fir_node* j = fir_iarith_op(FIR_ISUB, fir_block_load(&is_non_zero, i, int32_ty, FIR_MEM_NON_NULL), fir_one(int32_ty));
     fir_block_store(&is_non_zero, p, q, FIR_MEM_NON_NULL);
     fir_block_store(&is_non_zero, i, j, FIR_MEM_NON_NULL);
     fir_block_jump(&is_non_zero, &loop);
 
-    const struct fir_node* k = fir_block_load(&done, int32_ty, i, FIR_MEM_NON_NULL);
+    const struct fir_node* k = fir_block_load(&done, i, int32_ty, FIR_MEM_NON_NULL);
     fir_block_return(&done, k);
 
     return pow;
