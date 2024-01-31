@@ -115,8 +115,8 @@ const struct fir_node* fir_block_alloc(struct fir_block* block, const struct fir
 
 const struct fir_node* fir_block_load(
     struct fir_block* block,
-    const struct fir_node* ty,
     const struct fir_node* ptr,
+    const struct fir_node* ty,
     enum fir_mem_flags mem_flags)
 {
     assert(!block->is_terminated);

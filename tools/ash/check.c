@@ -48,6 +48,15 @@ static const struct type* expect_type(
     return type;
 }
 
+static void expect_irrefutable_pattern(
+    struct type_checker* type_checker,
+    const char* context,
+    const struct ast* pattern)
+{
+    if (!ast_is_irrefutable_pattern(pattern))
+        log_error(type_checker->log, &pattern->source_range, "invalid %s pattern", context);
+}
+
 static const struct type* implicit_cast(
     struct type_checker* type_checker,
     struct ast** expr,
@@ -68,7 +77,7 @@ static const struct type* deref(
     struct type_checker* type_checker,
     struct ast** expr)
 {
-    const struct type* type = infer(type_checker, *expr); 
+    const struct type* type = infer(type_checker, *expr);
     if (type->tag == TYPE_REF)
         return implicit_cast(type_checker, expr, type->ref_type.pointee_type);
     return type;
@@ -79,7 +88,7 @@ static const struct type* coerce(
     struct ast** expr,
     const struct type* type)
 {
-    const struct type* expr_type = check(type_checker, *expr, type); 
+    const struct type* expr_type = check(type_checker, *expr, type);
     if (expr_type != type && type_is_subtype(expr_type, type))
         return implicit_cast(type_checker, expr, type);
     return expr_type;
@@ -184,6 +193,24 @@ static const struct type* check_if_expr(
     }
 }
 
+static const struct type* check_unary_expr(
+    struct type_checker* type_checker,
+    struct ast* unary_expr,
+    const struct type* expected_type)
+{
+    (void)unary_expr, (void)expected_type;
+    return type_prim(type_checker->type_set, TYPE_I32);
+}
+
+static const struct type* check_binary_expr(
+    struct type_checker* type_checker,
+    struct ast* binary_expr,
+    const struct type* expected_type)
+{
+    (void)binary_expr, (void)expected_type;
+    return type_prim(type_checker->type_set, TYPE_I32);
+}
+
 static const struct type* check(
     struct type_checker* type_checker,
     struct ast* ast,
@@ -195,12 +222,27 @@ static const struct type* check(
             return ast->type = check_block_expr(type_checker, ast, expected_type);
         case AST_IF_EXPR:
             return ast->type = check_if_expr(type_checker, ast, expected_type);
+        case AST_TUPLE_PATTERN:
         case AST_TUPLE_EXPR:
             return ast->type = check_tuple(type_checker, ast->block_expr.stmts, expected_type);
         case AST_RECORD_EXPR:
             return ast->type = check_record(type_checker, ast->record_type.fields, expected_type);
-        case AST_IDENT_PATTERN:
-            return ast->type = expected_type;
+        case AST_UNARY_EXPR:
+            return ast->type = check_unary_expr(type_checker, ast, expected_type);
+        case AST_BINARY_EXPR:
+            return ast->type = check_binary_expr(type_checker, ast, expected_type);
+        case AST_IDENT_PATTERN: {
+            if (ast->ident_pattern.type) {
+                const struct type* ident_type = infer(type_checker, ast->ident_pattern.type);
+                expect_type(type_checker, &ast->source_range, expected_type, ident_type);
+                ast->type = ident_type;
+            } else {
+                ast->type = expected_type;
+            }
+            if (ast->ident_pattern.is_var)
+                ast->type = type_ref(type_checker->type_set, ast->type, false);
+            return ast->type;
+        }
         default:
             return ast->type = expect_type(type_checker, &ast->source_range, infer(type_checker, ast), expected_type);
     }
@@ -210,6 +252,7 @@ static const struct type* infer_func_decl(struct type_checker* type_checker, str
     if (!ast_set_insert(&type_checker->visited_decls, &func_decl))
         return cannot_infer(type_checker, &func_decl->source_range, func_decl->func_decl.name);
     const struct type* param_type = infer(type_checker, func_decl->func_decl.param);
+    expect_irrefutable_pattern(type_checker, "function parameter", func_decl->func_decl.param);
     const struct type* ret_type = NULL;
     if (func_decl->func_decl.ret_type) {
         // Set type before entering the function, in order to allow typing recursive
@@ -247,11 +290,32 @@ static void check_binding(
     }
 }
 
+static void mark_var_patterns(struct ast* pattern) {
+    if (pattern->tag == AST_IDENT_PATTERN) {
+        pattern->ident_pattern.is_var = true;
+    } else if (pattern->tag == AST_TUPLE_PATTERN) {
+        for (struct ast* arg = pattern->tuple_pattern.args; arg; arg = arg->next)
+            mark_var_patterns(arg);
+    }
+}
+
 static const struct type* infer_const_or_var_decl(struct type_checker* type_checker, struct ast* decl) {
+    expect_irrefutable_pattern(type_checker,
+        decl->tag == AST_CONST_DECL ? "const" : "variable",
+        decl->const_decl.pattern);
+
+    if (decl->tag == AST_VAR_DECL)
+        mark_var_patterns(decl->var_decl.pattern);
+
     if (decl->const_decl.init)
         check_binding(type_checker, decl->const_decl.pattern, decl->const_decl.init);
     else
         infer(type_checker, decl->const_decl.pattern);
+    return type_unit(type_checker->type_set);
+}
+
+static const struct type* infer_while_loop(struct type_checker* type_checker, struct ast* while_loop) {
+    (void)while_loop;
     return type_unit(type_checker->type_set);
 }
 
@@ -263,6 +327,7 @@ static const struct type* infer(struct type_checker* type_checker, struct ast* a
             return ast->type = infer_literal(type_checker, &ast->literal);
         case AST_FUNC_DECL:
             return ast->type = infer_func_decl(type_checker, ast);
+        case AST_VAR_DECL:
         case AST_CONST_DECL:
             return ast->type = infer_const_or_var_decl(type_checker, ast);
         case AST_IDENT_PATTERN:
@@ -289,8 +354,14 @@ static const struct type* infer(struct type_checker* type_checker, struct ast* a
             return ast->type = check_record(type_checker, ast->record_type.fields, NULL);
         case AST_BLOCK_EXPR:
             return ast->type = check_block_expr(type_checker, ast, NULL);
+        case AST_UNARY_EXPR:
+            return ast->type = check_unary_expr(type_checker, ast, NULL);
+        case AST_BINARY_EXPR:
+            return ast->type = check_binary_expr(type_checker, ast, NULL);
         case AST_IF_EXPR:
             return ast->type = check_if_expr(type_checker, ast, NULL);
+        case AST_WHILE_LOOP:
+            return ast->type = infer_while_loop(type_checker, ast);
         default:
             assert(false && "invalid AST node");
             return ast->type = type_top(type_checker->type_set);

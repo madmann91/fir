@@ -10,24 +10,42 @@
 #include <stdio.h>
 
 #define BINARY_EXPR_LIST(x) \
-    x(ASSIGN, "=") \
-    x(ADD, "+") \
-    x(SUB, "-") \
-    x(MUL, "*") \
-    x(DIV, "/") \
-    x(REM, "%") \
-    x(AND, "&") \
-    x(OR,  "|") \
-    x(XOR, "^") \
-    x(LSHIFT, "<<") \
-    x(RSHIFT, ">>")
+    x(MUL,           "*",   1) \
+    x(DIV,           "/",   1) \
+    x(REM,           "%",   1) \
+    x(ADD,           "+",   2) \
+    x(SUB,           "-",   2) \
+    x(LSHIFT,        "<<",  3) \
+    x(RSHIFT,        ">>",  3) \
+    x(CMP_GT,        ">",   4) \
+    x(CMP_LT,        "<",   4) \
+    x(CMP_GE,        ">=",  4) \
+    x(CMP_LE,        "<=",  4) \
+    x(CMP_NE,        "!=",  5) \
+    x(CMP_EQ,        "==",  5) \
+    x(AND,           "&",   6) \
+    x(XOR,           "^",   7) \
+    x(OR,            "|",   8) \
+    x(LOGIC_AND,     "&&",  9) \
+    x(LOGIC_OR,      "||",  10) \
+    x(ASSIGN,        "=",   11) \
+    x(ADD_ASSIGN,    "+=",  11) \
+    x(SUB_ASSIGN,    "-=",  11) \
+    x(MUL_ASSIGN,    "*=",  11) \
+    x(DIV_ASSIGN,    "/=",  11) \
+    x(REM_ASSIGN,    "%=",  11) \
+    x(RSHIFT_ASSIGN, ">>=", 11) \
+    x(LSHIFT_ASSIGN, "<<=", 11) \
+    x(AND_ASSIGN,    "&=",  11) \
+    x(XOR_ASSIGN,    "^=",  11) \
+    x(OR_ASSIGN,     "|=",  11)
 
 #define UNARY_EXPR_LIST(x) \
-    x(PLUS, "+") \
-    x(NEG, "-") \
-    x(NOT, "!") \
-    x(PRE_INC, "++") \
-    x(PRE_DEC, "--") \
+    x(PLUS,     "+") \
+    x(NEG,      "-") \
+    x(NOT,      "!") \
+    x(PRE_INC,  "++") \
+    x(PRE_DEC,  "--") \
     x(POST_INC, "++") \
     x(POST_DEC, "--") \
 
@@ -67,6 +85,9 @@ enum ast_tag {
     AST_BINARY_EXPR,
     AST_BLOCK_EXPR,
     AST_IF_EXPR,
+
+    // Statements
+    AST_WHILE_LOOP,
 };
 
 enum prim_type_tag {
@@ -76,6 +97,7 @@ enum prim_type_tag {
 };
 
 enum binary_expr_tag {
+    BINARY_EXPR_INVALID = 0,
 #define x(tag, ...) BINARY_EXPR_##tag,
     BINARY_EXPR_LIST(x)
 #undef x
@@ -122,6 +144,7 @@ struct ast {
         struct {
             const char* name;
             struct ast* type;
+            bool is_var;
         } ident_pattern;
         struct {
             enum prim_type_tag tag;
@@ -178,6 +201,10 @@ struct ast {
             struct ast* then_block;
             struct ast* else_block;
         } if_expr;
+        struct {
+            struct ast* cond;
+            struct ast* body;
+        } while_loop;
     };
 };
 
@@ -198,4 +225,8 @@ void ast_emit(struct ast*, struct fir_mod*);
 const char* unary_expr_tag_to_string(enum unary_expr_tag);
 const char* binary_expr_tag_to_string(enum binary_expr_tag);
 
+bool unary_expr_tag_is_prefix(enum unary_expr_tag);
+int binary_expr_tag_to_precedence(enum binary_expr_tag);
+
 bool ast_needs_semicolon(const struct ast*);
+bool ast_is_irrefutable_pattern(const struct ast*);

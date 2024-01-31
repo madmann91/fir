@@ -217,9 +217,9 @@ size_t type_find_field(const struct type* record_type, const char* field_name) {
 bool type_is_subtype(const struct type* left, const struct type* right) {
     if (left == right || right->tag == TYPE_TOP || left->tag == TYPE_BOTTOM)
         return true;
-    if (left->tag != right->tag)
-        return false;
-    if (left->tag == TYPE_RECORD) {
+    if (left->tag == TYPE_REF)
+        return type_is_subtype(left->ref_type.pointee_type, right);
+    if (left->tag == TYPE_RECORD && right->tag == TYPE_RECORD) {
         if (left->record_type.field_count < right->record_type.field_count)
             return false;
         for (size_t i = 0; i < right->record_type.field_count; ++i) {
@@ -402,6 +402,7 @@ const struct type* type_ptr(struct type_set* type_set, const struct type* pointe
 }
 
 const struct type* type_ref(struct type_set* type_set, const struct type* pointee_type, bool is_const) {
+    assert(pointee_type->tag != TYPE_REF);
     return insert_type(type_set, &(struct type) {
         .tag = TYPE_REF,
         .ptr_type = {

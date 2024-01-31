@@ -64,6 +64,7 @@
     x(AND, "&") \
     x(OR, "|") \
     x(XOR, "^") \
+    x(NOT, "!") \
     x(LOGIC_AND, "&&") \
     x(LOGIC_OR, "||") \
     x(LSHIFT, "<<") \

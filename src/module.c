@@ -1429,6 +1429,9 @@ const struct fir_node* fir_store(
     if (mem->tag == FIR_STORE && mem->ops[1] == ptr && (flags & FIR_MEM_VOLATILE) == 0)
         mem = mem->ops[0];
 
+    if (val->tag == FIR_BOT)
+        return mem;
+
     return insert_node(fir_node_mod(mem), (const struct fir_node*)&(struct { FIR_NODE(3) }) {
         .tag = FIR_STORE,
         .op_count = 3,

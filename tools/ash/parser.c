@@ -7,6 +7,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <limits.h>
 
 #define TOKEN_LOOKAHEAD 4
 
@@ -22,6 +23,7 @@ static struct ast* parse_type(struct parser*);
 static struct ast* parse_pattern(struct parser*);
 static struct ast* parse_expr(struct parser*);
 static struct ast* parse_decl(struct parser*);
+static struct ast* parse_while_loop(struct parser*);
 
 static inline void next_token(struct parser* parser) {
     parser->prev_end = parser->ahead->source_range.end;
@@ -247,7 +249,7 @@ static struct ast* parse_func_decl(struct parser* parser) {
     });
 }
 
-static struct ast* parse_var_or_const_decl(struct parser* parser, bool is_const) {
+static struct ast* parse_const_or_var_decl(struct parser* parser, bool is_const) {
     struct fir_source_pos begin_pos = parser->ahead->source_range.begin;
     eat_token(parser, is_const ? TOK_CONST : TOK_VAR);
     struct ast* pattern = parse_pattern(parser);
@@ -269,8 +271,8 @@ static struct ast* parse_var_or_const_decl(struct parser* parser, bool is_const)
 static struct ast* parse_decl(struct parser* parser) {
     switch (parser->ahead->tag) {
         case TOK_FUNC:  return parse_func_decl(parser);
-        case TOK_CONST: return parse_var_or_const_decl(parser, true);
-        case TOK_VAR:   return parse_var_or_const_decl(parser, false);
+        case TOK_CONST: return parse_const_or_var_decl(parser, true);
+        case TOK_VAR:   return parse_const_or_var_decl(parser, false);
         default:        return parse_error(parser, "declaration");
     }
 }
@@ -375,6 +377,9 @@ static struct ast* parse_block_expr(struct parser* parser) {
             case TOK_FUNC:
                 stmt = parse_decl(parser);
                 break;
+            case TOK_WHILE:
+                stmt = parse_while_loop(parser);
+                break;
             default:
                 break;
         }
@@ -420,7 +425,21 @@ static struct ast* parse_if_expr(struct parser* parser) {
     });
 }
 
-static struct ast* parse_expr(struct parser* parser) {
+static struct ast* parse_while_loop(struct parser* parser) {
+    const struct fir_source_pos begin_pos = parser->ahead->source_range.begin;
+    eat_token(parser, TOK_WHILE);
+    struct ast* cond = parse_expr(parser);
+    struct ast* body = parse_block_expr_or_error(parser);
+    return alloc_ast(parser, &begin_pos, &(struct ast) {
+        .tag = AST_WHILE_LOOP,
+        .while_loop = {
+            .cond = cond,
+            .body = body
+        }
+    });
+}
+
+static struct ast* parse_primary_expr(struct parser* parser) {
     switch (parser->ahead->tag) {
         case TOK_TRUE:     return parse_bool_literal(parser, true);
         case TOK_FALSE:    return parse_bool_literal(parser, false);
@@ -438,6 +457,116 @@ static struct ast* parse_expr(struct parser* parser) {
         default:
             return parse_error(parser, "expression");
     }
+}
+
+static struct ast* parse_prefix_expr(struct parser* parser) {
+    const struct fir_source_pos begin_pos = parser->ahead->source_range.begin;
+    enum unary_expr_tag tag;
+    switch (parser->ahead->tag) {
+        case TOK_ADD: tag = UNARY_EXPR_PLUS;    break;
+        case TOK_SUB: tag = UNARY_EXPR_NEG;     break;
+        case TOK_NOT: tag = UNARY_EXPR_NOT;     break;
+        case TOK_INC: tag = UNARY_EXPR_PRE_INC; break;
+        case TOK_DEC: tag = UNARY_EXPR_PRE_DEC; break;
+        default:
+            return parse_primary_expr(parser);
+    }
+    next_token(parser);
+    struct ast* arg = parse_prefix_expr(parser);
+    return alloc_ast(parser, &begin_pos, &(struct ast) {
+        .tag = AST_UNARY_EXPR,
+        .unary_expr = {
+            .tag = tag,
+            .arg = arg
+        }
+    });
+}
+
+struct ast* parse_suffix_expr(struct parser* parser, struct ast* arg) {
+    enum unary_expr_tag tag;
+    switch (parser->ahead->tag) {
+        case TOK_INC: tag = UNARY_EXPR_POST_INC; break;
+        case TOK_DEC: tag = UNARY_EXPR_POST_DEC; break;
+        default:
+            return arg;
+    }
+    next_token(parser);
+    return alloc_ast(parser, &arg->source_range.begin, &(struct ast) {
+        .tag = AST_UNARY_EXPR,
+        .unary_expr = {
+            .tag = tag,
+            .arg = arg
+        }
+    });
+}
+
+static struct ast* parse_unary_expr(struct parser* parser) {
+    return parse_suffix_expr(parser, parse_prefix_expr(parser));
+}
+
+static enum binary_expr_tag token_tag_to_binary_expr_tag(enum token_tag token_tag) {
+    switch (token_tag) {
+        case TOK_EQ:        return BINARY_EXPR_ASSIGN;
+        case TOK_CMP_EQ:    return BINARY_EXPR_CMP_EQ;
+        case TOK_CMP_GT:    return BINARY_EXPR_CMP_GT;
+        case TOK_CMP_GE:    return BINARY_EXPR_CMP_GE;
+        case TOK_CMP_LT:    return BINARY_EXPR_CMP_LT;
+        case TOK_CMP_LE:    return BINARY_EXPR_CMP_LE;
+        case TOK_ADD:       return BINARY_EXPR_ADD;
+        case TOK_SUB:       return BINARY_EXPR_SUB;
+        case TOK_MUL:       return BINARY_EXPR_MUL;
+        case TOK_DIV:       return BINARY_EXPR_DIV;
+        case TOK_REM:       return BINARY_EXPR_REM;
+        case TOK_AND:       return BINARY_EXPR_AND;
+        case TOK_OR:        return BINARY_EXPR_OR;
+        case TOK_XOR:       return BINARY_EXPR_XOR;
+        case TOK_LSHIFT:    return BINARY_EXPR_LSHIFT;
+        case TOK_RSHIFT:    return BINARY_EXPR_RSHIFT;
+        case TOK_LOGIC_AND: return BINARY_EXPR_LOGIC_AND;
+        case TOK_LOGIC_OR:  return BINARY_EXPR_LOGIC_OR;
+        case TOK_ADD_EQ:    return BINARY_EXPR_ADD_ASSIGN;
+        case TOK_SUB_EQ:    return BINARY_EXPR_SUB_ASSIGN;
+        case TOK_MUL_EQ:    return BINARY_EXPR_MUL_ASSIGN;
+        case TOK_DIV_EQ:    return BINARY_EXPR_DIV_ASSIGN;
+        case TOK_REM_EQ:    return BINARY_EXPR_REM_ASSIGN;
+        case TOK_AND_EQ:    return BINARY_EXPR_AND_ASSIGN;
+        case TOK_OR_EQ:     return BINARY_EXPR_OR_ASSIGN;
+        case TOK_XOR_EQ:    return BINARY_EXPR_XOR_ASSIGN;
+        case TOK_LSHIFT_EQ: return BINARY_EXPR_LSHIFT_ASSIGN;
+        case TOK_RSHIFT_EQ: return BINARY_EXPR_RSHIFT_ASSIGN;
+        default:            return BINARY_EXPR_INVALID;
+    }
+}
+
+static struct ast* parse_binary_expr(struct parser* parser, struct ast* left, int prec) {
+    while (true) {
+        enum binary_expr_tag tag = token_tag_to_binary_expr_tag(parser->ahead->tag);
+        if (!tag)
+            break;
+
+        int next_prec = binary_expr_tag_to_precedence(tag);
+        if (next_prec < prec) {
+            left = parse_binary_expr(parser, left, next_prec);
+        } else if (next_prec > prec) {
+            break;
+        } else {
+            next_token(parser);
+            struct ast* right = parse_binary_expr(parser, parse_unary_expr(parser), prec - 1);
+            left = alloc_ast(parser, &left->source_range.begin, &(struct ast) {
+                .tag = AST_BINARY_EXPR,
+                .binary_expr = {
+                    .tag = tag,
+                    .left = left,
+                    .right = right
+                }
+            });
+        }
+    }
+    return left;
+}
+
+static struct ast* parse_expr(struct parser* parser) {
+    return parse_binary_expr(parser, parse_unary_expr(parser), INT_MAX);
 }
 
 static struct ast* parse_program(struct parser* parser) {

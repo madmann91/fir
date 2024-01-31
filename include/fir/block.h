@@ -100,8 +100,8 @@ FIR_SYMBOL const struct fir_node* fir_block_alloc(struct fir_block*, const struc
 /// Loads a value at the given address, in the given block.
 FIR_SYMBOL const struct fir_node* fir_block_load(
     struct fir_block*,
-    const struct fir_node* ty,
     const struct fir_node* ptr,
+    const struct fir_node* ty,
     enum fir_mem_flags mem_flags);
 
 /// Stores a value at the given address, in the given block.

@@ -59,14 +59,40 @@ static void print_literal(FILE* file, const struct literal* literal) {
 
 static void print_with_parens(
     FILE* file,
-    const struct ast* param,
+    const struct ast* ast,
     const struct fir_print_options* options)
 {
-    if (param->tag == AST_TUPLE_TYPE ||
-        param->tag == AST_TUPLE_EXPR ||
-        param->tag == AST_TUPLE_PATTERN)
-        param = param->tuple_type.args;
-    print_many(file, "(", ", ", ")", param, options);
+    if (ast->tag == AST_TUPLE_TYPE ||
+        ast->tag == AST_TUPLE_EXPR ||
+        ast->tag == AST_TUPLE_PATTERN)
+        ast = ast->tuple_type.args;
+    print_many(file, "(", ", ", ")", ast, options);
+}
+
+static void print_unary_expr_operand(
+    FILE* file,
+    const struct ast* operand,
+    const struct fir_print_options* options)
+{
+    if (operand->tag == AST_UNARY_EXPR)
+        print_with_parens(file, operand, options);
+    else
+        ast_print(file, operand, options);
+}
+
+static void print_binary_expr_operand(
+    FILE* file,
+    const struct ast* operand,
+    const struct fir_print_options* options,
+    int precedence)
+{
+    bool needs_parens =
+        operand->tag == AST_BINARY_EXPR &&
+        binary_expr_tag_to_precedence(operand->binary_expr.tag) > precedence;
+    if (needs_parens)
+        print_with_parens(file, operand, options);
+    else
+        ast_print(file, operand, options);
 }
 
 void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options* options) {
@@ -141,6 +167,21 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
                 fprintf(file, "}");
             }
             break;
+        case AST_UNARY_EXPR:
+            if (unary_expr_tag_is_prefix(ast->unary_expr.tag))
+                fprintf(file, "%s", unary_expr_tag_to_string(ast->unary_expr.tag));
+            print_unary_expr_operand(file, ast->unary_expr.arg, options);
+            if (!unary_expr_tag_is_prefix(ast->unary_expr.tag))
+                fprintf(file, "%s", unary_expr_tag_to_string(ast->unary_expr.tag));
+            break;
+        case AST_BINARY_EXPR:
+        {
+            int prec = binary_expr_tag_to_precedence(ast->binary_expr.tag);
+            print_binary_expr_operand(file, ast->binary_expr.left, options, prec);
+            fprintf(file, " %s ", binary_expr_tag_to_string(ast->binary_expr.tag));
+            print_binary_expr_operand(file, ast->binary_expr.right, options, prec);
+            break;
+        }
         case AST_IF_EXPR:
             fprintf(file, "%sif%s ", keyword_style, reset_style);
             ast_print(file, ast->if_expr.cond, options);
@@ -150,6 +191,12 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
                 fprintf(file, " %selse%s ", keyword_style, reset_style);
                 ast_print(file, ast->if_expr.else_block, options);
             }
+            break;
+        case AST_WHILE_LOOP:
+            fprintf(file, "%swhile%s ", keyword_style, reset_style);
+            ast_print(file, ast->while_loop.cond, options);
+            fprintf(file, " ");
+            ast_print(file, ast->while_loop.body, options);
             break;
         case AST_FUNC_DECL:
             fprintf(file, "%sfunc%s %s", keyword_style, reset_style, ast->func_decl.name);
@@ -194,7 +241,7 @@ void ast_dump(const struct ast* ast) {
 
 const char* binary_expr_tag_to_string(enum binary_expr_tag tag) {
     switch (tag) {
-#define x(tag, str) case BINARY_EXPR_##tag: return str;
+#define x(tag, str, ...) case BINARY_EXPR_##tag: return str;
         BINARY_EXPR_LIST(x)
 #undef x
         default:
@@ -214,11 +261,54 @@ const char* unary_expr_tag_to_string(enum unary_expr_tag tag) {
     }
 }
 
+bool unary_expr_tag_is_prefix(enum unary_expr_tag tag) {
+    switch (tag) {
+        case UNARY_EXPR_PLUS:
+        case UNARY_EXPR_NEG:
+        case UNARY_EXPR_NOT:
+        case UNARY_EXPR_PRE_INC:
+        case UNARY_EXPR_PRE_DEC:
+            return true;
+        case UNARY_EXPR_POST_INC:
+        case UNARY_EXPR_POST_DEC:
+            return false;
+        default:
+            assert(false && "invalid unary expression");
+            return false;
+    }
+}
+
+int binary_expr_tag_to_precedence(enum binary_expr_tag tag) {
+    switch (tag) {
+#define x(tag, str, prec) case BINARY_EXPR_##tag: return prec;
+        BINARY_EXPR_LIST(x)
+#undef x
+        default:
+            assert(false && "invalid binary expression");
+            return 0;
+    }
+}
+
 bool ast_needs_semicolon(const struct ast* ast) {
     switch (ast->tag) {
         case AST_LITERAL:
         case AST_TUPLE_EXPR:
         case AST_BLOCK_EXPR:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool ast_is_irrefutable_pattern(const struct ast* ast) {
+    switch (ast->tag) {
+        case AST_IDENT_PATTERN:
+            return true;
+        case AST_TUPLE_PATTERN:
+            for (struct ast* arg = ast->tuple_pattern.args; arg; arg = arg->next) {
+                if (!ast_is_irrefutable_pattern(arg))
+                    return false;
+            }
             return true;
         default:
             return false;

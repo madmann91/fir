@@ -29,7 +29,13 @@ static void emit_pattern(
             break;
         }
         case AST_IDENT_PATTERN:
-            pattern->node = val;
+            if (pattern->ident_pattern.is_var) {
+                const struct fir_node* alloc = fir_block_alloc(&emitter->block, val->ty);
+                fir_block_store(&emitter->block, alloc, val, FIR_MEM_NON_NULL);
+                pattern->node = alloc;
+            } else {
+                pattern->node = val;
+            }
             break;
         default:
             assert(false && "invalid pattern");
@@ -173,10 +179,32 @@ static const struct fir_node* emit_if_expr(struct emitter* emitter, struct ast* 
     return alloc ? fir_block_load(&emitter->block, alloc_ty, alloc, FIR_MEM_NON_NULL) : fir_unit(emitter->mod);
 }
 
-static const struct fir_node* emit_const_decl(struct emitter* emitter, struct ast* const_decl) {
-    const struct fir_node* const_val = emit(emitter, const_decl->const_decl.init);
-    emit_pattern(emitter, const_decl->const_decl.pattern, const_val);
+static const struct fir_node* emit_const_or_var_decl(struct emitter* emitter, struct ast* decl) {
+    const struct fir_node* val = decl->const_decl.init
+        ? emit(emitter, decl->const_decl.init)
+        : fir_bot(convert_type(emitter, decl->const_decl.pattern->type));
+    emit_pattern(emitter, decl->const_decl.pattern, val);
     return fir_unit(emitter->mod);
+}
+
+static const struct fir_node* emit_implicit_cast(
+    struct emitter* emitter,
+    const struct fir_node* val,
+    const struct type* source_type,
+    const struct type* target_type)
+{
+    if (source_type->tag == TYPE_REF && target_type->tag != TYPE_REF) {
+        const struct fir_node* load_ty = convert_type(emitter, source_type->ref_type.pointee_type);
+        const struct fir_node* loaded_val = fir_block_load(&emitter->block, val, load_ty, FIR_MEM_NON_NULL);
+        return emit_implicit_cast(emitter, loaded_val, source_type->ref_type.pointee_type, target_type);
+    }
+    assert(source_type == target_type);
+    return val;
+}
+
+static const struct fir_node* emit_implicit_cast_expr(struct emitter* emitter, struct ast* cast_expr) {
+    const struct fir_node* arg = emit(emitter, cast_expr->implicit_cast_expr.expr);
+    return emit_implicit_cast(emitter, arg, cast_expr->implicit_cast_expr.expr->type, cast_expr->type);
 }
 
 static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
@@ -185,8 +213,9 @@ static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
             return ast->node = emit_literal(emitter, &ast->literal, ast->type);
         case AST_FUNC_DECL:
             return ast->node = emit_func_decl(emitter, ast);
+        case AST_VAR_DECL:
         case AST_CONST_DECL:
-            return ast->node = emit_const_decl(emitter, ast);
+            return ast->node = emit_const_or_var_decl(emitter, ast);
         case AST_IDENT_EXPR:
             return ast->node = ast->ident_expr.bound_to->node;
         case AST_TUPLE_EXPR:
@@ -199,6 +228,8 @@ static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
             return ast->node = emit_if_expr(emitter, ast);
         case AST_FIELD_EXPR:
             return ast->node = emit(emitter, ast->field_expr.arg);
+        case AST_IMPLICIT_CAST_EXPR:
+            return ast->node = emit_implicit_cast_expr(emitter, ast);
         default:
             assert(false && "invalid AST node");
             return NULL;

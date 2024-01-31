@@ -136,11 +136,21 @@ static void bind(struct name_binder* name_binder, struct ast* ast) {
             for (struct ast* stmt = ast->block_expr.stmts; stmt; stmt = stmt->next)
                 bind(name_binder, stmt);
             break;
+        case AST_UNARY_EXPR:
+            bind(name_binder, ast->unary_expr.arg);
+            break;
+        case AST_BINARY_EXPR:
+            bind(name_binder, ast->unary_expr.arg);
+            break;
         case AST_IF_EXPR:
             bind(name_binder, ast->if_expr.cond);
             bind(name_binder, ast->if_expr.then_block);
             if (ast->if_expr.else_block)
                 bind(name_binder, ast->if_expr.else_block);
+            break;
+        case AST_WHILE_LOOP:
+            bind(name_binder, ast->while_loop.cond);
+            bind(name_binder, ast->while_loop.body);
             break;
         default:
             assert(false && "invalid AST node");
