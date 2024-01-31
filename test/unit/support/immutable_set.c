@@ -34,9 +34,11 @@ TEST(immutable_set) {
     REQUIRE(
         one_two_three ==
         immutable_int_set_pool_insert(&int_set_pool, (int[]) { 3, 1, 2 }, 3));
-    REQUIRE(
-        one_two_three !=
-        immutable_int_set_pool_insert(&int_set_pool, (int[]) { 1, 2, 3, 4 }, 4));
+
+    const struct immutable_int_set* one_two_three_four =
+        immutable_int_set_pool_insert(&int_set_pool, (int[]) { 1, 2, 3, 4 }, 4);
+    REQUIRE(one_two_three != one_two_three_four);
+
     const int* one = immutable_int_set_find(one_two_three, (int[]) { 1 });
     const int* two = immutable_int_set_find(one_two_three, (int[]) { 2 });
     const int* three = immutable_int_set_find(one_two_three, (int[]) { 3 });
@@ -44,5 +46,23 @@ TEST(immutable_set) {
     REQUIRE(two && *two == 2);
     REQUIRE(three && *three == 3);
     REQUIRE(!immutable_int_set_find(one_two_three, (int[]) { 4 }));
+
+    REQUIRE(
+        one_two_three ==
+        immutable_int_set_pool_merge(&int_set_pool, one_two_three, one_two_three));
+    REQUIRE(
+        one_two_three_four ==
+        immutable_int_set_pool_merge(&int_set_pool, one_two_three, one_two_three_four));
+    REQUIRE(
+        one_two_three_four ==
+        immutable_int_set_pool_merge(&int_set_pool, one_two_three_four, one_two_three));
+    const struct immutable_int_set* four =
+        immutable_int_set_pool_insert(&int_set_pool, (int[]) { 4 }, 1);
+    REQUIRE(
+        one_two_three_four ==
+        immutable_int_set_pool_merge(&int_set_pool, one_two_three, four));
+    REQUIRE(
+        one_two_three_four ==
+        immutable_int_set_pool_merge(&int_set_pool, four, one_two_three));
     immutable_int_set_pool_destroy(&int_set_pool);
 }
