@@ -358,7 +358,8 @@ static const struct type* infer_const_or_var_decl(struct type_checker* type_chec
 }
 
 static const struct type* infer_while_loop(struct type_checker* type_checker, struct ast* while_loop) {
-    (void)while_loop;
+    coerce(type_checker, &while_loop->while_loop.cond, type_prim(type_checker->type_set, TYPE_BOOL));
+    check(type_checker, while_loop->while_loop.body, type_unit(type_checker->type_set));
     return type_unit(type_checker->type_set);
 }
 

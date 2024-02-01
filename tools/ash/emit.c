@@ -161,7 +161,7 @@ static const struct fir_node* emit_if_expr(struct emitter* emitter, struct ast* 
 
     struct fir_block then_block;
     struct fir_block else_block;
-    struct fir_block merge_block;
+    struct fir_block merge_block = fir_block_merge(emitter->block.func);
     fir_block_branch(&emitter->block, cond, &then_block, &else_block, &merge_block);
 
     emitter->block = then_block;
@@ -229,6 +229,28 @@ static const struct fir_node* emit_binary_expr(struct emitter* emitter, struct a
     return NULL;
 }
 
+static const struct fir_node* emit_while_loop(struct emitter* emitter, struct ast* while_loop) {
+    struct fir_block continue_block;
+    struct fir_block break_block = fir_block_merge(emitter->block.func);
+    fir_block_loop(&emitter->block, &continue_block, &break_block);
+
+    emitter->block = continue_block;
+    const struct fir_node* cond = emit(emitter, while_loop->while_loop.cond);
+    struct fir_block cond_true_block;
+    struct fir_block cond_false_block;
+    fir_block_branch(&emitter->block, cond, &cond_true_block, &cond_false_block, &break_block);
+
+    emitter->block = cond_true_block;
+    emit(emitter, while_loop->while_loop.body);
+    fir_block_jump(&emitter->block, &continue_block);
+
+    emitter->block = cond_false_block;
+    fir_block_jump(&emitter->block, &break_block);
+
+    emitter->block = break_block;
+    return fir_unit(emitter->mod);
+}
+
 static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
     switch (ast->tag) {
         case AST_LITERAL:
@@ -256,6 +278,8 @@ static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
             return ast->node = emit_unary_expr(emitter, ast);
         case AST_BINARY_EXPR:
             return ast->node = emit_binary_expr(emitter, ast);
+        case AST_WHILE_LOOP:
+            return ast->node = emit_while_loop(emitter, ast);
         default:
             assert(false && "invalid AST node");
             return NULL;

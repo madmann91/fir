@@ -115,6 +115,8 @@ static void record_use(const struct fir_node* user, size_t i) {
     assert(user->op_count > i);
     struct fir_mod* mod = fir_node_mod(user);
     struct fir_node* used = (struct fir_node*)user->ops[i];
+    assert(!fir_node_is_ty(used));
+    assert(!fir_node_is_ty(user));
     used->uses = alloc_use(mod, &(struct fir_use) {
         .user = user,
         .index = i,
@@ -126,6 +128,8 @@ static void forget_use(const struct fir_node* user, size_t i) {
     assert(user->op_count > i);
     struct fir_mod* mod = fir_node_mod(user);
     struct fir_node* used = (struct fir_node*)user->ops[i];
+    assert(!fir_node_is_ty(used));
+    assert(!fir_node_is_ty(user));
     const struct fir_use** prev = (const struct fir_use**)&used->uses;
     for (struct fir_use* use = (struct fir_use*)used->uses; use; prev = &use->next, use = (struct fir_use*)use->next) {
         if (use->user == user && use->index == i) {
@@ -208,8 +212,10 @@ static inline const struct fir_node* insert_node(struct fir_mod* mod, const stru
         return *found;
     struct fir_node* new_node = alloc_node(node->op_count);
     memcpy(new_node, node, sizeof(struct fir_node) + sizeof(struct fir_node*) * node->op_count);
-    for (size_t i = 0; i < node->op_count; ++i)
-        record_use(new_node, i);
+    if (!fir_node_is_ty(node)) {
+        for (size_t i = 0; i < node->op_count; ++i)
+            record_use(new_node, i);
+    }
     new_node->props = compute_props(new_node);
     new_node->id = mod->cur_id++;
 
@@ -291,26 +297,33 @@ static struct node_set collect_live_nodes(struct fir_mod* mod) {
     return live_nodes;
 }
 
-static void fix_uses(struct fir_mod* mod, const struct node_set* live_nodes) {
-    SET_FOREACH(const struct fir_node*, node_ptr, mod->nodes) {
-        if (fir_node_is_ty(*node_ptr) || !node_set_find(live_nodes, node_ptr))
-            continue;
-        struct fir_node* node = (struct fir_node*)*node_ptr;
-        struct fir_use* use = (struct fir_use*)node->uses;
-        const struct fir_use** prev = &node->uses;
-        while (true) {
-            while (use && !node_set_find(live_nodes, &use->user)) {
-                struct fir_use* next = (struct fir_use*)use->next;
-                use->next = mod->free_uses;
-                mod->free_uses = use;
-                use = next;
-            }
-            *prev = use;
-            if (!use)
-                break;
-            prev = &use->next;
-            use = (struct fir_use*)use->next;
+static void fix_uses(const struct fir_node* node, const struct node_set* live_nodes) {
+    struct fir_mod* mod = fir_node_mod(node);
+    struct fir_use* use = (struct fir_use*)node->uses;
+    const struct fir_use** prev = &((struct fir_node*)node)->uses;
+    while (true) {
+        while (use && !node_set_find(live_nodes, &use->user)) {
+            struct fir_use* next = (struct fir_use*)use->next;
+            use->next = mod->free_uses;
+            mod->free_uses = use;
+            use = next;
         }
+        *prev = use;
+        if (!use)
+            break;
+        prev = &use->next;
+        use = (struct fir_use*)use->next;
+    }
+}
+
+static void fix_nominal_nodes_uses(
+    struct nominal_node_vec* nodes,
+    const struct node_set* live_nodes)
+{
+    VEC_FOREACH(struct fir_node*, node, *nodes) {
+        if (!node_set_find(live_nodes, (const struct fir_node* const*)node))
+            continue;
+        fix_uses(*node, live_nodes);
     }
 }
 
@@ -330,7 +343,15 @@ static inline void cleanup_nominal_nodes(
 
 void fir_mod_cleanup(struct fir_mod* mod) {
     struct node_set live_nodes = collect_live_nodes(mod);
-    fix_uses(mod, &live_nodes);
+    SET_FOREACH(const struct fir_node*, node_ptr, mod->nodes) {
+        if (fir_node_is_ty(*node_ptr) || !node_set_find(&live_nodes, node_ptr))
+            continue;
+        fix_uses(*node_ptr, &live_nodes);
+    }
+
+    fix_nominal_nodes_uses(&mod->funcs, &live_nodes);
+    fix_nominal_nodes_uses(&mod->globals, &live_nodes);
+    fix_nominal_nodes_uses(&mod->allocs, &live_nodes);
 
     struct node_vec dead_nodes = node_vec_create();
     SET_FOREACH(const struct fir_node*, node_ptr, mod->nodes) {

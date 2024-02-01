@@ -45,14 +45,18 @@ const struct fir_node* fir_block_start(struct fir_block* entry, struct fir_node*
     return fir_node_chop(fir_param(func), 1);
 }
 
+struct fir_block fir_block_merge(struct fir_node* func) {
+    return make_block(fir_cont(fir_mem_ty(fir_node_mod(func))), func, NULL, false);
+}
+
 void fir_block_branch(
     struct fir_block* from,
     const struct fir_node* cond,
     struct fir_block* block_true,
     struct fir_block* block_false,
-    struct fir_block* merge_block)
+    const struct fir_block* merge_block)
 {
-    fir_block_switch(from, cond, (struct fir_block*[]) { block_false, block_true }, 2, merge_block);
+    fir_block_switch(from, cond, (struct fir_block*[]) { block_true, block_false }, 2, merge_block);
 }
 
 void fir_block_switch(
@@ -60,7 +64,7 @@ void fir_block_switch(
     const struct fir_node* index,
     struct fir_block** targets,
     size_t target_count,
-    struct fir_block* merge_block)
+    const struct fir_block* merge_block)
 {
     struct fir_mod* mod = fir_node_mod(index);
     struct small_node_vec target_blocks;
@@ -69,20 +73,18 @@ void fir_block_switch(
         *targets[i]  = make_block(fir_cont(fir_unit_ty(mod)), from->func, from->mem, true);
         small_node_vec_push(&target_blocks, (const struct fir_node*[]) { targets[i]->block });
     }
-    *merge_block = make_block(fir_cont(fir_mem_ty(mod)), from->func, NULL, false);
     jump(from, fir_switch(index, fir_unit(mod), target_blocks.elems, target_count), merge_block->block);
     small_node_vec_destroy(&target_blocks);
 }
 
 void fir_block_loop(
     struct fir_block* from,
-    struct fir_block* restart,
-    struct fir_block* merge_block)
+    struct fir_block* continue_block,
+    const struct fir_block* break_block)
 {
     struct fir_mod* mod = fir_node_mod(from->block);
-    *restart     = make_block(fir_cont(fir_mem_ty(mod)), from->func, NULL, true);
-    *merge_block = make_block(fir_cont(fir_mem_ty(mod)), from->func, NULL, false);
-    jump(from, fir_call(restart->block, from->mem), merge_block->block);
+    *continue_block = make_block(fir_cont(fir_mem_ty(mod)), from->func, NULL, true);
+    jump(from, fir_call(continue_block->block, from->mem), break_block->block);
 }
 
 void fir_block_jump(struct fir_block* from, struct fir_block* target) {

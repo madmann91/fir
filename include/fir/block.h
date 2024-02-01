@@ -37,43 +37,47 @@ struct fir_block {
 /// @return The parameter of the function, with the memory object removed.
 FIR_SYMBOL const struct fir_node* fir_block_start(struct fir_block* entry, struct fir_node* func);
 
+/// Creates a merge block in the given function. This merge block can be used to merge branches from
+/// if statements or as a loop exit.
+FIR_SYMBOL struct fir_block fir_block_merge(struct fir_node* func);
+
 /// Conditional jump on one of two target blocks, depending on a condition.
 /// @param[in] from The basic-block to branch from.
 /// @param[in] cond The condition that selects which branch to take.
 /// @param[out] block_true The block that will be jumped to if the condition is true.
 /// @param[out] block_false The block that will be jumped to if the condition is false.
-/// @param[out] merge_block The block to merge control-flow back to.
+/// @param[in] merge_block The block to merge control-flow back to.
 /// @see fir_block_switch.
 FIR_SYMBOL void fir_block_branch(
     struct fir_block* from,
     const struct fir_node* cond,
     struct fir_block* block_true,
     struct fir_block* block_false,
-    struct fir_block* merge_block);
+    const struct fir_block* merge_block);
 
 /// Switch statement based on the given index.
 /// @param[in] from The basic-block to branch from.
 /// @param[in] index The index that selects which block to jump to.
 /// @param[out] targets The blocks that will be jumped to depending on the index.
 /// @param[in] target_count The number of target blocks.
-/// @param[out] merge_block The block to merge control-flow back to.
+/// @param[in] merge_block The block to merge control-flow back to.
 /// @see fir_block_branch.
 FIR_SYMBOL void fir_block_switch(
     struct fir_block* from,
     const struct fir_node* index,
     struct fir_block** targets,
     size_t target_count,
-    struct fir_block* merge_block);
+    const struct fir_block* merge_block);
 
 /// Starts an (infinite) loop from the given block.
 /// The loop can still be exited by jumping to the merge block from the loop's body.
 /// @param[in] from The basic-block to branch from.
-/// @param[out] restart The block that corresponds to the beginning of the loop.
-/// @param[out] merge_block The block to merge control-flow back to.
+/// @param[out] continue_block The block that corresponds to the beginning of the loop.
+/// @param[in] break_block The block to merge control-flow back to.
 FIR_SYMBOL void fir_block_loop(
     struct fir_block* from,
-    struct fir_block* restart,
-    struct fir_block* merge_block);
+    struct fir_block* continue_block,
+    const struct fir_block* break_block);
 
 /// Jumps between two basic-blocks, if the block is not already terminated.
 /// @param[in] from The basic-block to jump from.

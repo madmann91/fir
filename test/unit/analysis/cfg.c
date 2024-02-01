@@ -27,7 +27,7 @@ static inline struct fir_node* build_rec_pow(struct fir_mod* mod) {
     //   goto is_non_zero;
     struct fir_block is_zero;
     struct fir_block is_non_zero;
-    struct fir_block merge_block;
+    struct fir_block merge_block = fir_block_merge(pow);
 
     const struct fir_node* cond = fir_icmp_op(FIR_ICMPEQ, n, fir_zero(int32_ty));
     fir_block_branch(&entry, cond, &is_zero, &is_non_zero, &merge_block);
@@ -166,12 +166,12 @@ static inline struct fir_node* build_iter_pow(struct fir_mod* mod) {
     fir_block_store(&entry, p, fir_one(int32_ty), FIR_MEM_NON_NULL);
 
     struct fir_block loop;
-    struct fir_block done;
+    struct fir_block done = fir_block_merge(pow);
     fir_block_loop(&entry, &loop, &done);
 
     struct fir_block is_zero;
     struct fir_block is_non_zero;
-    struct fir_block merge_block;
+    struct fir_block merge_block = fir_block_merge(pow);
     const struct fir_node* cur_i = fir_block_load(&loop, i, int32_ty, FIR_MEM_NON_NULL);
     const struct fir_node* cond = fir_icmp_op(FIR_ICMPEQ, cur_i, fir_zero(int32_ty));
     fir_block_branch(&loop, cond, &is_zero, &is_non_zero, &merge_block);
