@@ -77,7 +77,7 @@ static const struct type* deref(
     struct type_checker* type_checker,
     struct ast** expr)
 {
-    const struct type* type = infer(type_checker, *expr);
+    const struct type* type = (*expr)->type ? (*expr)->type : infer(type_checker, *expr);
     if (type->tag == TYPE_REF)
         return implicit_cast(type_checker, expr, type->ref_type.pointee_type);
     return type;
@@ -88,7 +88,7 @@ static const struct type* coerce(
     struct ast** expr,
     const struct type* type)
 {
-    const struct type* expr_type = check(type_checker, *expr, type);
+    const struct type* expr_type = (*expr)->type ? (*expr)->type : check(type_checker, *expr, type);
     if (expr_type != type && type_is_subtype(expr_type, type))
         return implicit_cast(type_checker, expr, type);
     return expr_type;
@@ -174,6 +174,21 @@ static const struct type* check_record(
     return type;
 }
 
+static void join_exprs(
+    struct type_checker* type_checker,
+    struct ast** left_expr,
+    struct ast** right_expr)
+{
+    assert((*left_expr)->type);
+    assert((*right_expr)->type);
+    if ((*left_expr)->type == (*right_expr)->type)
+        return;
+    if (type_is_subtype((*left_expr)->type, (*right_expr)->type))
+        coerce(type_checker, left_expr, (*right_expr)->type);
+    else
+        coerce(type_checker, right_expr, (*left_expr)->type);
+}
+
 static const struct type* check_if_expr(
     struct type_checker* type_checker,
     struct ast* if_expr,
@@ -187,8 +202,10 @@ static const struct type* check_if_expr(
         return expected_type;
     } else {
         const struct type* then_type = infer(type_checker, if_expr->if_expr.then_block);
-        if (if_expr->if_expr.else_block)
-            check(type_checker, if_expr->if_expr.else_block, then_type);
+        if (if_expr->if_expr.else_block) {
+            infer(type_checker, if_expr->if_expr.else_block);
+            join_exprs(type_checker, &if_expr->if_expr.then_block, &if_expr->if_expr.else_block);
+        }
         return then_type;
     }
 }
@@ -331,9 +348,12 @@ static const struct type* infer(struct type_checker* type_checker, struct ast* a
         case AST_CONST_DECL:
             return ast->type = infer_const_or_var_decl(type_checker, ast);
         case AST_IDENT_PATTERN:
-            if (ast->ident_pattern.type)
-                return ast->type = infer(type_checker, ast->ident_pattern.type);
-            return ast->type = cannot_infer(type_checker, &ast->source_range, ast->ident_pattern.name);
+            if (!ast->ident_pattern.type)
+                return ast->type = cannot_infer(type_checker, &ast->source_range, ast->ident_pattern.name);
+            ast->type = infer(type_checker, ast->ident_pattern.type);
+            if (ast->ident_pattern.is_var)
+                ast->type = type_ref(type_checker->type_set, ast->type, false);
+            return ast->type;
         case AST_IDENT_EXPR:
             assert(ast->ident_expr.bound_to);
             if (ast->ident_expr.bound_to->type)

@@ -76,6 +76,9 @@ static const struct fir_node* convert_type(struct emitter* emitter, const struct
             small_node_vec_destroy(&args_ty);
             return tup_ty;
         }
+        case TYPE_REF:
+        case TYPE_PTR:
+            return fir_ptr_ty(emitter->mod);
         default:
             assert(false && "invalid type");
             return NULL;
@@ -176,7 +179,7 @@ static const struct fir_node* emit_if_expr(struct emitter* emitter, struct ast* 
     fir_block_jump(&emitter->block, &merge_block);
 
     emitter->block = merge_block;
-    return alloc ? fir_block_load(&emitter->block, alloc_ty, alloc, FIR_MEM_NON_NULL) : fir_unit(emitter->mod);
+    return alloc ? fir_block_load(&emitter->block, alloc, alloc_ty, FIR_MEM_NON_NULL) : fir_unit(emitter->mod);
 }
 
 static const struct fir_node* emit_const_or_var_decl(struct emitter* emitter, struct ast* decl) {
