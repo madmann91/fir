@@ -4,11 +4,28 @@
 
 # Fir
 
-Fir is a functional IR with a graph-based design written completely in C. A particularity of this IR
-is that it supports both continuation-passing-style (CPS) and direct-style (DS) for function calls,
-letting the client choose the best mode depending on the situation. A typical use-case for this
-feature is to encode control-flow inside a function in CPS and regular function calls in DS, taking
-advantage the strengths of both.
+Fir is a functional intermediate represention (IR) with a graph-based design written completely in
+C. Here are a few features that differentiate this IR from similar projects:
+
+- It is entirely graph-based. In particular, instruction ordering is determined automatically via a
+  scheduling algorithm based on C. Click's "Global Code Motion/Global Value Numbering" article. The
+  algorithm used in this IR is an extension that does not generate partially-dead code and treats
+  operations with side-effects correctly.
+- Functions and basic-blocks are both encoded as functions in the IR, simplifying the implementation
+  and making optimizations more aggressive. For instance, some optimizations that apply to functions
+  can also be applied to basic-blocks without requiring any change. Calls and jumps are essentially
+  the same in the IR, only the return type determines whether the called function is a basic block
+  or not.
+- The IR supports functional programs: Functions are first-class citizens, meaning that they can be
+  passed as values to other functions. Closure conversion happens at the IR level and is responsible
+  for lowering any higher-order functions to first-order ones.
+- Due to being written in C, this project is very lightweight both at compile- and run-time. The
+  entire project compiles in around 5s on a Ryzen 2700U from 2019.
+- A small language (ash) that showcases the features of the IR is provided for testing and as an
+  example of how to use the API.
+
+This project is inspired by [Thorin](https://github.com/AnyDSL/thorin), a project I used to worked
+on, and by [libfirm](https://github.com/libfirm/libfirm) another compiler IR in C.
 
 ## Building
 
