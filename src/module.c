@@ -268,7 +268,7 @@ void fir_mod_destroy(struct fir_mod* mod) {
     free(mod);
 }
 
-static void visit_node(
+static void visit_live_node(
     const struct fir_node* node,
     struct node_vec* stack,
     struct node_set* visited_nodes)
@@ -291,11 +291,11 @@ static struct node_set collect_live_nodes(struct fir_mod* mod) {
     struct node_vec stack = node_vec_create();
     VEC_FOREACH(struct fir_node*, func_ptr, mod->funcs) {
         if (fir_node_is_exported(*func_ptr))
-            visit_node(*func_ptr, &stack, &live_nodes);
+            visit_live_node(*func_ptr, &stack, &live_nodes);
     }
     VEC_FOREACH(struct fir_node*, global_ptr, mod->globals) {
         if (fir_node_is_exported(*global_ptr))
-            visit_node(*global_ptr, &stack, &live_nodes);
+            visit_live_node(*global_ptr, &stack, &live_nodes);
     }
     node_vec_destroy(&stack);
     return live_nodes;
