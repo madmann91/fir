@@ -266,6 +266,14 @@ static inline const struct block_list* compute_late_blocks(
     struct scheduler* scheduler,
     const struct fir_node* node)
 {
+    // Nodes that are not used can go in any block after the operands are available. In this case
+    // we just use the earliest position, which is the earliest position where the operands are
+    // available in the control-flow graph.
+    if (!node->uses) {
+        struct graph_node* early_block = schedule_early(scheduler, node);
+        return block_list_pool_insert(&scheduler->block_list_pool, &early_block, 1);
+    }
+
     // Collect the blocks where the node is used.
     struct small_graph_node_vec late_blocks;
     small_graph_node_vec_init(&late_blocks);
@@ -283,6 +291,7 @@ static inline const struct block_list* compute_late_blocks(
                 return NULL;
         }
     }
+
     assert(late_blocks.elem_count > 0);
 
     // Try to group and/or move the definitions of the node earlier. This is not possible for
