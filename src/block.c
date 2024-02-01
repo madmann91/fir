@@ -66,6 +66,7 @@ void fir_block_switch(
     size_t target_count,
     const struct fir_block* merge_block)
 {
+    assert(merge_block->is_merge_block);
     struct fir_mod* mod = fir_node_mod(index);
     struct small_node_vec target_blocks;
     small_node_vec_init(&target_blocks);
@@ -82,6 +83,7 @@ void fir_block_loop(
     struct fir_block* continue_block,
     const struct fir_block* break_block)
 {
+    assert(break_block->is_merge_block);
     struct fir_mod* mod = fir_node_mod(from->block);
     *continue_block = make_block(fir_cont(fir_mem_ty(mod)), from->func, NULL, true);
     jump(from, fir_call(continue_block->block, from->mem), break_block->block);
