@@ -1406,6 +1406,9 @@ const struct fir_node* fir_load(
     if (mem->tag == FIR_STORE && mem->ops[1] == ptr && mem->ops[2]->ty == ty && (flags & FIR_MEM_VOLATILE) == 0)
         return mem->ops[2];
 
+    if (ptr->tag == FIR_ALLOC)
+        flags |= FIR_MEM_NON_NULL;
+
     return insert_node(fir_node_mod(mem), (const struct fir_node*)&(struct { FIR_NODE(2) }) {
         .tag = FIR_LOAD,
         .op_count = 2,
@@ -1431,6 +1434,9 @@ const struct fir_node* fir_store(
 
     if (val->tag == FIR_BOT)
         return mem;
+
+    if (ptr->tag == FIR_ALLOC)
+        flags |= FIR_MEM_NON_NULL;
 
     return insert_node(fir_node_mod(mem), (const struct fir_node*)&(struct { FIR_NODE(3) }) {
         .tag = FIR_STORE,

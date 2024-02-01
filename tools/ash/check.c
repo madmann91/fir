@@ -48,6 +48,21 @@ static const struct type* expect_type(
     return type;
 }
 
+static void expect_type_with_tag(
+    struct type_checker* type_checker,
+    const struct fir_source_range* source_range,
+    const char* type_name,
+    const struct type* type,
+    enum type_tag tag)
+{
+    if (type->tag != tag) {
+        char* type_str = type_to_string(type);
+        log_error(type_checker->log, source_range, "expected %s, but got '%s'",
+            type_name, type_str);
+        free(type_str);
+    }
+}
+
 static void expect_irrefutable_pattern(
     struct type_checker* type_checker,
     const char* context,
@@ -215,7 +230,8 @@ static const struct type* check_unary_expr(
     struct ast* unary_expr,
     const struct type* expected_type)
 {
-    (void)unary_expr, (void)expected_type;
+    (void)unary_expr;
+    (void)expected_type;
     return type_prim(type_checker->type_set, TYPE_I32);
 }
 
@@ -224,7 +240,17 @@ static const struct type* check_binary_expr(
     struct ast* binary_expr,
     const struct type* expected_type)
 {
-    (void)binary_expr, (void)expected_type;
+    (void)expected_type;
+    if (binary_expr->binary_expr.tag == BINARY_EXPR_ASSIGN) {
+        const struct type* left_type = infer(type_checker, binary_expr->binary_expr.left);
+        expect_type_with_tag(type_checker,
+            &binary_expr->binary_expr.left->source_range, "reference type", left_type, TYPE_REF);
+        deref(type_checker, &binary_expr->binary_expr.right);
+        if (left_type->tag == TYPE_REF)
+            coerce(type_checker, &binary_expr->binary_expr.right, left_type->ref_type.pointee_type);
+        return type_unit(type_checker->type_set);
+    }
+    assert(false && "unimplemented");
     return type_prim(type_checker->type_set, TYPE_I32);
 }
 

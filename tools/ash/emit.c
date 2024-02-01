@@ -198,7 +198,7 @@ static const struct fir_node* emit_implicit_cast(
 {
     if (source_type->tag == TYPE_REF && target_type->tag != TYPE_REF) {
         const struct fir_node* load_ty = convert_type(emitter, source_type->ref_type.pointee_type);
-        const struct fir_node* loaded_val = fir_block_load(&emitter->block, val, load_ty, FIR_MEM_NON_NULL);
+        const struct fir_node* loaded_val = fir_block_load(&emitter->block, val, load_ty, 0);
         return emit_implicit_cast(emitter, loaded_val, source_type->ref_type.pointee_type, target_type);
     }
     assert(source_type == target_type);
@@ -208,6 +208,25 @@ static const struct fir_node* emit_implicit_cast(
 static const struct fir_node* emit_implicit_cast_expr(struct emitter* emitter, struct ast* cast_expr) {
     const struct fir_node* arg = emit(emitter, cast_expr->implicit_cast_expr.expr);
     return emit_implicit_cast(emitter, arg, cast_expr->implicit_cast_expr.expr->type, cast_expr->type);
+}
+
+static const struct fir_node* emit_unary_expr(struct emitter* emitter, struct ast* unary_expr) {
+    assert(false && "unimplemented");
+    (void)emitter;
+    (void)unary_expr;
+    return NULL;
+}
+
+static const struct fir_node* emit_binary_expr(struct emitter* emitter, struct ast* binary_expr) {
+    if (binary_expr->binary_expr.tag == BINARY_EXPR_ASSIGN) {
+        assert(binary_expr->binary_expr.left->type->tag == TYPE_REF);
+        const struct fir_node* ptr = emit(emitter, binary_expr->binary_expr.left);
+        const struct fir_node* val = emit(emitter, binary_expr->binary_expr.right);
+        fir_block_store(&emitter->block, ptr, val, 0);
+        return fir_unit(emitter->mod);
+    }
+    assert(false && "unimplemented");
+    return NULL;
 }
 
 static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
@@ -233,6 +252,10 @@ static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
             return ast->node = emit(emitter, ast->field_expr.arg);
         case AST_IMPLICIT_CAST_EXPR:
             return ast->node = emit_implicit_cast_expr(emitter, ast);
+        case AST_UNARY_EXPR:
+            return ast->node = emit_unary_expr(emitter, ast);
+        case AST_BINARY_EXPR:
+            return ast->node = emit_binary_expr(emitter, ast);
         default:
             assert(false && "invalid AST node");
             return NULL;
