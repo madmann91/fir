@@ -11,7 +11,11 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define SMALL_OP_COUNT 8
+#define SMALL_NODE_OP_COUNT 8
+
+struct small_node {
+    FIR_NODE(SMALL_NODE_OP_COUNT)
+};
 
 typedef int64_t signed_int_val;
 static_assert(sizeof(signed_int_val) == sizeof(fir_int_val));
@@ -477,16 +481,16 @@ const struct fir_node* fir_tup_ty(struct fir_mod* mod, const struct fir_node* co
         assert(is_valid_ty(elems[i]));
 #endif
 
-    struct small_tup_ty { FIR_NODE(SMALL_OP_COUNT) } small_tup_ty = {};
+    struct small_node small_tup_ty = {};
     struct fir_node* tup_ty = (struct fir_node*)&small_tup_ty;
-    if (elem_count > SMALL_OP_COUNT)
+    if (elem_count > SMALL_NODE_OP_COUNT)
         tup_ty = alloc_node(elem_count);
     tup_ty->tag = FIR_TUP_TY;
     tup_ty->mod = mod;
     tup_ty->op_count = elem_count;
     memcpy(tup_ty->ops, elems, sizeof(struct fir_node*) * elem_count);
     const struct fir_node* result = insert_node(mod, tup_ty);
-    if (elem_count > SMALL_OP_COUNT)
+    if (elem_count > SMALL_NODE_OP_COUNT)
         free(tup_ty);
     return result;
 }
@@ -1142,16 +1146,16 @@ const struct fir_node* fir_tup(
     if (is_from_exts(tup_ty, elems, elem_count))
         return elems[0]->ops[0];
 
-    struct small_tup { FIR_NODE(SMALL_OP_COUNT) } small_tup = {};
+    struct small_node small_tup = {};
     struct fir_node* tup = (struct fir_node*)&small_tup;
-    if (elem_count > SMALL_OP_COUNT)
+    if (elem_count > SMALL_NODE_OP_COUNT)
         tup = alloc_node(elem_count);
     tup->tag = FIR_TUP;
     tup->ty = tup_ty;
     tup->op_count = elem_count;
     memcpy(tup->ops, elems, sizeof(struct fir_node*) * elem_count);
     const struct fir_node* result = insert_node(mod, tup);
-    if (elem_count > SMALL_OP_COUNT)
+    if (elem_count > SMALL_NODE_OP_COUNT)
         free(tup);
     return result;
 }
@@ -1175,16 +1179,16 @@ const struct fir_node* fir_array(
 
     assert(ty->tag == FIR_ARRAY_TY);
     struct fir_mod* mod = fir_node_mod(ty);
-    struct small_array { FIR_NODE(SMALL_OP_COUNT) } small_array = {};
+    struct small_node small_array = {};
     struct fir_node* array = (struct fir_node*)&small_array;
-    if (ty->data.array_dim > SMALL_OP_COUNT)
+    if (ty->data.array_dim > SMALL_NODE_OP_COUNT)
         array = alloc_node(ty->data.array_dim);
     array->tag = FIR_ARRAY;
     array->ty = ty;
     array->op_count = ty->data.array_dim;
     memcpy(array->ops, elems, sizeof(struct fir_node*) * ty->data.array_dim);
     const struct fir_node* result = insert_node(mod, array);
-    if (ty->data.array_dim > SMALL_OP_COUNT)
+    if (ty->data.array_dim > SMALL_NODE_OP_COUNT)
         free(array);
     return result;
 }

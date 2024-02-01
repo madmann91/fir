@@ -116,9 +116,7 @@
 #define FIR_CONTROL_OP_LIST(x) \
     x(PARAM, "param") \
     x(START, "start") \
-    x(CALL, "call") \
-    x(LOOP, "loop") \
-    x(IF,   "if")
+    x(CALL, "call")
 
 /// Lists all constants.
 #define FIR_CONST_LIST(x) \

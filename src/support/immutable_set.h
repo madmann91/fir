@@ -86,24 +86,26 @@
         size_t elem_count) \
     { \
         struct { size_t elem_count; elem_ty elems[IMMUTABLE_SET_SMALL_CAPACITY]; } small_set; \
+        bool use_small_set = elem_count <= IMMUTABLE_SET_SMALL_CAPACITY; \
         struct name* set = (struct name*)&small_set; \
-        if (elem_count > IMMUTABLE_SET_SMALL_CAPACITY) { \
-            set = name##_alloc(elems, elem_count); \
-        } else { \
+        struct name* set_heap = NULL; /* avoid -Wreturn-local-addr */ \
+        if (use_small_set) { \
             memcpy(set->elems, elems, sizeof(elem_ty) * elem_count); \
             set->elem_count = elem_count; \
+        } else { \
+            set = set_heap = name##_alloc(elems, elem_count); \
         } \
         \
         uint32_t h = name##_hash_wrapper(hash_init(), set); \
         size_t index = SIZE_MAX; \
         if (hash_table_find(&pool->hash_table, &index, &set, sizeof(struct name*), h, name##_is_equal_wrapper)) { \
-            if (set != (struct name*)&small_set) \
-                free(set); \
+            free(set_heap); \
             return ((struct name**)pool->hash_table.keys)[index]; \
         } \
         \
-        if (set == (struct name*)&small_set) \
-            set = name##_alloc(elems, elem_count); \
+        if (use_small_set) \
+            set_heap = name##_alloc(elems, elem_count); \
+        set = set_heap; \
         [[maybe_unused]] bool was_inserted = hash_table_insert( \
             &pool->hash_table, &set, NULL, sizeof(struct name*), 0, h, name##_is_equal_wrapper); \
         assert(was_inserted); \

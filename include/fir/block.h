@@ -46,7 +46,7 @@ FIR_SYMBOL struct fir_block fir_block_merge(struct fir_node* func);
 /// @param[in] cond The condition that selects which branch to take.
 /// @param[out] block_true The block that will be jumped to if the condition is true.
 /// @param[out] block_false The block that will be jumped to if the condition is false.
-/// @param[in] merge_block The block to merge control-flow back to.
+/// @param[in] merge_block The block to merge control-flow back to (must be a merge block).
 /// @see fir_block_switch.
 FIR_SYMBOL void fir_block_branch(
     struct fir_block* from,
@@ -60,7 +60,7 @@ FIR_SYMBOL void fir_block_branch(
 /// @param[in] index The index that selects which block to jump to.
 /// @param[out] targets The blocks that will be jumped to depending on the index.
 /// @param[in] target_count The number of target blocks.
-/// @param[in] merge_block The block to merge control-flow back to.
+/// @param[in] merge_block The block to merge control-flow back to (must be a merge block).
 /// @see fir_block_branch.
 FIR_SYMBOL void fir_block_switch(
     struct fir_block* from,

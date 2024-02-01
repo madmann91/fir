@@ -202,6 +202,7 @@ const struct fir_node* fir_node_rebuild(
     switch (node->tag) {
         case FIR_NORET_TY:    return fir_noret_ty(mod);
         case FIR_MEM_TY:      return fir_mem_ty(mod);
+        case FIR_FRAME_TY:    return fir_frame_ty(mod);
         case FIR_PTR_TY:      return fir_ptr_ty(mod);
         case FIR_INT_TY:      return fir_int_ty(mod, node->data.bitwidth);
         case FIR_FLOAT_TY:    return fir_float_ty(mod, node->data.bitwidth);
