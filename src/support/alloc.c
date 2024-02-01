@@ -19,7 +19,7 @@ void* xmalloc(size_t size) {
 void* xcalloc(size_t count, size_t size) {
     void* p = calloc(count, size);
     if (!p)
-        die("out of memory, malloc() failed.\n");
+        die("out of memory, calloc() failed.\n");
     return p;
 }
 
