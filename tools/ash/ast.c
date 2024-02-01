@@ -1,4 +1,5 @@
 #include "ast.h"
+#include "types.h"
 
 #include "support/term.h"
 
@@ -129,7 +130,14 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
             }
             break;
         case AST_IMPLICIT_CAST_EXPR:
+            if (options->verbosity == FIR_VERBOSITY_HIGH)
+                fprintf(file, "(");
             ast_print(file, ast->implicit_cast_expr.expr, options);
+            if (options->verbosity == FIR_VERBOSITY_HIGH) {
+                fprintf(file, " %sas%s ", keyword_style, reset_style);
+                type_print(file, ast->type);
+                fprintf(file, ")");
+            }
             break;
         case AST_FIELD_TYPE:
         case AST_FIELD_EXPR:
@@ -236,6 +244,7 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
 void ast_dump(const struct ast* ast) {
     struct fir_print_options options = fir_print_options_default(stdout);
     ast_print(stdout, ast, &options);
+    printf("\n");
     fflush(stdout);
 }
 
