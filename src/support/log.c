@@ -54,7 +54,7 @@ static inline void print_diagnostic(
     fprintf(log->file, "%s|%s", style, reset_style);
     fprintf(log->file, "\n");
 
-    fprintf(log->file, WITH_STYLE(RANGE_STYLE, " %.*"PRIu32" "), indent_size, source_range->begin.row);
+    fprintf(log->file, WITH_STYLE(RANGE_STYLE, " %*"PRIu32" "), indent_size, source_range->begin.row);
     fprintf(log->file, "%s|%s", style, reset_style);
     struct str_view begin_line = line_at(&log->source_data, &source_range->begin);
     fprintf(log->file, "%.*s", (int)begin_line.length, begin_line.data);

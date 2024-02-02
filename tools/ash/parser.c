@@ -14,7 +14,6 @@
 struct parser {
     struct lexer lexer;
     struct mem_pool* mem_pool;
-    struct log* log;
     struct token ahead[TOKEN_LOOKAHEAD];
     struct fir_source_pos prev_end;
 };
@@ -48,7 +47,7 @@ static inline bool accept_token(struct parser* parser, enum token_tag tag) {
 static inline bool expect_token(struct parser* parser, enum token_tag tag) {
     if (!accept_token(parser, tag)) {
         struct str_view str_view = token_str_view(parser->lexer.data, parser->ahead);
-        log_error(parser->log,
+        log_error(parser->lexer.log,
             &parser->ahead->source_range,
             "expected '%s', but got '%.*s'",
             token_tag_to_string(tag),
@@ -100,7 +99,7 @@ static struct ast* parse_many(
 static struct ast* parse_error(struct parser* parser, const char* msg) {
     struct fir_source_pos begin_pos = parser->ahead->source_range.begin;
     struct str_view str_view = token_str_view(parser->lexer.data, parser->ahead);
-    log_error(parser->log,
+    log_error(parser->lexer.log,
         &parser->ahead->source_range,
         "expected %s, but got '%.*s'",
         msg, (int)str_view.length, str_view.data);
@@ -585,9 +584,8 @@ struct ast* parse_file(
     struct log* log)
 {
     struct parser parser = {
-        .lexer = lexer_create(file_data, file_size),
-        .mem_pool = mem_pool,
-        .log = log,
+        .lexer = lexer_create(file_data, file_size, log),
+        .mem_pool = mem_pool
     };
     for (size_t i = 0; i < TOKEN_LOOKAHEAD; ++i)
         next_token(&parser);

@@ -1,14 +1,17 @@
 #include "lexer.h"
 
+#include "support/log.h"
+
 #include <assert.h>
 #include <ctype.h>
 #include <inttypes.h>
 
-struct lexer lexer_create(const char* data, size_t size) {
+struct lexer lexer_create(const char* data, size_t size, struct log* log) {
     return (struct lexer) {
         .data = data,
         .bytes_left = size,
-        .source_pos = { .row = 1, .col = 1, .bytes = 0 }
+        .source_pos = { .row = 1, .col = 1, .bytes = 0 },
+        .log = log
     };
 }
 
@@ -141,12 +144,6 @@ struct token lexer_advance(struct lexer* lexer) {
         if (accept_char(lexer, '.')) return make_token(lexer, &begin_pos, TOK_DOT);
         if (accept_char(lexer, '!')) return make_token(lexer, &begin_pos, TOK_NOT);
 
-        if (accept_char(lexer, '#')) {
-            while (!is_eof(lexer) && cur_char(lexer) != '\n')
-                eat_char(lexer);
-            continue;
-        }
-
         if (accept_char(lexer, '=')) {
             if (accept_char(lexer, '='))
                 return make_token(lexer, &begin_pos, TOK_CMP_EQ);
@@ -205,6 +202,23 @@ struct token lexer_advance(struct lexer* lexer) {
                     eat_char(lexer);
                 continue;
             }
+            if (accept_char(lexer, '*')) {
+                while (true) {
+                    if (is_eof(lexer)) {
+                        log_error(lexer->log,
+                            &(struct fir_source_range) { .begin = begin_pos, .end = lexer->source_pos },
+                            "unterminated multi-line comment");
+                        break;
+                    }
+                    if (accept_char(lexer, '*')) {
+                        if (accept_char(lexer, '/'))
+                            break;
+                    } else {
+                        eat_char(lexer);
+                    }
+                }
+                continue;
+            }
             if (accept_char(lexer, '='))
                 return make_token(lexer, &begin_pos, TOK_DIV_EQ);
             return make_token(lexer, &begin_pos, TOK_DIV);
@@ -252,6 +266,11 @@ struct token lexer_advance(struct lexer* lexer) {
         }
 
         eat_char(lexer);
-        return make_token(lexer, &begin_pos, TOK_ERR);
+        struct token error_token = make_token(lexer, &begin_pos, TOK_ERR);
+        struct str_view error_str = token_str_view(lexer->data, &error_token);
+        log_error(lexer->log,
+            &error_token.source_range,
+            "invalid token '%.*s'", (int)error_str.length, error_str.data);
+        return error_token;
     }
 }

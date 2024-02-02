@@ -62,7 +62,7 @@ static void print_node(FILE* file, const struct fir_node* node, const struct fir
     for (size_t i = 0; i < node->op_count; ++i) {
         if (!node->ops[i])
             fprintf(file, "%s<unset>%s", error_style, reset_style);
-        else if (fir_node_is_ty(node->ops[i]))
+        else if (!fir_node_is_nominal(node->ops[i]) && (node->ops[i]->props & FIR_PROP_INVARIANT) != 0)
             print_node(file, node->ops[i], options);
         else
             fprintf(file, "%s_%"PRIu64, fir_node_name(node->ops[i]), node->ops[i]->id);
