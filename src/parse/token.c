@@ -39,7 +39,7 @@ bool token_tag_is_node_tag(enum token_tag tag) {
     }
 }
 
-bool token_tag_is_ty(enum token_tag tag) {
+bool token_tag_is_ty_tag(enum token_tag tag) {
     return token_tag_is_node_tag(tag) && fir_node_tag_is_ty((enum fir_node_tag)tag);
 }
 

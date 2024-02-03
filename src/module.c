@@ -1400,7 +1400,7 @@ const struct fir_node* fir_choice(
     return fir_ext(array, index);
 }
 
-const struct fir_node* fir_alloc(
+struct fir_node* fir_alloc(
     const struct fir_node* frame,
     const struct fir_node* init)
 {

@@ -257,6 +257,8 @@ struct fir_node* fir_node_clone(
         cloned_node = fir_func(ty);
     else if (node->tag == FIR_GLOBAL)
         cloned_node = fir_global(mod);
+    else if (node->tag == FIR_ALLOC)
+        cloned_node = fir_alloc(fir_bot(fir_frame_ty(mod)), fir_bot(fir_unit_ty(mod)));
     assert(cloned_node);
     cloned_node->data = node->data;
     return cloned_node;

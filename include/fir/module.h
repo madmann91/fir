@@ -296,9 +296,9 @@ FIR_SYMBOL const struct fir_node* fir_choice(
 /// @{
 
 /// Allocates a piece of data local to the current function.
-FIR_SYMBOL const struct fir_node* fir_alloc(
+FIR_SYMBOL struct fir_node* fir_alloc(
     const struct fir_node* frame,
-    const struct fir_node* ty);
+    const struct fir_node* init);
 
 /// Loads the data located at the given address.
 FIR_SYMBOL const struct fir_node* fir_load(

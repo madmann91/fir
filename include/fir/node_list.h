@@ -22,6 +22,7 @@
 
 /// Lists all nominal nodes. @see module.h
 #define FIR_NOMINAL_NODE_LIST(x) \
+    x(ALLOC, "alloc") \
     x(GLOBAL, "global") \
     x(FUNC,   "func")
 
@@ -108,7 +109,6 @@
 
 /// Lists all memory operations.
 #define FIR_MEM_OP_LIST(x) \
-    x(ALLOC, "alloc") \
     x(LOAD,  "load") \
     x(STORE, "store")
 

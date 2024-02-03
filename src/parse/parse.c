@@ -18,38 +18,40 @@
 
 MAP_DEFINE(symbol_table, struct str_view, const struct fir_node*, str_view_hash, str_view_is_equal, PRIVATE)
 
-struct delayed_op {
-    size_t op_index;
-    struct str_view op_name;
-    struct fir_source_range source_range;
-    struct fir_node* nominal_node;
+struct parser_state {
+    struct lexer lexer;
+    struct token ahead[TOKEN_LOOKAHEAD];
 };
 
-VEC_DEFINE(delayed_op_vec, struct delayed_op, PRIVATE)
+struct delayed_nominal_node {
+    struct fir_node* nominal_node;
+    struct parser_state parser_state;
+};
+
+VEC_DEFINE(delayed_nominal_node_vec, struct delayed_nominal_node, PRIVATE)
 
 struct parser {
     struct fir_mod* mod;
     struct fir_dbg_info_pool* dbg_pool;
     struct symbol_table symbol_table;
-    struct delayed_op_vec delayed_ops;
-    struct lexer lexer;
-    struct token ahead[TOKEN_LOOKAHEAD];
+    struct delayed_nominal_node_vec delayed_nominal_nodes;
+    struct parser_state state;
     struct log log;
 };
 
 static inline void next_token(struct parser* parser) {
     for (size_t i = 1; i < TOKEN_LOOKAHEAD; ++i)
-        parser->ahead[i - 1] = parser->ahead[i];
-    parser->ahead[TOKEN_LOOKAHEAD - 1] = lexer_advance(&parser->lexer);
+        parser->state.ahead[i - 1] = parser->state.ahead[i];
+    parser->state.ahead[TOKEN_LOOKAHEAD - 1] = lexer_advance(&parser->state.lexer);
 }
 
 static inline void eat_token(struct parser* parser, [[maybe_unused]] enum token_tag tag) {
-    assert(parser->ahead[0].tag == tag);
+    assert(parser->state.ahead[0].tag == tag);
     next_token(parser);
 }
 
 static inline bool accept_token(struct parser* parser, enum token_tag tag) {
-    if (parser->ahead->tag == tag) {
+    if (parser->state.ahead->tag == tag) {
         next_token(parser);
         return true;
     }
@@ -58,9 +60,9 @@ static inline bool accept_token(struct parser* parser, enum token_tag tag) {
 
 static inline bool expect_token(struct parser* parser, enum token_tag tag) {
     if (!accept_token(parser, tag)) {
-        struct str_view str_view = token_str_view(parser->lexer.data, parser->ahead);
+        struct str_view str_view = token_str_view(parser->state.lexer.data, parser->state.ahead);
         log_error(&parser->log,
-            &parser->ahead->source_range,
+            &parser->state.ahead->source_range,
             "expected '%s', but got '%.*s'",
             token_tag_to_string(tag),
             (int)str_view.length, str_view.data);
@@ -70,9 +72,9 @@ static inline bool expect_token(struct parser* parser, enum token_tag tag) {
 }
 
 static inline void invalid_token(struct parser* parser, const char* msg) {
-    struct str_view str_view = token_str_view(parser->lexer.data, parser->ahead);
+    struct str_view str_view = token_str_view(parser->state.lexer.data, parser->state.ahead);
     log_error(&parser->log,
-        &parser->ahead->source_range,
+        &parser->state.ahead->source_range,
         "expected %s, but got '%.*s'",
         msg, (int)str_view.length, str_view.data);
     next_token(parser);
@@ -102,13 +104,13 @@ static inline void invalid_flag(
 static inline const struct fir_node* parse_ty(struct parser*);
 
 static inline uint64_t parse_int_val(struct parser* parser) {
-    uint64_t int_val = parser->ahead->int_val;
+    uint64_t int_val = parser->state.ahead->int_val;
     expect_token(parser, TOK_INT);
     return int_val;
 }
 
 static inline double parse_float_val(struct parser* parser) {
-    double float_val = parser->ahead->float_val;
+    double float_val = parser->state.ahead->float_val;
     expect_token(parser, TOK_FLOAT);
     return float_val;
 }
@@ -116,12 +118,12 @@ static inline double parse_float_val(struct parser* parser) {
 static inline enum fir_fp_flags parse_fp_flags(struct parser* parser) {
     enum fir_fp_flags fp_flags = FIR_FP_STRICT;
     while (accept_token(parser, TOK_PLUS)) {
-        struct str_view ident = token_str_view(parser->lexer.data, parser->ahead);
+        struct str_view ident = token_str_view(parser->state.lexer.data, parser->state.ahead);
         if (str_view_is_equal(&ident, &STR_VIEW("fo")))       fp_flags |= FIR_FP_FINITE_ONLY;
         else if (str_view_is_equal(&ident, &STR_VIEW("nsz"))) fp_flags |= FIR_FP_NO_SIGNED_ZERO;
         else if (str_view_is_equal(&ident, &STR_VIEW("a")))   fp_flags |= FIR_FP_ASSOCIATIVE;
         else if (str_view_is_equal(&ident, &STR_VIEW("d")))   fp_flags |= FIR_FP_DISTRIBUTIVE;
-        else invalid_flag(parser, &parser->ahead->source_range, "floating-point", ident);
+        else invalid_flag(parser, &parser->state.ahead->source_range, "floating-point", ident);
         expect_token(parser, TOK_IDENT);
     }
     return fp_flags;
@@ -130,10 +132,10 @@ static inline enum fir_fp_flags parse_fp_flags(struct parser* parser) {
 static inline enum fir_mem_flags parse_mem_flags(struct parser* parser) {
     enum fir_mem_flags mem_flags = 0;
     while (accept_token(parser, TOK_PLUS)) {
-        struct str_view ident = token_str_view(parser->lexer.data, parser->ahead);
+        struct str_view ident = token_str_view(parser->state.lexer.data, parser->state.ahead);
         if (str_view_is_equal(&ident, &STR_VIEW("nn")))     mem_flags |= FIR_MEM_NON_NULL;
         else if (str_view_is_equal(&ident, &STR_VIEW("v"))) mem_flags |= FIR_MEM_VOLATILE;
-        else invalid_flag(parser, &parser->ahead->source_range, "memory", ident);
+        else invalid_flag(parser, &parser->state.ahead->source_range, "memory", ident);
         expect_token(parser, TOK_IDENT);
     }
     return mem_flags;
@@ -148,7 +150,7 @@ static inline uint32_t parse_bitwidth(struct parser* parser) {
 }
 
 static inline const struct fir_node* parse_int_or_float_ty(struct parser* parser) {
-    bool is_int = parser->ahead->tag == TOK_INT_TY;
+    bool is_int = parser->state.ahead->tag == TOK_INT_TY;
     next_token(parser);
     expect_token(parser, TOK_LBRACKET);
     uint32_t bitwidth = parse_bitwidth(parser);
@@ -164,6 +166,8 @@ static inline const struct fir_node* parse_array_ty(struct parser* parser) {
     expect_token(parser, TOK_LPAREN);
     const struct fir_node* elem_ty = parse_ty(parser);
     expect_token(parser, TOK_RPAREN);
+    if (!elem_ty)
+        return NULL;
     return fir_array_ty(elem_ty, array_dim);
 }
 
@@ -172,6 +176,8 @@ static inline const struct fir_node* parse_dynarray_ty(struct parser* parser) {
     expect_token(parser, TOK_LPAREN);
     const struct fir_node* elem_ty = parse_ty(parser);
     expect_token(parser, TOK_RPAREN);
+    if (!elem_ty)
+        return NULL;
     return fir_dynarray_ty(elem_ty);
 }
 
@@ -182,32 +188,41 @@ static inline const struct fir_node* parse_func_ty(struct parser* parser) {
     expect_token(parser, TOK_COMMA);
     const struct fir_node* ret_ty = parse_ty(parser);
     expect_token(parser, TOK_RPAREN);
+    if (!param_ty || !ret_ty)
+        return NULL;
     return fir_func_ty(param_ty, ret_ty);
 }
 
 static inline const struct fir_node* parse_tup_ty(struct parser* parser) {
     eat_token(parser, TOK_TUP_TY);
+
+    bool valid_ops = true;
     struct small_node_vec ops;
     small_node_vec_init(&ops);
-    expect_token(parser, TOK_LPAREN);
-    while (parser->ahead->tag != TOK_RPAREN) {
-        const struct fir_node* op = parse_ty(parser);
-        small_node_vec_push(&ops, &op);
-        if (!accept_token(parser, TOK_COMMA))
-            break;
+
+    if (accept_token(parser, TOK_LPAREN)) {
+        while (parser->state.ahead->tag != TOK_RPAREN) {
+            const struct fir_node* op = parse_ty(parser);
+            valid_ops &= op != NULL;
+            small_node_vec_push(&ops, &op);
+            if (!accept_token(parser, TOK_COMMA))
+                break;
+        }
+        expect_token(parser, TOK_RPAREN);
     }
-    expect_token(parser, TOK_RPAREN);
-    const struct fir_node* tup_ty = fir_tup_ty(parser->mod, ops.elems, ops.elem_count);
+
+    const struct fir_node* tup_ty = valid_ops ? fir_tup_ty(parser->mod, ops.elems, ops.elem_count) : NULL;
     small_node_vec_destroy(&ops);
     return tup_ty;
 }
 
 static inline const struct fir_node* parse_ty(struct parser* parser) {
-    switch (parser->ahead->tag) {
+    switch (parser->state.ahead->tag) {
         case TOK_ARRAY_TY:    return parse_array_ty(parser);
         case TOK_DYNARRAY_TY: return parse_dynarray_ty(parser);
         case TOK_FUNC_TY:     return parse_func_ty(parser);
         case TOK_TUP_TY:      return parse_tup_ty(parser);
+        case TOK_FRAME_TY:    return next_token(parser), fir_frame_ty(parser->mod);
         case TOK_NORET_TY:    return next_token(parser), fir_noret_ty(parser->mod);
         case TOK_MEM_TY:      return next_token(parser), fir_mem_ty(parser->mod);
         case TOK_PTR_TY:      return next_token(parser), fir_ptr_ty(parser->mod);
@@ -221,34 +236,31 @@ static inline const struct fir_node* parse_ty(struct parser* parser) {
 }
 
 static inline struct str_view parse_ident(struct parser* parser) {
-    struct str_view ident = token_str_view(parser->lexer.data, parser->ahead);
+    struct str_view ident = token_str_view(parser->state.lexer.data, parser->state.ahead);
     expect_token(parser, TOK_IDENT);
     return ident;
 }
 
-static inline const struct fir_node* parse_op(
-    struct parser* parser,
-    struct fir_node* nominal_node,
-    size_t op_index)
-{
-    if (token_tag_is_ty(parser->ahead->tag))
-        return parse_ty(parser);
-    struct fir_source_range ident_range = parser->ahead->source_range;
+static inline const struct fir_node* parse_node_body(struct parser*, const struct fir_node*);
+
+static inline const struct fir_node* parse_op(struct parser* parser) {
+    if (token_tag_is_ty_tag(parser->state.ahead->tag)) {
+        const struct fir_node* ty = parse_ty(parser);
+        if (!ty)
+            return NULL;
+        if (token_tag_is_node_tag(parser->state.ahead->tag))
+            return parse_node_body(parser, ty);
+        return ty;
+    }
+
+    struct fir_source_range ident_range = parser->state.ahead->source_range;
     struct str_view ident = parse_ident(parser);
     const struct fir_node* const* symbol = symbol_table_find(&parser->symbol_table, &ident);
-    if (symbol)
-        return *symbol;
-    if (nominal_node) {
-        delayed_op_vec_push(&parser->delayed_ops, &(struct delayed_op) {
-            .nominal_node = nominal_node,
-            .op_index = op_index,
-            .source_range = ident_range,
-            .op_name = ident
-        });
-    } else {
+    if (!symbol) {
         unknown_identifier(parser, &ident_range, ident);
+        return NULL;
     }
-    return NULL;
+    return *symbol;
 }
 
 static inline union fir_node_data parse_node_data(
@@ -274,48 +286,74 @@ static inline union fir_node_data parse_node_data(
     return data;
 }
 
-static inline const struct fir_node* parse_node_body(
+static inline void skip_parens(struct parser* parser) {
+    size_t paren_depth = 1;
+    while (paren_depth > 0) {
+        if (parser->state.ahead->tag == TOK_LPAREN)
+            paren_depth++;
+        else if (parser->state.ahead->tag == TOK_RPAREN)
+            paren_depth--;
+        next_token(parser);
+    }
+}
+
+static inline struct fir_node* parse_nominal_node(
     struct parser* parser,
-    const struct fir_node* ty)
+    enum fir_node_tag tag,
+    const struct fir_node* ty,
+    const union fir_node_data* data)
 {
-    if (!token_tag_is_node_tag(parser->ahead->tag)) {
+    struct fir_node* nominal_node = fir_node_clone(
+        parser->mod, &(struct fir_node) { .tag = tag, .data = *data }, ty);
+    if (accept_token(parser, TOK_LPAREN)) {
+        delayed_nominal_node_vec_push(&parser->delayed_nominal_nodes, &(struct delayed_nominal_node) {
+            .nominal_node = nominal_node,
+            .parser_state = parser->state
+        });
+        skip_parens(parser);
+    }
+    return nominal_node;
+}
+
+static inline const struct fir_node* parse_node_body(struct parser* parser, const struct fir_node* ty) {
+    bool is_external = accept_token(parser, TOK_EXTERN);
+    if (!token_tag_is_node_tag(parser->state.ahead->tag)) {
         invalid_token(parser, "node tag");
         return NULL;
     }
 
-    enum fir_node_tag tag = (enum fir_node_tag)parser->ahead->tag;
+    enum fir_node_tag tag = (enum fir_node_tag)parser->state.ahead->tag;
     next_token(parser);
+    if (is_external && !fir_node_tag_can_be_external(tag)) {
+        log_error(&parser->log,
+            &parser->state.ahead->source_range,
+            "node cannot be external");
+    }
 
     union fir_node_data data = parse_node_data(parser, tag, ty);
-
-    struct fir_node* nominal_node = NULL;
-    if (fir_node_tag_is_nominal(tag))
-        nominal_node = fir_node_clone(parser->mod, &(struct fir_node) { .tag = tag }, ty);
+    if (fir_node_tag_is_nominal(tag)) {
+        struct fir_node* nominal_node = parse_nominal_node(parser, tag, ty, &data);
+        if (is_external)
+            fir_node_make_external(nominal_node);
+        return nominal_node;
+    }
 
     bool valid_ops = true;
-    size_t op_count = 0;
     struct small_node_vec ops;
     small_node_vec_init(&ops);
     if (accept_token(parser, TOK_LPAREN)) {
-        while (parser->ahead->tag != TOK_RPAREN) {
-            const struct fir_node* op = parse_op(parser, nominal_node, op_count);
-            if (!nominal_node) {
-                small_node_vec_push(&ops, &op);
-                valid_ops &= op != NULL;
-            } else if (op) {
-                fir_node_set_op(nominal_node, op_count, op);
-            }
-            op_count++;
+        while (parser->state.ahead->tag != TOK_RPAREN) {
+            const struct fir_node* op = parse_op(parser);
+            valid_ops &= op != NULL;
+            small_node_vec_push(&ops, &op);
             if (!accept_token(parser, TOK_COMMA))
                 break;
         }
         expect_token(parser, TOK_RPAREN);
     }
 
-    if (nominal_node || !valid_ops) {
-        small_node_vec_destroy(&ops);
-        return nominal_node;
-    }
+    if (!valid_ops)
+        return NULL;
 
     const struct fir_node* node = fir_node_rebuild(
         parser->mod,
@@ -331,33 +369,37 @@ static inline const struct fir_node* parse_node_body(
 }
 
 static inline const struct fir_node* parse_node(struct parser* parser) {
-    bool is_external = accept_token(parser, TOK_EXTERN);
     const struct fir_node* ty = parse_ty(parser);
     if (!ty)
         return NULL;
-    struct fir_source_range ident_range = parser->ahead->source_range;
+
+    struct fir_source_range ident_range = parser->state.ahead->source_range;
     struct str_view ident = parse_ident(parser);
     expect_token(parser, TOK_EQ);
-    const struct fir_node* body = parse_node_body(parser, ty);
-    if (body) {
-        if (!symbol_table_insert(&parser->symbol_table, &ident, &body)) {
-            log_error(&parser->log,
-                &ident_range,
-                "identifier '%.*s' already exists",
-                (int)ident.length, ident.data);
-        }
-        if (is_external) {
-            if (!fir_node_can_be_external(body)) {
-                log_error(&parser->log,
-                    &ident_range,
-                    "node '%.*s' cannot be external",
-                    (int)ident.length, ident.data);
-            } else {
-                fir_node_make_external((struct fir_node*)body);
-            }
-        }
+
+    const struct fir_node* node = parse_node_body(parser, ty);
+    if (node && !symbol_table_insert(&parser->symbol_table, &ident, &node)) {
+        log_error(&parser->log,
+            &ident_range,
+            "identifier '%.*s' already exists",
+            (int)ident.length, ident.data);
     }
-    return body;
+    return node;
+}
+
+static inline void parse_delayed_nominal_nodes(struct parser* parser) {
+    VEC_FOREACH(const struct delayed_nominal_node, delayed_nominal_node, parser->delayed_nominal_nodes) {
+        parser->state = delayed_nominal_node->parser_state;
+        size_t i = 0;
+        while (parser->state.ahead->tag != TOK_RPAREN) {
+            const struct fir_node* op = parse_op(parser);
+            if (op)
+                fir_node_set_op(delayed_nominal_node->nominal_node, i++, op);
+            if (!accept_token(parser, TOK_COMMA))
+                break;
+        }
+        expect_token(parser, TOK_RPAREN);
+    }
 }
 
 bool fir_mod_parse(struct fir_mod* mod, const struct fir_parse_input* input) {
@@ -375,26 +417,20 @@ bool fir_mod_parse(struct fir_mod* mod, const struct fir_parse_input* input) {
             }
         },
         .dbg_pool = input->dbg_pool,
-        .delayed_ops = delayed_op_vec_create(),
+        .delayed_nominal_nodes = delayed_nominal_node_vec_create(),
         .symbol_table = symbol_table_create(),
-        .lexer = lexer_create(input->file_data, input->file_size)
+        .state.lexer = lexer_create(input->file_data, input->file_size),
     };
 
     for (size_t i = 0; i < TOKEN_LOOKAHEAD; ++i)
         next_token(&parser);
 
-    while (parser.ahead->tag != TOK_EOF)
+    while (parser.state.ahead->tag != TOK_EOF)
         parse_node(&parser);
 
-    VEC_FOREACH(const struct delayed_op, delayed_op, parser.delayed_ops) {
-        const struct fir_node* const* op = symbol_table_find(&parser.symbol_table, &delayed_op->op_name);
-        if (op)
-            fir_node_set_op(delayed_op->nominal_node, delayed_op->op_index, *op);
-        else
-            unknown_identifier(&parser, &delayed_op->source_range, delayed_op->op_name);
-    }
+    parse_delayed_nominal_nodes(&parser);
 
-    delayed_op_vec_destroy(&parser.delayed_ops);
+    delayed_nominal_node_vec_destroy(&parser.delayed_nominal_nodes);
     symbol_table_destroy(&parser.symbol_table);
     return parser.log.error_count == 0;
 }

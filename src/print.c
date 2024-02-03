@@ -62,9 +62,13 @@ static void print_node(FILE* file, const struct fir_node* node, const struct fir
     for (size_t i = 0; i < node->op_count; ++i) {
         if (!node->ops[i])
             fprintf(file, "%s<unset>%s", error_style, reset_style);
-        else if (!fir_node_is_nominal(node->ops[i]) && (node->ops[i]->props & FIR_PROP_INVARIANT) != 0)
+        else if (!fir_node_is_nominal(node->ops[i]) && (node->ops[i]->props & FIR_PROP_INVARIANT) != 0) {
+            if (!fir_node_is_ty(node->ops[i])) {
+                print_node(file, node->ops[i]->ty, options);
+                fprintf(file, " ");
+            }
             print_node(file, node->ops[i], options);
-        else
+        } else
             fprintf(file, "%s_%"PRIu64, fir_node_name(node->ops[i]), node->ops[i]->id);
         if (i != node->op_count - 1)
             fprintf(file, ", ");
@@ -100,6 +104,9 @@ void fir_node_dump(const struct fir_node* node) {
 }
 
 void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print_options* options) {
+    const char* comment_style = options->disable_colors ? "" : TERM2(TERM_FG_CYAN, TERM_ITALIC);
+    const char* reset_style   = options->disable_colors ? "" : TERM1(TERM_RESET);
+
     struct fir_node* const* globals = fir_mod_globals(mod);
     struct fir_node* const* funcs = fir_mod_funcs(mod);
     size_t func_count = fir_mod_func_count(mod);
@@ -129,12 +136,21 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
             if ((*block_ptr) == cfg.graph.sink)
                 continue;
 
+            print_indent(file, options->indent + 1, options->tab);
+            fir_node_print(file, cfg_block_func(*block_ptr), options);
+            fprintf(file, "\n");
+        }
+
+        fprintf(file, "\n");
+
+        VEC_REV_FOREACH(struct graph_node*, block_ptr, cfg.post_order) {
+            if ((*block_ptr) == cfg.graph.sink)
+                continue;
+
             const struct fir_node* block_func = cfg_block_func(*block_ptr);
-            assert(block_func);
 
             print_indent(file, options->indent + 1, options->tab);
-            fir_node_print(file, block_func, options);
-            fprintf(file, "\n");
+            fprintf(file, "%s#%s_%"PRIu64":%s\n", comment_style, fir_node_name(block_func), block_func->id, reset_style);
 
             struct const_node_span block_contents = schedule_block_contents(&schedule, *block_ptr);
             CONST_SPAN_FOREACH(const struct fir_node*, node_ptr, block_contents) {
@@ -144,10 +160,6 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
             }
             fprintf(file, "\n");
         }
-
-        print_indent(file, options->indent + 1, options->tab);
-        fir_node_print(file, funcs[i]->ops[0], options);
-        fprintf(file, "\n");
 
         schedule_destroy(&schedule);
         scope_destroy(&scope);

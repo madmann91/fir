@@ -368,7 +368,7 @@ restart:
 
         unique_node_stack_pop(&scheduler->visit_stack);
 
-        if (!fir_node_is_nominal(node)) {
+        if (is_in_schedule(node)) {
             const struct block_list* late_blocks = schedule_late(scheduler, node);
             for (size_t i = 0; i < late_blocks->elem_count; ++i)
                 node_vec_push(&scheduler->block_contents[late_blocks->elems[i]->index], &node);

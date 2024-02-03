@@ -42,6 +42,6 @@ struct token {
 
 const char* token_tag_to_string(enum token_tag);
 bool token_tag_is_node_tag(enum token_tag);
-bool token_tag_is_ty(enum token_tag);
+bool token_tag_is_ty_tag(enum token_tag);
 
 struct str_view token_str_view(const char* data, const struct token*);
