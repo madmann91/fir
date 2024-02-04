@@ -1338,7 +1338,7 @@ const struct fir_node* fir_ins(
     return insert_node(fir_node_mod(aggr), (const struct fir_node*)&(struct { FIR_NODE(3) }) {
         .tag = FIR_INS,
         .op_count = 3,
-        .ty = aggr,
+        .ty = aggr->ty,
         .ops = { aggr, index, elem }
     });
 }
