@@ -74,11 +74,15 @@ bool type_is_subtype(const struct type*, const struct type*);
 bool type_is_unit(const struct type*);
 bool type_is_prim(const struct type*);
 bool type_is_int(const struct type*);
+bool type_is_signed_int(const struct type*);
+bool type_is_unsigned_int(const struct type*);
 bool type_is_float(const struct type*);
 size_t type_bitwidth(const struct type*);
 
 bool type_tag_is_prim(enum type_tag);
 bool type_tag_is_int(enum type_tag);
+bool type_tag_is_signed_int(enum type_tag);
+bool type_tag_is_unsigned_int(enum type_tag);
 bool type_tag_is_float(enum type_tag);
 size_t type_tag_bitwidth(enum type_tag);
 

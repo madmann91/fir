@@ -203,12 +203,29 @@ static const struct fir_node* emit_implicit_cast(
     const struct type* source_type,
     const struct type* target_type)
 {
+    if (source_type == target_type)
+        return val;
     if (source_type->tag == TYPE_REF && target_type->tag != TYPE_REF) {
         const struct fir_node* load_ty = convert_type(emitter, source_type->ref_type.pointee_type);
         const struct fir_node* loaded_val = fir_block_load(&emitter->block, val, load_ty, 0);
         return emit_implicit_cast(emitter, loaded_val, source_type->ref_type.pointee_type, target_type);
     }
-    assert(source_type == target_type);
+    if (type_is_signed_int(source_type) && type_is_signed_int(target_type))
+        return fir_cast_op(FIR_SEXT, convert_type(emitter, target_type), val);
+    if (type_is_unsigned_int(source_type) && type_is_unsigned_int(target_type))
+        return fir_cast_op(FIR_ZEXT, convert_type(emitter, target_type), val);
+    if (type_is_float(source_type) && type_is_float(target_type))
+        return fir_cast_op(FIR_FEXT, convert_type(emitter, target_type), val);
+    if (source_type->tag == TYPE_RECORD && target_type->tag == TYPE_RECORD) {
+        const struct fir_node* tup = fir_bot(convert_type(emitter, target_type));
+        for (size_t i = 0; i < target_type->record_type.field_count; ++i) {
+            size_t field_index = type_find_field(source_type, target_type->record_type.field_names[i]);
+            assert(field_index < source_type->record_type.field_count);
+            tup = fir_ins_at(tup, i, fir_ext_at(val, field_index));
+        }
+        return tup;
+    }
+    assert(false && "mismatch between the subtyping relation and emitting code");
     return val;
 }
 

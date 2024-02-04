@@ -219,6 +219,10 @@ bool type_is_subtype(const struct type* left, const struct type* right) {
         return true;
     if (left->tag == TYPE_REF)
         return type_is_subtype(left->ref_type.pointee_type, right);
+    if ((type_is_signed_int(left) && type_is_signed_int(right)) ||
+        (type_is_unsigned_int(left) && type_is_unsigned_int(right)) ||
+        (type_is_float(left) && type_is_float(right)))
+        return type_bitwidth(left) <= type_bitwidth(right);
     if (left->tag == TYPE_RECORD && right->tag == TYPE_RECORD) {
         if (left->record_type.field_count < right->record_type.field_count)
             return false;
@@ -243,6 +247,8 @@ bool type_is_unit(const struct type* type) {
 bool type_is_prim(const struct type* type) { return type_tag_is_prim(type->tag); }
 bool type_is_float(const struct type* type) { return type_tag_is_float(type->tag); }
 bool type_is_int(const struct type* type) { return type_tag_is_int(type->tag); }
+bool type_is_signed_int(const struct type* type) { return type_tag_is_signed_int(type->tag); }
+bool type_is_unsigned_int(const struct type* type) { return type_tag_is_unsigned_int(type->tag); }
 size_t type_bitwidth(const struct type* type) { return type_tag_bitwidth(type->tag); }
 
 bool type_tag_is_prim(enum type_tag tag) {
@@ -257,11 +263,23 @@ bool type_tag_is_prim(enum type_tag tag) {
 }
 
 bool type_tag_is_int(enum type_tag tag) {
+    return type_tag_is_signed_int(tag) || type_tag_is_unsigned_int(tag);
+}
+
+bool type_tag_is_signed_int(enum type_tag tag) {
     switch (tag) {
         case TYPE_I8:
         case TYPE_I16:
         case TYPE_I32:
         case TYPE_I64:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool type_tag_is_unsigned_int(enum type_tag tag) {
+    switch (tag) {
         case TYPE_U8:
         case TYPE_U16:
         case TYPE_U32:
