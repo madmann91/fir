@@ -472,7 +472,7 @@ const struct type* type_record(
     small_string_vec_init(&sorted_field_names);
     small_string_vec_resize(&sorted_field_names, field_count);
     for (size_t i = 0; i < field_count; ++i)
-        sorted_field_names.elems[i] = (char*)field_names[i];
+        sorted_field_names.elems[i] = (char*)str_pool_insert(type_set->str_pool, field_names[i]);
     qsort(sorted_field_names.elems, field_count, sizeof(char*), cmp_field_names);
 
 #ifndef NDEBUG
