@@ -87,7 +87,8 @@ static const struct fir_node* convert_type(struct emitter* emitter, const struct
 
 static const struct fir_node* emit_func_decl(struct emitter* emitter, struct ast* func_decl) {
     assert(func_decl->tag == AST_FUNC_DECL);
-    struct fir_node* func = fir_func(convert_type(emitter, func_decl->type));
+    assert(func_decl->node);
+    struct fir_node* func = (struct fir_node*)func_decl->node;
     const struct fir_node* param = fir_block_start(&emitter->block, func);
     emit_pattern(emitter, func_decl->func_decl.param, param);
     const struct fir_node* ret_val = emit(emitter, func_decl->func_decl.body);
@@ -294,11 +295,23 @@ static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
     }
 }
 
+static void emit_head(struct emitter* emitter, struct ast* ast) {
+    switch (ast->tag) {
+        case AST_FUNC_DECL:
+            ast->node = fir_func(convert_type(emitter, ast->type));
+            break;
+        default:
+            break;
+    }
+}
+
 void ast_emit(struct ast* ast, struct fir_mod* mod) {
     assert(ast->tag == AST_PROGRAM);
     struct emitter emitter = {
         .mod = mod
     };
+    for (struct ast* decl = ast->program.decls; decl; decl = decl->next)
+        emit_head(&emitter, decl);
     for (struct ast* decl = ast->program.decls; decl; decl = decl->next)
         emit(&emitter, decl);
 }

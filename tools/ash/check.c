@@ -389,6 +389,8 @@ static const struct type* infer_while_loop(struct type_checker* type_checker, st
 }
 
 static const struct type* infer(struct type_checker* type_checker, struct ast* ast) {
+    if (ast->type)
+        return ast->type;
     switch (ast->tag) {
         case AST_PRIM_TYPE:
             return ast->type = type_prim(type_checker->type_set, (enum type_tag)ast->prim_type.tag);

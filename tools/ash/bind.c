@@ -79,7 +79,7 @@ static bool insert_symbol(
     return true;
 }
 
-static void bind_name(struct name_binder* name_binder, struct ast* ast) {
+static void bind_head(struct name_binder* name_binder, struct ast* ast) {
     switch (ast->tag) {
         case AST_FUNC_DECL:
             insert_symbol(name_binder, ast->func_decl.name, ast);
@@ -134,6 +134,8 @@ static void bind(struct name_binder* name_binder, struct ast* ast) {
             break;
         case AST_BLOCK_EXPR:
             for (struct ast* stmt = ast->block_expr.stmts; stmt; stmt = stmt->next)
+                bind_head(name_binder, stmt);
+            for (struct ast* stmt = ast->block_expr.stmts; stmt; stmt = stmt->next)
                 bind(name_binder, stmt);
             break;
         case AST_UNARY_EXPR:
@@ -169,7 +171,7 @@ void ast_bind(struct ast* ast, struct log* log) {
         .log = log
     };
     for (struct ast* decl = ast->program.decls; decl; decl = decl->next)
-        bind_name(&name_binder, decl);
+        bind_head(&name_binder, decl);
     for (struct ast* decl = ast->program.decls; decl; decl = decl->next)
         bind(&name_binder, decl);
     free_env(name_binder.env);
