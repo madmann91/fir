@@ -245,13 +245,36 @@ static const struct type* check_binary_expr(
         const struct type* left_type = infer(type_checker, binary_expr->binary_expr.left);
         expect_type_with_tag(type_checker,
             &binary_expr->binary_expr.left->source_range, "reference type", left_type, TYPE_REF);
-        deref(type_checker, &binary_expr->binary_expr.right);
         if (left_type->tag == TYPE_REF)
             coerce(type_checker, &binary_expr->binary_expr.right, left_type->ref_type.pointee_type);
+        else
+            deref(type_checker, &binary_expr->binary_expr.right);
         return type_unit(type_checker->type_set);
     }
     assert(false && "unimplemented");
     return type_prim(type_checker->type_set, TYPE_I32);
+}
+
+static const struct type* check_call_expr(
+    struct type_checker* type_checker,
+    struct ast* call_expr,
+    const struct type* expected_type)
+{
+    const struct type* callee_type = deref(type_checker, &call_expr->call_expr.callee);
+    expect_type_with_tag(type_checker,
+        &call_expr->call_expr.callee->source_range, "function", callee_type, TYPE_FUNC);
+    if (callee_type->tag != TYPE_FUNC) {
+        deref(type_checker, &call_expr->call_expr.arg);
+        return type_top(type_checker->type_set);
+    }
+
+    const struct type* param_type = callee_type->func_type.param_type;
+    const struct type* ret_type = callee_type->func_type.ret_type;
+    coerce(type_checker, &call_expr->call_expr.arg, param_type);
+
+    if (expected_type)
+        expect_type(type_checker, &call_expr->source_range, ret_type, expected_type);
+    return ret_type;
 }
 
 static const struct type* check(
@@ -265,6 +288,8 @@ static const struct type* check(
             return ast->type = check_block_expr(type_checker, ast, expected_type);
         case AST_IF_EXPR:
             return ast->type = check_if_expr(type_checker, ast, expected_type);
+        case AST_CALL_EXPR:
+            return ast->type = check_call_expr(type_checker, ast, expected_type);
         case AST_TUPLE_PATTERN:
         case AST_TUPLE_EXPR:
             return ast->type = check_tuple(type_checker, ast->block_expr.stmts, expected_type);
@@ -407,6 +432,8 @@ static const struct type* infer(struct type_checker* type_checker, struct ast* a
             return ast->type = check_binary_expr(type_checker, ast, NULL);
         case AST_IF_EXPR:
             return ast->type = check_if_expr(type_checker, ast, NULL);
+        case AST_CALL_EXPR:
+            return ast->type = check_call_expr(type_checker, ast, NULL);
         case AST_WHILE_LOOP:
             return ast->type = infer_while_loop(type_checker, ast);
         default:

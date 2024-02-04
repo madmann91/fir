@@ -200,6 +200,10 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
                 ast_print(file, ast->if_expr.else_block, options);
             }
             break;
+        case AST_CALL_EXPR:
+            ast_print(file, ast->call_expr.callee, options);
+            print_with_parens(file, ast->call_expr.arg, options);
+            break;
         case AST_WHILE_LOOP:
             fprintf(file, "%swhile%s ", keyword_style, reset_style);
             ast_print(file, ast->while_loop.cond, options);

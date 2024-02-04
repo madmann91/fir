@@ -148,6 +148,10 @@ static void bind(struct name_binder* name_binder, struct ast* ast) {
             if (ast->if_expr.else_block)
                 bind(name_binder, ast->if_expr.else_block);
             break;
+        case AST_CALL_EXPR:
+            bind(name_binder, ast->call_expr.callee);
+            bind(name_binder, ast->call_expr.arg);
+            break;
         case AST_WHILE_LOOP:
             bind(name_binder, ast->while_loop.cond);
             bind(name_binder, ast->while_loop.body);

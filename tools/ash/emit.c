@@ -182,6 +182,12 @@ static const struct fir_node* emit_if_expr(struct emitter* emitter, struct ast* 
     return alloc ? fir_block_load(&emitter->block, alloc, alloc_ty, FIR_MEM_NON_NULL) : fir_unit(emitter->mod);
 }
 
+static const struct fir_node* emit_call_expr(struct emitter* emitter, struct ast* call_expr) {
+    const struct fir_node* callee = emit(emitter, call_expr->call_expr.callee);
+    const struct fir_node* arg = emit(emitter, call_expr->call_expr.arg);
+    return fir_block_call(&emitter->block, callee, arg);
+}
+
 static const struct fir_node* emit_const_or_var_decl(struct emitter* emitter, struct ast* decl) {
     const struct fir_node* val = decl->const_decl.init
         ? emit(emitter, decl->const_decl.init)
@@ -270,6 +276,8 @@ static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
             return ast->node = emit_block_expr(emitter, ast);
         case AST_IF_EXPR:
             return ast->node = emit_if_expr(emitter, ast);
+        case AST_CALL_EXPR:
+            return ast->node = emit_call_expr(emitter, ast);
         case AST_FIELD_EXPR:
             return ast->node = emit(emitter, ast->field_expr.arg);
         case AST_IMPLICIT_CAST_EXPR:

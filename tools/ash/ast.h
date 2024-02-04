@@ -85,6 +85,7 @@ enum ast_tag {
     AST_BINARY_EXPR,
     AST_BLOCK_EXPR,
     AST_IF_EXPR,
+    AST_CALL_EXPR,
 
     // Statements
     AST_WHILE_LOOP,
@@ -201,6 +202,10 @@ struct ast {
             struct ast* then_block;
             struct ast* else_block;
         } if_expr;
+        struct {
+            struct ast* callee;
+            struct ast* arg;
+        } call_expr;
         struct {
             struct ast* cond;
             struct ast* body;

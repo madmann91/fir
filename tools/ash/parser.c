@@ -481,22 +481,38 @@ static struct ast* parse_prefix_expr(struct parser* parser) {
     });
 }
 
-struct ast* parse_suffix_expr(struct parser* parser, struct ast* arg) {
-    enum unary_expr_tag tag;
-    switch (parser->ahead->tag) {
-        case TOK_INC: tag = UNARY_EXPR_POST_INC; break;
-        case TOK_DEC: tag = UNARY_EXPR_POST_DEC; break;
-        default:
-            return arg;
-    }
-    next_token(parser);
-    return alloc_ast(parser, &arg->source_range.begin, &(struct ast) {
-        .tag = AST_UNARY_EXPR,
-        .unary_expr = {
-            .tag = tag,
+struct ast* parse_call_expr(struct parser* parser, struct ast* callee) {
+    struct ast* arg = parse_tuple(parser, AST_TUPLE_EXPR, parse_expr);
+    return alloc_ast(parser, &callee->source_range.begin, &(struct ast) {
+        .tag = AST_CALL_EXPR,
+        .call_expr = {
+            .callee = callee,
             .arg = arg
         }
     });
+}
+
+struct ast* parse_suffix_expr(struct parser* parser, struct ast* arg) {
+    while (true) {
+        enum unary_expr_tag tag;
+        switch (parser->ahead->tag) {
+            case TOK_INC: tag = UNARY_EXPR_POST_INC; break;
+            case TOK_DEC: tag = UNARY_EXPR_POST_DEC; break;
+            case TOK_LPAREN:
+                arg = parse_call_expr(parser, arg);
+                continue;
+            default:
+                return arg;
+        }
+        next_token(parser);
+        return alloc_ast(parser, &arg->source_range.begin, &(struct ast) {
+            .tag = AST_UNARY_EXPR,
+            .unary_expr = {
+                .tag = tag,
+                .arg = arg
+            }
+        });
+    }
 }
 
 static struct ast* parse_unary_expr(struct parser* parser) {
