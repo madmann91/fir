@@ -302,17 +302,17 @@ FIR_SYMBOL struct fir_node* fir_alloc(
 
 /// Loads the data located at the given address.
 FIR_SYMBOL const struct fir_node* fir_load(
+    enum fir_mem_flags flags,
     const struct fir_node* mem,
     const struct fir_node* ptr,
-    const struct fir_node* ty,
-    enum fir_mem_flags flags);
+    const struct fir_node* ty);
 
 /// Stores data at the given address.
 FIR_SYMBOL const struct fir_node* fir_store(
+    enum fir_mem_flags flags,
     const struct fir_node* mem,
     const struct fir_node* ptr,
-    const struct fir_node* val,
-    enum fir_mem_flags flags);
+    const struct fir_node* val);
 
 /// @}
 

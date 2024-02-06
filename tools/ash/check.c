@@ -30,6 +30,18 @@ static const struct type* cannot_infer(
     return type_top(type_checker->type_set);
 }
 
+static void invalid_type(
+    struct type_checker* type_checker,
+    const struct fir_source_range* source_range,
+    const char* type_name,
+    const struct type* type)
+{
+    char* type_str = type_to_string(type);
+    log_error(type_checker->log, source_range, "expected %s type, but got type '%s'",
+        type_name, type_str);
+    free(type_str);
+}
+
 static const struct type* expect_type(
     struct type_checker* type_checker,
     const struct fir_source_range* source_range,
@@ -39,7 +51,7 @@ static const struct type* expect_type(
     if (!type_is_subtype(type, expected_type)) {
         char* type_str = type_to_string(type);
         char* expected_type_str = type_to_string(expected_type);
-        log_error(type_checker->log, source_range, "expected type '%s', but got '%s'",
+        log_error(type_checker->log, source_range, "expected type '%s', but got type '%s'",
             expected_type_str, type_str);
         free(type_str);
         free(expected_type_str);
@@ -48,17 +60,15 @@ static const struct type* expect_type(
     return type;
 }
 
-static void expect_type_with_tag(
+static void expect_mutable(
     struct type_checker* type_checker,
     const struct fir_source_range* source_range,
-    const char* type_name,
-    const struct type* type,
-    enum type_tag tag)
+    const struct type* type)
 {
-    if (type->tag != tag) {
+    if (type->tag != TYPE_REF || type->ref_type.is_const) {
         char* type_str = type_to_string(type);
-        log_error(type_checker->log, source_range, "expected %s, but got '%s'",
-            type_name, type_str);
+        log_error(type_checker->log, source_range,
+            "expected mutable expression, but got expression of type '%s'", type_str);
         free(type_str);
     }
 }
@@ -243,16 +253,84 @@ static const struct type* check_binary_expr(
     (void)expected_type;
     if (binary_expr->binary_expr.tag == BINARY_EXPR_ASSIGN) {
         const struct type* left_type = infer(type_checker, binary_expr->binary_expr.left);
-        expect_type_with_tag(type_checker,
-            &binary_expr->binary_expr.left->source_range, "reference type", left_type, TYPE_REF);
         if (left_type->tag == TYPE_REF)
             coerce(type_checker, &binary_expr->binary_expr.right, left_type->ref_type.pointee_type);
-        else
+        else {
+            invalid_type(type_checker, &binary_expr->binary_expr.left->source_range, "reference", left_type);
             deref(type_checker, &binary_expr->binary_expr.right);
+        }
         return type_unit(type_checker->type_set);
     }
-    assert(false && "unimplemented");
-    return type_prim(type_checker->type_set, TYPE_I32);
+
+    const struct type* left_type  = NULL;
+    const struct type* right_type = NULL;
+    if (!binary_expr_tag_is_cmp(binary_expr->binary_expr.tag) && expected_type) {
+        left_type = check(type_checker, binary_expr->binary_expr.left, expected_type);
+        right_type = coerce(type_checker, &binary_expr->binary_expr.right, expected_type);
+    } else {
+        left_type = infer(type_checker, binary_expr->binary_expr.left);
+        right_type = deref(type_checker, &binary_expr->binary_expr.right);
+    }
+
+    bool is_assign = binary_expr_tag_is_assign(binary_expr->binary_expr.tag);
+    const struct type* deref_left_type = type_remove_ref(left_type);
+    const struct type* joined_type = type_is_subtype(right_type, left_type) || is_assign ? deref_left_type : right_type;
+    const struct type* result_type = joined_type;
+
+    switch (binary_expr_tag_remove_assign(binary_expr->binary_expr.tag)) {
+        case BINARY_EXPR_MUL:
+        case BINARY_EXPR_DIV:
+        case BINARY_EXPR_REM:
+        case BINARY_EXPR_ADD:
+        case BINARY_EXPR_SUB:
+            if (!type_is_int(joined_type) && !type_is_float(joined_type)) {
+                invalid_type(type_checker, &binary_expr->source_range, "integer or floating-point", joined_type);
+                return type_top(type_checker->type_set);
+            }
+            break;
+        case BINARY_EXPR_LSHIFT:
+        case BINARY_EXPR_RSHIFT:
+            if (!type_is_int(joined_type)) {
+                invalid_type(type_checker, &binary_expr->source_range, "integer", joined_type);
+                return type_top(type_checker->type_set);
+            }
+            break;
+        case BINARY_EXPR_CMP_GT:
+        case BINARY_EXPR_CMP_LT:
+        case BINARY_EXPR_CMP_GE:
+        case BINARY_EXPR_CMP_LE:
+        case BINARY_EXPR_CMP_NE:
+        case BINARY_EXPR_CMP_EQ:
+            result_type = type_bool(type_checker->type_set);
+            break;
+        case BINARY_EXPR_AND:
+        case BINARY_EXPR_XOR:
+        case BINARY_EXPR_OR:
+            if (!type_is_int(joined_type) && joined_type->tag != TYPE_BOOL) {
+                invalid_type(type_checker, &binary_expr->source_range, "integer or boolean", joined_type);
+                return type_top(type_checker->type_set);
+            }
+            break;
+        case BINARY_EXPR_LOGIC_AND:
+        case BINARY_EXPR_LOGIC_OR:
+            if (joined_type->tag != TYPE_BOOL) {
+                invalid_type(type_checker, &binary_expr->source_range, "boolean", joined_type);
+                return type_top(type_checker->type_set);
+            }
+            break;
+        default:
+            assert(false && "invalid binary expression");
+            return type_top(type_checker->type_set);
+    }
+
+    coerce(type_checker, &binary_expr->binary_expr.right, joined_type);
+    if (is_assign) {
+        expect_mutable(type_checker, &binary_expr->binary_expr.left->source_range, left_type);
+        return type_unit(type_checker->type_set);
+    } else
+        coerce(type_checker, &binary_expr->binary_expr.left, joined_type);
+
+    return result_type;
 }
 
 static const struct type* check_call_expr(
@@ -261,9 +339,8 @@ static const struct type* check_call_expr(
     const struct type* expected_type)
 {
     const struct type* callee_type = deref(type_checker, &call_expr->call_expr.callee);
-    expect_type_with_tag(type_checker,
-        &call_expr->call_expr.callee->source_range, "function", callee_type, TYPE_FUNC);
     if (callee_type->tag != TYPE_FUNC) {
+        invalid_type(type_checker, &call_expr->call_expr.callee->source_range, "function", callee_type);
         deref(type_checker, &call_expr->call_expr.arg);
         return type_top(type_checker->type_set);
     }

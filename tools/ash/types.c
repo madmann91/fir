@@ -214,6 +214,10 @@ size_t type_find_field(const struct type* record_type, const char* field_name) {
     return name_ptr ? (size_t)(name_ptr - record_type->record_type.field_names) : SIZE_MAX;
 }
 
+const struct type* type_remove_ref(const struct type* type) {
+    return type->tag == TYPE_REF ? type->ref_type.pointee_type : type;
+}
+
 bool type_is_subtype(const struct type* left, const struct type* right) {
     if (left == right || right->tag == TYPE_TOP || left->tag == TYPE_BOTTOM)
         return true;

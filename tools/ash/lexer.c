@@ -142,7 +142,11 @@ struct token lexer_advance(struct lexer* lexer) {
         if (accept_char(lexer, ':')) return make_token(lexer, &begin_pos, TOK_COLON);
         if (accept_char(lexer, ',')) return make_token(lexer, &begin_pos, TOK_COMMA);
         if (accept_char(lexer, '.')) return make_token(lexer, &begin_pos, TOK_DOT);
-        if (accept_char(lexer, '!')) return make_token(lexer, &begin_pos, TOK_NOT);
+        if (accept_char(lexer, '!')) {
+            if (accept_char(lexer, '='))
+                return make_token(lexer, &begin_pos, TOK_CMP_NE);
+            return make_token(lexer, &begin_pos, TOK_NOT);
+        }
 
         if (accept_char(lexer, '=')) {
             if (accept_char(lexer, '='))

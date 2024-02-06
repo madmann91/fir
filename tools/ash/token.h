@@ -50,6 +50,7 @@
     x(RBRACE, "}") \
     x(EQ, "=") \
     x(CMP_EQ, "==") \
+    x(CMP_NE, "!=") \
     x(CMP_GT, ">") \
     x(CMP_GE, ">=") \
     x(CMP_LT, "<") \

@@ -523,6 +523,7 @@ static enum binary_expr_tag token_tag_to_binary_expr_tag(enum token_tag token_ta
     switch (token_tag) {
         case TOK_EQ:        return BINARY_EXPR_ASSIGN;
         case TOK_CMP_EQ:    return BINARY_EXPR_CMP_EQ;
+        case TOK_CMP_NE:    return BINARY_EXPR_CMP_NE;
         case TOK_CMP_GT:    return BINARY_EXPR_CMP_GT;
         case TOK_CMP_GE:    return BINARY_EXPR_CMP_GE;
         case TOK_CMP_LT:    return BINARY_EXPR_CMP_LT;

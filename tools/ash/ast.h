@@ -185,7 +185,6 @@ struct ast {
         } implicit_cast_expr;
         struct {
             enum binary_expr_tag tag;
-            bool is_assign;
             struct ast* left;
             struct ast* right;
         } binary_expr;
@@ -232,6 +231,9 @@ const char* binary_expr_tag_to_string(enum binary_expr_tag);
 
 bool unary_expr_tag_is_prefix(enum unary_expr_tag);
 int binary_expr_tag_to_precedence(enum binary_expr_tag);
+bool binary_expr_tag_is_assign(enum binary_expr_tag);
+bool binary_expr_tag_is_cmp(enum binary_expr_tag);
+enum binary_expr_tag binary_expr_tag_remove_assign(enum binary_expr_tag);
 
 bool ast_needs_semicolon(const struct ast*);
 bool ast_is_irrefutable_pattern(const struct ast*);

@@ -119,20 +119,20 @@ const struct fir_node* fir_block_alloc(struct fir_block* block, const struct fir
 
 const struct fir_node* fir_block_load(
     struct fir_block* block,
+    enum fir_mem_flags mem_flags,
     const struct fir_node* ptr,
-    const struct fir_node* ty,
-    enum fir_mem_flags mem_flags)
+    const struct fir_node* ty)
 {
     assert(!block->is_terminated);
-    return fir_load(block->mem, ptr, ty, mem_flags);
+    return fir_load(mem_flags, block->mem, ptr, ty);
 }
 
 void fir_block_store(
     struct fir_block* block,
+    enum fir_mem_flags mem_flags,
     const struct fir_node* ptr,
-    const struct fir_node* val,
-    enum fir_mem_flags mem_flags)
+    const struct fir_node* val)
 {
     assert(!block->is_terminated);
-    block->mem = fir_store(block->mem, ptr, val, mem_flags);
+    block->mem = fir_store(mem_flags, block->mem, ptr, val);
 }

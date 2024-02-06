@@ -302,14 +302,67 @@ int binary_expr_tag_to_precedence(enum binary_expr_tag tag) {
     }
 }
 
-bool ast_needs_semicolon(const struct ast* ast) {
-    switch (ast->tag) {
-        case AST_LITERAL:
-        case AST_TUPLE_EXPR:
-        case AST_BLOCK_EXPR:
+bool binary_expr_tag_is_assign(enum binary_expr_tag tag) {
+    switch (tag) {
+        case BINARY_EXPR_ASSIGN:
+        case BINARY_EXPR_ADD_ASSIGN:
+        case BINARY_EXPR_SUB_ASSIGN:
+        case BINARY_EXPR_MUL_ASSIGN:
+        case BINARY_EXPR_DIV_ASSIGN:
+        case BINARY_EXPR_REM_ASSIGN:
+        case BINARY_EXPR_RSHIFT_ASSIGN:
+        case BINARY_EXPR_LSHIFT_ASSIGN:
+        case BINARY_EXPR_AND_ASSIGN:
+        case BINARY_EXPR_XOR_ASSIGN:
+        case BINARY_EXPR_OR_ASSIGN:
             return true;
         default:
             return false;
+    }
+}
+
+bool binary_expr_tag_is_cmp(enum binary_expr_tag tag) {
+    switch (tag) {
+        case BINARY_EXPR_CMP_EQ:
+        case BINARY_EXPR_CMP_NE:
+        case BINARY_EXPR_CMP_LT:
+        case BINARY_EXPR_CMP_GT:
+        case BINARY_EXPR_CMP_LE:
+        case BINARY_EXPR_CMP_GE:
+            return true;
+        default:
+            return false;
+    }
+}
+
+enum binary_expr_tag binary_expr_tag_remove_assign(enum binary_expr_tag tag) {
+    switch (tag) {
+        case BINARY_EXPR_ADD_ASSIGN:    return BINARY_EXPR_ADD;
+        case BINARY_EXPR_SUB_ASSIGN:    return BINARY_EXPR_SUB;
+        case BINARY_EXPR_MUL_ASSIGN:    return BINARY_EXPR_MUL;
+        case BINARY_EXPR_DIV_ASSIGN:    return BINARY_EXPR_DIV;
+        case BINARY_EXPR_REM_ASSIGN:    return BINARY_EXPR_REM;
+        case BINARY_EXPR_RSHIFT_ASSIGN: return BINARY_EXPR_RSHIFT;
+        case BINARY_EXPR_LSHIFT_ASSIGN: return BINARY_EXPR_LSHIFT;
+        case BINARY_EXPR_AND_ASSIGN:    return BINARY_EXPR_AND;
+        case BINARY_EXPR_XOR_ASSIGN:    return BINARY_EXPR_XOR;
+        case BINARY_EXPR_OR_ASSIGN:     return BINARY_EXPR_OR;
+        default:
+            return tag;
+    }
+}
+
+bool ast_needs_semicolon(const struct ast* ast) {
+    switch (ast->tag) {
+        case AST_BLOCK_EXPR:
+        case AST_IF_EXPR:
+        case AST_WHILE_LOOP:
+        case AST_CONST_DECL:
+        case AST_VAR_DECL:
+        case AST_FUNC_DECL:
+            return false;
+        default:
+            return true;
     }
 }
 

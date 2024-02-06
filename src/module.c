@@ -1418,10 +1418,10 @@ struct fir_node* fir_alloc(
 }
 
 const struct fir_node* fir_load(
+    enum fir_mem_flags flags,
     const struct fir_node* mem,
     const struct fir_node* ptr,
-    const struct fir_node* ty,
-    enum fir_mem_flags flags)
+    const struct fir_node* ty)
 {
     assert(mem->ty->tag == FIR_MEM_TY);
     assert(ptr->ty->tag == FIR_PTR_TY);
@@ -1444,10 +1444,10 @@ const struct fir_node* fir_load(
 }
 
 const struct fir_node* fir_store(
+    enum fir_mem_flags flags,
     const struct fir_node* mem,
     const struct fir_node* ptr,
-    const struct fir_node* val,
-    enum fir_mem_flags flags)
+    const struct fir_node* val)
 {
     assert(mem->ty->tag == FIR_MEM_TY);
     assert(ptr->ty->tag == FIR_PTR_TY);

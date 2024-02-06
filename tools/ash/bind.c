@@ -142,7 +142,8 @@ static void bind(struct name_binder* name_binder, struct ast* ast) {
             bind(name_binder, ast->unary_expr.arg);
             break;
         case AST_BINARY_EXPR:
-            bind(name_binder, ast->unary_expr.arg);
+            bind(name_binder, ast->binary_expr.left);
+            bind(name_binder, ast->binary_expr.right);
             break;
         case AST_IF_EXPR:
             bind(name_binder, ast->if_expr.cond);

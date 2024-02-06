@@ -355,13 +355,7 @@ static inline const struct fir_node* parse_node_body(struct parser* parser, cons
     if (!valid_ops)
         return NULL;
 
-    const struct fir_node* node = fir_node_rebuild(
-        parser->mod,
-        &(struct fir_node) {
-            .tag = tag,
-            .data = data,
-            .op_count = ops.elem_count
-        }, ty, ops.elems);
+    const struct fir_node* node = fir_node_rebuild(parser->mod, tag, &data, ty, ops.elems, ops.elem_count);
     assert(node->ty == ty);
 
     small_node_vec_destroy(&ops);
@@ -379,10 +373,14 @@ static inline const struct fir_node* parse_node(struct parser* parser) {
 
     const struct fir_node* node = parse_node_body(parser, ty);
     if (node && !symbol_table_insert(&parser->symbol_table, &ident, &node)) {
-        log_error(&parser->log,
-            &ident_range,
-            "identifier '%.*s' already exists",
-            (int)ident.length, ident.data);
+        const struct fir_node* const* symbol = symbol_table_find(&parser->symbol_table, &ident);
+        assert(symbol);
+        if (node != *symbol) {
+            log_error(&parser->log,
+                &ident_range,
+                "identifier '%.*s' already exists",
+                (int)ident.length, ident.data);
+        }
     }
     return node;
 }

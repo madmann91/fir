@@ -194,49 +194,51 @@ void fir_node_set_dbg_info(const struct fir_node* node, const struct fir_dbg_inf
 
 const struct fir_node* fir_node_rebuild(
     struct fir_mod* mod,
-    const struct fir_node* node,
+    enum fir_node_tag tag,
+    const union fir_node_data* data,
     const struct fir_node* ty,
-    const struct fir_node* const* ops)
+    const struct fir_node* const* ops,
+    size_t op_count)
 {
-    assert(!fir_node_is_nominal(node));
-    switch (node->tag) {
+    assert(!fir_node_tag_is_nominal(tag));
+    switch (tag) {
         case FIR_NORET_TY:    return fir_noret_ty(mod);
         case FIR_MEM_TY:      return fir_mem_ty(mod);
         case FIR_FRAME_TY:    return fir_frame_ty(mod);
         case FIR_PTR_TY:      return fir_ptr_ty(mod);
-        case FIR_INT_TY:      return fir_int_ty(mod, node->data.bitwidth);
-        case FIR_FLOAT_TY:    return fir_float_ty(mod, node->data.bitwidth);
-        case FIR_TUP_TY:      return fir_tup_ty(mod, ops, node->op_count);
-        case FIR_ARRAY_TY:    return fir_array_ty(ops[0], node->data.array_dim);
+        case FIR_INT_TY:      return fir_int_ty(mod, data->bitwidth);
+        case FIR_FLOAT_TY:    return fir_float_ty(mod, data->bitwidth);
+        case FIR_TUP_TY:      return fir_tup_ty(mod, ops, op_count);
+        case FIR_ARRAY_TY:    return fir_array_ty(ops[0], data->array_dim);
         case FIR_DYNARRAY_TY: return fir_dynarray_ty(ops[0]);
         case FIR_FUNC_TY:     return fir_func_ty(ops[0], ops[1]);
         case FIR_TOP:         return fir_top(ty);
         case FIR_BOT:         return fir_bot(ty);
         case FIR_CONST:
             return ty->tag == FIR_INT_TY
-                ? fir_int_const(ty, node->data.int_val)
-                : fir_float_const(ty, node->data.float_val);
+                ? fir_int_const(ty, data->int_val)
+                : fir_float_const(ty, data->float_val);
 #define x(tag, ...) case FIR_##tag:
         FIR_IARITH_OP_LIST(x)
-            return fir_iarith_op(node->tag, ops[0], ops[1]);
+            return fir_iarith_op(tag, ops[0], ops[1]);
         FIR_FARITH_OP_LIST(x)
-            return fir_farith_op(node->tag, node->data.fp_flags, ops[0], ops[1]);
+            return fir_farith_op(tag, data->fp_flags, ops[0], ops[1]);
         FIR_ICMP_OP_LIST(x)
-            return fir_icmp_op(node->tag, ops[0], ops[1]);
+            return fir_icmp_op(tag, ops[0], ops[1]);
         FIR_FCMP_OP_LIST(x)
-            return fir_fcmp_op(node->tag, ops[0], ops[1]);
+            return fir_fcmp_op(tag, ops[0], ops[1]);
         FIR_BIT_OP_LIST(x)
-            return fir_bit_op(node->tag, ops[0], ops[1]);
+            return fir_bit_op(tag, ops[0], ops[1]);
         FIR_CAST_OP_LIST(x)
-            return fir_cast_op(node->tag, ty, ops[0]);
+            return fir_cast_op(tag, ty, ops[0]);
 #undef x
-        case FIR_TUP:    return fir_tup(mod, ops, node->op_count);
+        case FIR_TUP:    return fir_tup(mod, ops, op_count);
         case FIR_ARRAY:  return fir_array(ty, ops);
         case FIR_EXT:    return fir_ext(ops[0], ops[1]);
         case FIR_INS:    return fir_ins(ops[0], ops[1], ops[2]);
         case FIR_ADDROF: return fir_addrof(ops[0], ops[1], ops[2]);
-        case FIR_STORE:  return fir_store(ops[0], ops[1], ops[2], node->data.mem_flags);
-        case FIR_LOAD:   return fir_load(ops[0], ops[1], ty, node->data.mem_flags);
+        case FIR_STORE:  return fir_store(data->mem_flags, ops[0], ops[1], ops[2]);
+        case FIR_LOAD:   return fir_load(data->mem_flags, ops[0], ops[1], ty);
         case FIR_CALL:   return fir_call(ops[0], ops[1]);
         case FIR_PARAM:  return fir_param(ops[0]);
         case FIR_START:  return fir_start(ops[0]);

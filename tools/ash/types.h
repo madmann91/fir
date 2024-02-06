@@ -66,25 +66,26 @@ SMALL_VEC_DECL(small_type_vec, const struct type*, PUBLIC)
 
 void type_print(FILE*, const struct type*);
 void type_dump(const struct type*);
-char* type_to_string(const struct type*);
+[[nodiscard]] char* type_to_string(const struct type*);
 
-size_t type_find_field(const struct type* record_type, const char* field_name);
+[[nodiscard]] size_t type_find_field(const struct type* record_type, const char* field_name);
+[[nodiscard]] const struct type* type_remove_ref(const struct type*);
 
-bool type_is_subtype(const struct type*, const struct type*);
-bool type_is_unit(const struct type*);
-bool type_is_prim(const struct type*);
-bool type_is_int(const struct type*);
-bool type_is_signed_int(const struct type*);
-bool type_is_unsigned_int(const struct type*);
-bool type_is_float(const struct type*);
-size_t type_bitwidth(const struct type*);
+[[nodiscard]] bool type_is_subtype(const struct type*, const struct type*);
+[[nodiscard]] bool type_is_unit(const struct type*);
+[[nodiscard]] bool type_is_prim(const struct type*);
+[[nodiscard]] bool type_is_int(const struct type*);
+[[nodiscard]] bool type_is_signed_int(const struct type*);
+[[nodiscard]] bool type_is_unsigned_int(const struct type*);
+[[nodiscard]] bool type_is_float(const struct type*);
+[[nodiscard]] size_t type_bitwidth(const struct type*);
 
-bool type_tag_is_prim(enum type_tag);
-bool type_tag_is_int(enum type_tag);
-bool type_tag_is_signed_int(enum type_tag);
-bool type_tag_is_unsigned_int(enum type_tag);
-bool type_tag_is_float(enum type_tag);
-size_t type_tag_bitwidth(enum type_tag);
+[[nodiscard]] bool type_tag_is_prim(enum type_tag);
+[[nodiscard]] bool type_tag_is_int(enum type_tag);
+[[nodiscard]] bool type_tag_is_signed_int(enum type_tag);
+[[nodiscard]] bool type_tag_is_unsigned_int(enum type_tag);
+[[nodiscard]] bool type_tag_is_float(enum type_tag);
+[[nodiscard]] size_t type_tag_bitwidth(enum type_tag);
 
 [[nodiscard]] struct type_set* type_set_create(void);
 void type_set_destroy(struct type_set*);

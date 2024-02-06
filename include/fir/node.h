@@ -260,9 +260,11 @@ FIR_SYMBOL void fir_node_make_internal(struct fir_node*);
 /// Constant values and other node-specific data is taken from the original node.
 FIR_SYMBOL const struct fir_node* fir_node_rebuild(
     struct fir_mod*,
-    const struct fir_node* node,
+    enum fir_node_tag tag,
+    const union fir_node_data* data,
     const struct fir_node* ty,
-    const struct fir_node* const* ops);
+    const struct fir_node* const* ops,
+    size_t op_count);
 
 /// @name Printing
 /// @{
