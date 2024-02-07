@@ -111,11 +111,14 @@ static const struct type* deref(
 static const struct type* coerce(
     struct type_checker* type_checker,
     struct ast** expr,
-    const struct type* type)
+    const struct type* expected_type)
 {
-    const struct type* expr_type = (*expr)->type ? (*expr)->type : check(type_checker, *expr, type);
-    if (expr_type != type && type_is_subtype(expr_type, type))
-        return implicit_cast(type_checker, expr, type);
+    const struct type* expr_type = (*expr)->type ? (*expr)->type : check(type_checker, *expr, expected_type);
+    if (expr_type != expected_type) {
+        if (type_is_subtype(expr_type, expected_type))
+            return implicit_cast(type_checker, expr, expected_type);
+        return expect_type(type_checker, &(*expr)->source_range, expr_type, expected_type);
+    }
     return expr_type;
 }
 
