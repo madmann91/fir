@@ -343,7 +343,7 @@ static const struct fir_node* emit_binary_expr(struct emitter* emitter, struct a
             return NULL;
     }
 
-    if (binary_expr->binary_expr.tag == BINARY_EXPR_ASSIGN) {
+    if (is_assign) {
         assert(binary_expr->binary_expr.left->type->tag == TYPE_REF);
         fir_block_store(&emitter->block, 0, ptr, result);
         return fir_unit(emitter->mod);
