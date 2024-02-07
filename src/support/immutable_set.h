@@ -1,9 +1,7 @@
 #pragma once
 
-#include "hash_table.h"
-#include "visibility.h"
 #include "alloc.h"
-#include "hash.h"
+#include "set.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -20,12 +18,13 @@
     IMMUTABLE_SET_IMPL(name, elem_ty, hash, cmp, vis)
 
 #define IMMUTABLE_SET_DECL(name, elem_ty, vis) \
-    struct name##_pool { \
-        struct hash_table hash_table; \
-    }; \
     struct name { \
         size_t elem_count; \
         elem_ty elems[]; \
+    }; \
+    SET_DECL(name##_set, struct name*, vis) \
+    struct name##_pool { \
+        struct name##_set set; \
     }; \
     [[nodiscard]] VISIBILITY(vis) struct name##_pool name##_pool_create(void); \
     VISIBILITY(vis) void name##_pool_destroy(struct name##_pool*); \
@@ -39,21 +38,19 @@
     static inline int name##_cmp_wrapper(const void* left, const void* right) { \
         return cmp((elem_ty const*)left, (elem_ty const*)right); \
     } \
-    static inline bool name##_is_equal_wrapper(const void* left, const void* right) { \
-        struct name* left_set = *(struct name**)left; \
-        struct name* right_set = *(struct name**)right; \
-        if (left_set->elem_count != right_set->elem_count) \
+    static inline bool name##_is_equal(struct name* const* left, struct name* const* right) { \
+        if ((*left)->elem_count != (*right)->elem_count) \
             return false; \
-        for (size_t i = 0; i < left_set->elem_count; ++i) { \
-            if (cmp(&left_set->elems[i], &right_set->elems[i]) != 0) \
+        for (size_t i = 0; i < (*left)->elem_count; ++i) { \
+            if (cmp(&(*left)->elems[i], &(*right)->elems[i]) != 0) \
                 return false; \
         } \
         return true; \
     } \
-    static inline uint32_t name##_hash_wrapper(uint32_t h, const struct name* set) { \
-        h = hash_uint64(h, set->elem_count); \
-        for (size_t i = 0; i < set->elem_count; ++i) \
-            h = hash(h, &set->elems[i]); \
+    static inline uint32_t name##_hash_wrapper(uint32_t h, struct name* const* set) { \
+        h = hash_uint64(h, (*set)->elem_count); \
+        for (size_t i = 0; i < (*set)->elem_count; ++i) \
+            h = hash(h, &(*set)->elems[i]); \
         return h; \
     } \
     static inline struct name* name##_alloc(elem_ty const* elems, size_t elem_count) { \
@@ -62,14 +59,13 @@
         memcpy(set->elems, elems, sizeof(elem_ty) * elem_count); \
         return set; \
     } \
+    SET_IMPL(name##_set, struct name*, name##_hash_wrapper, name##_is_equal, vis) \
     VISIBILITY(vis) struct name##_pool name##_pool_create(void) { \
-        return (struct name##_pool) { \
-            .hash_table = hash_table_create(sizeof(struct name*), 0, IMMUTABLE_SET_POOL_DEFAULT_CAPACITY) \
-        }; \
+        return (struct name##_pool) { .set = name##_set_create() }; \
     } \
     VISIBILITY(vis) void name##_pool_destroy(struct name##_pool* pool) { \
         name##_pool_reset(pool); \
-        hash_table_destroy(&pool->hash_table); \
+        name##_set_destroy(&pool->set); \
     } \
     VISIBILITY(vis) const struct name* name##_pool_insert(struct name##_pool* pool, elem_ty* elems, size_t elem_count) { \
         qsort(elems, elem_count, sizeof(elem_ty), name##_cmp_wrapper); \
@@ -95,17 +91,15 @@
             set = set_heap = name##_alloc(elems, elem_count); \
         } \
         \
-        uint32_t h = name##_hash_wrapper(hash_init(), set); \
-        size_t index = SIZE_MAX; \
-        if (hash_table_find(&pool->hash_table, &index, &set, sizeof(struct name*), h, name##_is_equal_wrapper)) { \
+        struct name* const* set_ptr = name##_set_find(&pool->set, &set); \
+        if (set_ptr) { \
             free(set_heap); \
-            return ((struct name**)pool->hash_table.keys)[index]; \
+            return *set_ptr; \
         } \
         \
         if (!set_heap) \
             set_heap = name##_alloc(elems, elem_count); \
-        [[maybe_unused]] bool was_inserted = hash_table_insert( \
-            &pool->hash_table, &set_heap, NULL, sizeof(struct name*), 0, h, name##_is_equal_wrapper); \
+        [[maybe_unused]] bool was_inserted = name##_set_insert(&pool->set, &set_heap); \
         assert(was_inserted); \
         return set_heap; \
     } \
@@ -139,11 +133,9 @@
         return merged_set; \
     } \
     VISIBILITY(vis) void name##_pool_reset(struct name##_pool* pool) { \
-        for (size_t i = 0; i < pool->hash_table.capacity; ++i) { \
-            if (hash_table_is_bucket_occupied(&pool->hash_table, i)) \
-                free(((struct name**)pool->hash_table.keys)[i]); \
-        } \
-        hash_table_clear(&pool->hash_table); \
+        SET_FOREACH(struct name*, set_ptr, pool->set) \
+            free(*set_ptr); \
+        name##_set_clear(&pool->set); \
     } \
     VISIBILITY(vis) elem_ty const* name##_find(const struct name* set, elem_ty const* elem) { \
         return bsearch(elem, set->elems, set->elem_count, sizeof(elem_ty), name##_cmp_wrapper); \
