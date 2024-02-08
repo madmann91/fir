@@ -25,7 +25,7 @@ C. Here are a few features that differentiate this IR from similar projects:
   example of how to use the API.
 
 This project is inspired by [Thorin](https://github.com/AnyDSL/thorin), a project I used to worked
-on, and by [libfirm](https://github.com/libfirm/libfirm) another compiler IR in C.
+on, and by [libfirm](https://github.com/libfirm/libfirm), another compiler IR in C.
 
 ## Building
 
