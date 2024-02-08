@@ -521,7 +521,8 @@ static const struct type* infer_while_loop(struct type_checker* type_checker, st
 static inline bool is_cast_possible(const struct type* source_type, const struct type* dest_type) {
     if (type_is_subtype(source_type, dest_type))
         return true;
-    // TODO
+    if (type_is_prim(source_type) && type_is_prim(dest_type))
+        return true;
     return false;
 }
 

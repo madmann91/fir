@@ -232,10 +232,23 @@ static const struct fir_node* emit_implicit_cast(
 
 static const struct fir_node* emit_cast_expr(struct emitter* emitter, struct ast* cast_expr) {
     const struct fir_node* arg = emit(emitter, cast_expr->cast_expr.arg);
-    if (type_is_subtype(cast_expr->cast_expr.arg->type, cast_expr->type))
-        return emit_implicit_cast(emitter, arg, cast_expr->cast_expr.arg->type, cast_expr->type);
 
-    assert(false && "unimplemented");
+    const struct type* source_type = cast_expr->cast_expr.arg->type;
+    const struct type* dest_type   = cast_expr->type;
+    if (type_is_subtype(source_type, dest_type))
+        return emit_implicit_cast(emitter, arg, source_type, dest_type);
+
+    const struct fir_node* cast_ty = convert_type(emitter, dest_type);
+    if (type_is_float(source_type) && type_is_int_or_bool(dest_type))
+        return fir_cast_op(type_is_signed_int(dest_type) ? FIR_FTOS : FIR_FTOU, cast_ty, arg);
+    if (type_is_int_or_bool(source_type) && type_is_float(dest_type))
+        return fir_cast_op(type_is_signed_int(source_type) ? FIR_STOF : FIR_UTOF, cast_ty, arg);
+    if ((type_is_int_or_bool(source_type) && type_is_int_or_bool(dest_type)) ||
+        (type_is_float(source_type) && type_is_float(dest_type)))
+    {
+        assert(type_bitwidth(source_type) >= type_bitwidth(dest_type));
+        return fir_cast_op(type_is_float(source_type) ? FIR_FTRUNC : FIR_ITRUNC, cast_ty, arg);
+    }
     return NULL;
 }
 

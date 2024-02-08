@@ -251,6 +251,7 @@ bool type_is_unit(const struct type* type) {
 bool type_is_prim(const struct type* type) { return type_tag_is_prim(type->tag); }
 bool type_is_float(const struct type* type) { return type_tag_is_float(type->tag); }
 bool type_is_int(const struct type* type) { return type_tag_is_int(type->tag); }
+bool type_is_int_or_bool(const struct type* type) { return type_tag_is_int_or_bool(type->tag); }
 bool type_is_signed_int(const struct type* type) { return type_tag_is_signed_int(type->tag); }
 bool type_is_unsigned_int(const struct type* type) { return type_tag_is_unsigned_int(type->tag); }
 size_t type_bitwidth(const struct type* type) { return type_tag_bitwidth(type->tag); }
@@ -268,6 +269,10 @@ bool type_tag_is_prim(enum type_tag tag) {
 
 bool type_tag_is_int(enum type_tag tag) {
     return type_tag_is_signed_int(tag) || type_tag_is_unsigned_int(tag);
+}
+
+bool type_tag_is_int_or_bool(enum type_tag tag) {
+    return type_tag_is_int(tag) || tag == TYPE_BOOL;
 }
 
 bool type_tag_is_signed_int(enum type_tag tag) {
@@ -308,9 +313,11 @@ size_t type_tag_bitwidth(enum type_tag tag) {
             return 16;
         case TYPE_I32:
         case TYPE_U32:
+        case TYPE_F32:
             return 32;
         case TYPE_I64:
         case TYPE_U64:
+        case TYPE_F64:
             return 64;
         case TYPE_BOOL:
             return 1;

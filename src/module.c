@@ -1087,17 +1087,14 @@ const struct fir_node* fir_cast_op(
 }
 
 const struct fir_node* fir_not(const struct fir_node* arg) {
-    assert(arg->ty->tag == FIR_INT_TY);
     return fir_bit_op(FIR_XOR, fir_int_const(arg->ty, make_bitmask(arg->ty->data.bitwidth)), arg);
 }
 
 const struct fir_node* fir_ineg(const struct fir_node* arg) {
-    assert(arg->ty->tag == FIR_INT_TY);
     return fir_iarith_op(FIR_ISUB, fir_int_const(arg->ty, 0), arg);
 }
 
 const struct fir_node* fir_fneg(enum fir_fp_flags fp_flags, const struct fir_node* arg) {
-    assert(arg->ty->tag == FIR_INT_TY);
     return fir_farith_op(FIR_FSUB, fp_flags, fir_float_const(arg->ty, 0), arg);
 }
 
