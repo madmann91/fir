@@ -79,7 +79,11 @@ void type_dump(const struct type*);
 [[nodiscard]] bool type_is_signed_int(const struct type*);
 [[nodiscard]] bool type_is_unsigned_int(const struct type*);
 [[nodiscard]] bool type_is_float(const struct type*);
+[[nodiscard]] bool type_is_aggregate(const struct type*);
 [[nodiscard]] size_t type_bitwidth(const struct type*);
+
+[[nodiscard]] size_t type_elem_count(const struct type*);
+[[nodiscard]] const struct type* type_elem(const struct type*, size_t);
 
 [[nodiscard]] bool type_tag_is_prim(enum type_tag);
 [[nodiscard]] bool type_tag_is_int(enum type_tag);
@@ -87,6 +91,8 @@ void type_dump(const struct type*);
 [[nodiscard]] bool type_tag_is_signed_int(enum type_tag);
 [[nodiscard]] bool type_tag_is_unsigned_int(enum type_tag);
 [[nodiscard]] bool type_tag_is_float(enum type_tag);
+[[nodiscard]] bool type_tag_is_aggregate(enum type_tag);
+
 [[nodiscard]] size_t type_tag_bitwidth(enum type_tag);
 
 [[nodiscard]] struct type_set* type_set_create(void);

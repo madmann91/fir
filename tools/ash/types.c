@@ -254,7 +254,21 @@ bool type_is_int(const struct type* type) { return type_tag_is_int(type->tag); }
 bool type_is_int_or_bool(const struct type* type) { return type_tag_is_int_or_bool(type->tag); }
 bool type_is_signed_int(const struct type* type) { return type_tag_is_signed_int(type->tag); }
 bool type_is_unsigned_int(const struct type* type) { return type_tag_is_unsigned_int(type->tag); }
+bool type_is_aggregate(const struct type* type) { return type_tag_is_aggregate(type->tag); }
 size_t type_bitwidth(const struct type* type) { return type_tag_bitwidth(type->tag); }
+
+size_t type_elem_count(const struct type* type) {
+    assert(type_is_aggregate(type));
+    return type->tag == TYPE_TUPLE ? type->tuple_type.arg_count : type->record_type.field_count;
+}
+
+const struct type* type_elem(const struct type* type, size_t index) {
+    assert(type_is_aggregate(type));
+    assert(index < type_elem_count(type));
+    return type->tag == TYPE_TUPLE
+        ? type->tuple_type.arg_types[index]
+        : type->record_type.field_types[index];
+}
 
 bool type_tag_is_prim(enum type_tag tag) {
     switch (tag) {
@@ -301,6 +315,10 @@ bool type_tag_is_unsigned_int(enum type_tag tag) {
 
 bool type_tag_is_float(enum type_tag tag) {
     return tag == TYPE_F32 || tag == TYPE_F64;
+}
+
+bool type_tag_is_aggregate(enum type_tag tag) {
+    return tag == TYPE_TUPLE || tag == TYPE_RECORD;
 }
 
 size_t type_tag_bitwidth(enum type_tag tag) {

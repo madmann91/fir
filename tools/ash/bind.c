@@ -160,6 +160,9 @@ static void bind(struct name_binder* name_binder, struct ast* ast) {
             bind(name_binder, ast->call_expr.callee);
             bind(name_binder, ast->call_expr.arg);
             break;
+        case AST_PROJ_EXPR:
+            bind(name_binder, ast->proj_expr.arg);
+            break;
         case AST_WHILE_LOOP:
             bind(name_binder, ast->while_loop.cond);
             bind(name_binder, ast->while_loop.body);

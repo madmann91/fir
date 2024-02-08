@@ -509,28 +509,68 @@ static struct ast* parse_cast_expr(struct parser* parser, struct ast* arg) {
     });
 }
 
+static struct ast* parse_inc_or_dec_expr(struct parser* parser, enum unary_expr_tag tag, struct ast* arg) {
+    next_token(parser);
+    return alloc_ast(parser, &arg->source_range.begin, &(struct ast) {
+        .tag = AST_UNARY_EXPR,
+        .unary_expr = {
+            .tag = tag,
+            .arg = arg
+        }
+    });
+}
+
+static struct ast* parse_proj_elem(struct parser* parser) {
+    const struct fir_source_pos begin_pos = parser->ahead->source_range.begin;
+    const char* name = NULL;
+    size_t index = 0;
+    if (parser->ahead->tag == TOK_INT) {
+        index = parser->ahead->int_val;
+        next_token(parser);
+    } else
+        name = parse_name(parser);
+    return alloc_ast(parser, &begin_pos, &(struct ast) {
+        .tag = AST_PROJ_ELEM,
+        .proj_elem = {
+            .name = name,
+            .index = index
+        }
+    });
+}
+
+static struct ast* parse_proj_expr(struct parser* parser, struct ast* arg) {
+    eat_token(parser, TOK_DOT);
+    struct ast* elems = accept_token(parser, TOK_LPAREN)
+        ? parse_many(parser, TOK_RPAREN, TOK_COMMA, parse_proj_elem)
+        : parse_proj_elem(parser);
+    return alloc_ast(parser, &arg->source_range.begin, &(struct ast) {
+        .tag = AST_PROJ_EXPR,
+        .proj_expr = {
+            .arg = arg,
+            .elems = elems
+        }
+    });
+}
+
 struct ast* parse_suffix_expr(struct parser* parser, struct ast* arg) {
     while (true) {
-        enum unary_expr_tag tag;
         switch (parser->ahead->tag) {
-            case TOK_INC: tag = UNARY_EXPR_POST_INC; break;
-            case TOK_DEC: tag = UNARY_EXPR_POST_DEC; break;
+            case TOK_INC:
+                return parse_inc_or_dec_expr(parser, UNARY_EXPR_POST_INC, arg);
+            case TOK_DEC:
+                return parse_inc_or_dec_expr(parser, UNARY_EXPR_POST_DEC, arg);
             case TOK_LPAREN:
                 arg = parse_call_expr(parser, arg);
-                continue;
+                break;
             case TOK_AS:
-                return parse_cast_expr(parser, arg);
+                arg = parse_cast_expr(parser, arg);
+                break;
+            case TOK_DOT:
+                arg = parse_proj_expr(parser, arg);
+                break;
             default:
                 return arg;
         }
-        next_token(parser);
-        return alloc_ast(parser, &arg->source_range.begin, &(struct ast) {
-            .tag = AST_UNARY_EXPR,
-            .unary_expr = {
-                .tag = tag,
-                .arg = arg
-            }
-        });
     }
 }
 

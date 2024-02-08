@@ -86,6 +86,9 @@ void log_msg(
         if (log->error_count >= log->max_errors)
             return;
     }
+    if (tag != MSG_NOTE && log->error_count > 1) {
+        fprintf(log->file, "\n");
+    }
 
     if (!log->file)
         return;

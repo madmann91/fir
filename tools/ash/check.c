@@ -535,6 +535,51 @@ static const struct type* infer_cast_expr(struct type_checker* type_checker, str
     return dest_type;
 }
 
+static const struct type* infer_proj_expr(struct type_checker* type_checker, struct ast* proj_expr) {
+    const struct type* arg_type = infer(type_checker, proj_expr->proj_expr.arg);
+    const struct type* ref_type = arg_type->tag == TYPE_REF ? arg_type : NULL;
+    arg_type = type_remove_ref(arg_type);
+
+    if (!type_is_aggregate(arg_type)) {
+        invalid_type(type_checker, &proj_expr->proj_expr.arg->source_range, "record or tuple", arg_type);
+        return type_top(type_checker->type_set);
+    }
+
+    struct small_type_vec elem_types;
+    small_type_vec_init(&elem_types);
+    for (struct ast* elem = proj_expr->proj_expr.elems; elem; elem = elem->next) {
+        size_t index = elem->proj_elem.index;
+        if (elem->proj_elem.name)
+            index = type_find_field(arg_type, elem->proj_elem.name);
+        else if (arg_type->tag != TYPE_TUPLE) {
+            log_error(type_checker->log, &elem->source_range, "cannot use integer indices on records");
+            return type_top(type_checker->type_set);
+        }
+
+        if (index >= type_elem_count(arg_type)) {
+            if (elem->proj_elem.name) {
+                log_error(type_checker->log, &elem->source_range,
+                    "invalid member name '%s'", elem->proj_elem.name);
+            } else {
+                log_error(type_checker->log, &elem->source_range,
+                    "invalid member index '%zu'", elem->proj_elem.index);
+            }
+            return type_top(type_checker->type_set);
+        }
+
+        const struct type* elem_type = type_elem(arg_type, index);
+        if (ref_type)
+            elem_type = type_ref(type_checker->type_set, elem_type, ref_type->ref_type.is_const);
+        small_type_vec_push(&elem_types, &elem_type);
+    }
+
+    const struct type* proj_type = elem_types.elem_count != 1
+        ? type_tuple(type_checker->type_set, elem_types.elems, elem_types.elem_count)
+        : elem_types.elems[0];
+    small_type_vec_destroy(&elem_types);
+    return proj_type;
+}
+
 static const struct type* infer(struct type_checker* type_checker, struct ast* ast) {
     assert(!ast->type);
     switch (ast->tag) {
@@ -586,6 +631,8 @@ static const struct type* infer(struct type_checker* type_checker, struct ast* a
             return ast->type = infer_cast_expr(type_checker, ast);
         case AST_CALL_EXPR:
             return ast->type = check_call_expr(type_checker, ast, NULL);
+        case AST_PROJ_EXPR:
+            return ast->type = infer_proj_expr(type_checker, ast);
         case AST_WHILE_LOOP:
             return ast->type = infer_while_loop(type_checker, ast);
         default:

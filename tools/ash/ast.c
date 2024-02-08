@@ -134,7 +134,6 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
                 ast_print(file, ast->cast_expr.arg, options);
                 return;
             }
-
             fprintf(file, "(");
             ast_print(file, ast->cast_expr.arg, options);
             fprintf(file, " %sas%s ", keyword_style, reset_style);
@@ -205,6 +204,20 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
         case AST_CALL_EXPR:
             ast_print(file, ast->call_expr.callee, options);
             print_with_parens(file, ast->call_expr.arg, options);
+            break;
+        case AST_PROJ_ELEM:
+            if (ast->proj_elem.name)
+                fprintf(file, "%s", ast->proj_elem.name);
+            else
+                fprintf(file, "%zu", ast->proj_elem.index);
+            break;
+        case AST_PROJ_EXPR:
+            ast_print(file, ast->proj_expr.arg, options);
+            fprintf(file, ".");
+            if (ast->proj_expr.elems && !ast->proj_expr.elems->next)
+                ast_print(file, ast->proj_expr.elems, options);
+            else
+                print_many(file, "(", ", ", ")", ast->proj_expr.elems, options);
             break;
         case AST_WHILE_LOOP:
             fprintf(file, "%swhile%s ", keyword_style, reset_style);

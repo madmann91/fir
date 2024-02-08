@@ -53,6 +53,7 @@ enum ast_tag {
     AST_ERROR,
     AST_PROGRAM,
     AST_LITERAL,
+    AST_PROJ_ELEM,
 
     // Declarations
     AST_FUNC_DECL,
@@ -86,6 +87,7 @@ enum ast_tag {
     AST_BLOCK_EXPR,
     AST_IF_EXPR,
     AST_CALL_EXPR,
+    AST_PROJ_EXPR,
 
     // Statements
     AST_WHILE_LOOP,
@@ -193,6 +195,14 @@ struct ast {
             enum unary_expr_tag tag;
             struct ast* arg;
         } unary_expr;
+        struct {
+            const char* name;
+            size_t index;
+        } proj_elem;
+        struct {
+            struct ast* arg;
+            struct ast* elems;
+        } proj_expr;
         struct {
             struct ast* stmts;
             bool ends_with_semicolon;
