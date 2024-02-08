@@ -21,13 +21,12 @@ static const struct type* coerce(struct type_checker*, struct ast**, const struc
 static const struct type* infer(struct type_checker*, struct ast*);
 static const struct type* check(struct type_checker*, struct ast*, const struct type*);
 
-static const struct type* cannot_infer(
+static void cannot_infer(
     struct type_checker* type_checker,
     const struct fir_source_range* source_range,
     const char* name)
 {
     log_error(type_checker->log, source_range, "cannot infer type for symbol '%s'", name);
-    return type_top(type_checker->type_set);
 }
 
 static void invalid_type(
@@ -40,6 +39,19 @@ static void invalid_type(
     log_error(type_checker->log, source_range, "expected %s type, but got type '%s'",
         type_name, type_str);
     free(type_str);
+}
+
+static void invalid_cast(
+    struct type_checker* type_checker,
+    const struct fir_source_range* source_range,
+    const struct type* source_type,
+    const struct type* dest_type)
+{
+    char* source_type_str = type_to_string(source_type);
+    char* dest_type_str = type_to_string(dest_type);
+    log_error(type_checker->log, source_range, "cannot cast type '%s' into type '%s'", source_type_str, dest_type_str);
+    free(source_type_str);
+    free(dest_type_str);
 }
 
 static const struct type* expect_type(
@@ -433,8 +445,10 @@ static const struct type* check(
 }
 
 static const struct type* infer_func_decl(struct type_checker* type_checker, struct ast* func_decl) {
-    if (!ast_set_insert(&type_checker->visited_decls, &func_decl))
-        return cannot_infer(type_checker, &func_decl->source_range, func_decl->func_decl.name);
+    if (!ast_set_insert(&type_checker->visited_decls, &func_decl)) {
+        cannot_infer(type_checker, &func_decl->source_range, func_decl->func_decl.name);
+        return type_top(type_checker->type_set);
+    }
     const struct type* param_type = infer(type_checker, func_decl->func_decl.param);
     expect_irrefutable_pattern(type_checker, "function parameter", func_decl->func_decl.param);
     const struct type* ret_type = NULL;
@@ -504,9 +518,24 @@ static const struct type* infer_while_loop(struct type_checker* type_checker, st
     return type_unit(type_checker->type_set);
 }
 
+static inline bool is_cast_possible(const struct type* source_type, const struct type* dest_type) {
+    if (type_is_subtype(source_type, dest_type))
+        return true;
+    // TODO
+    return false;
+}
+
+static const struct type* infer_cast_expr(struct type_checker* type_checker, struct ast* cast_expr) {
+    assert(!ast_is_implicit_cast(cast_expr));
+    const struct type* dest_type = infer(type_checker, cast_expr->cast_expr.type);
+    const struct type* source_type = deref(type_checker, &cast_expr->cast_expr.arg);
+    if (!is_cast_possible(source_type, dest_type))
+        invalid_cast(type_checker, &cast_expr->source_range, source_type, dest_type);
+    return dest_type;
+}
+
 static const struct type* infer(struct type_checker* type_checker, struct ast* ast) {
-    if (ast->type)
-        return ast->type;
+    assert(!ast->type);
     switch (ast->tag) {
         case AST_PRIM_TYPE:
             return ast->type = type_prim(type_checker->type_set, (enum type_tag)ast->prim_type.tag);
@@ -518,8 +547,10 @@ static const struct type* infer(struct type_checker* type_checker, struct ast* a
         case AST_CONST_DECL:
             return ast->type = infer_const_or_var_decl(type_checker, ast);
         case AST_IDENT_PATTERN:
-            if (!ast->ident_pattern.type)
-                return ast->type = cannot_infer(type_checker, &ast->source_range, ast->ident_pattern.name);
+            if (!ast->ident_pattern.type) {
+                cannot_infer(type_checker, &ast->source_range, ast->ident_pattern.name);
+                return type_top(type_checker->type_set);
+            }
             ast->type = infer(type_checker, ast->ident_pattern.type);
             if (ast->ident_pattern.is_var)
                 ast->type = type_ref(type_checker->type_set, ast->type, false);
@@ -550,6 +581,8 @@ static const struct type* infer(struct type_checker* type_checker, struct ast* a
             return ast->type = check_binary_expr(type_checker, ast, NULL);
         case AST_IF_EXPR:
             return ast->type = check_if_expr(type_checker, ast, NULL);
+        case AST_CAST_EXPR:
+            return ast->type = infer_cast_expr(type_checker, ast);
         case AST_CALL_EXPR:
             return ast->type = check_call_expr(type_checker, ast, NULL);
         case AST_WHILE_LOOP:

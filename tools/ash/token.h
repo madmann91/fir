@@ -23,6 +23,7 @@
 
 #define KEYWORD_LIST(x) \
     PRIM_TYPE_LIST(x) \
+    x(AS, "as") \
     x(FUNC, "func") \
     x(VAR, "var") \
     x(CONST, "const") \

@@ -41,4 +41,3 @@ struct str_view token_str_view(const char* data, const struct token* token) {
         .length = token->source_range.end.bytes - token->source_range.begin.bytes
     };
 }
-

@@ -486,13 +486,25 @@ static struct ast* parse_prefix_expr(struct parser* parser) {
     });
 }
 
-struct ast* parse_call_expr(struct parser* parser, struct ast* callee) {
+static struct ast* parse_call_expr(struct parser* parser, struct ast* callee) {
     struct ast* arg = parse_tuple(parser, AST_TUPLE_EXPR, parse_expr);
     return alloc_ast(parser, &callee->source_range.begin, &(struct ast) {
         .tag = AST_CALL_EXPR,
         .call_expr = {
             .callee = callee,
             .arg = arg
+        }
+    });
+}
+
+static struct ast* parse_cast_expr(struct parser* parser, struct ast* arg) {
+    eat_token(parser, TOK_AS);
+    struct ast* type = parse_type(parser);
+    return alloc_ast(parser, &arg->source_range.begin, &(struct ast) {
+        .tag = AST_CAST_EXPR,
+        .cast_expr = {
+            .arg = arg,
+            .type = type
         }
     });
 }
@@ -506,6 +518,8 @@ struct ast* parse_suffix_expr(struct parser* parser, struct ast* arg) {
             case TOK_LPAREN:
                 arg = parse_call_expr(parser, arg);
                 continue;
+            case TOK_AS:
+                return parse_cast_expr(parser, arg);
             default:
                 return arg;
         }
