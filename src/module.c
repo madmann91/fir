@@ -1417,6 +1417,16 @@ struct fir_node* fir_alloc(
     return alloc;
 }
 
+static inline bool is_from_alloc(const struct fir_node* ptr) {
+    while (true) {
+        if (ptr->tag == FIR_ALLOC)
+            return true;
+        if (ptr->tag != FIR_ADDROF)
+            return false;
+        ptr = ptr->ops[0];
+    }
+}
+
 const struct fir_node* fir_load(
     enum fir_mem_flags flags,
     const struct fir_node* mem,
@@ -1431,7 +1441,7 @@ const struct fir_node* fir_load(
     if (mem->tag == FIR_STORE && mem->ops[1] == ptr && mem->ops[2]->ty == ty && (flags & FIR_MEM_VOLATILE) == 0)
         return mem->ops[2];
 
-    if (ptr->tag == FIR_ALLOC)
+    if (is_from_alloc(ptr))
         flags |= FIR_MEM_NON_NULL;
 
     return insert_node(fir_node_mod(mem), (const struct fir_node*)&(struct { FIR_NODE(2) }) {
@@ -1460,7 +1470,7 @@ const struct fir_node* fir_store(
     if (val->tag == FIR_BOT)
         return mem;
 
-    if (ptr->tag == FIR_ALLOC)
+    if (is_from_alloc(ptr))
         flags |= FIR_MEM_NON_NULL;
 
     return insert_node(fir_node_mod(mem), (const struct fir_node*)&(struct { FIR_NODE(3) }) {
