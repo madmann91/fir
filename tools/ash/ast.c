@@ -129,15 +129,17 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
                 ast_print(file, ast->ident_pattern.type, options);
             }
             break;
-        case AST_IMPLICIT_CAST_EXPR:
-            if (options->verbosity == FIR_VERBOSITY_HIGH)
-                fprintf(file, "(");
-            ast_print(file, ast->implicit_cast_expr.expr, options);
-            if (options->verbosity == FIR_VERBOSITY_HIGH) {
-                fprintf(file, " %sas%s ", keyword_style, reset_style);
-                type_print(file, ast->type);
-                fprintf(file, ")");
+        case AST_CAST_EXPR:
+            if (ast_is_implicit_cast(ast) && options->verbosity < FIR_VERBOSITY_HIGH) {
+                ast_print(file, ast->cast_expr.arg, options);
+                return;
             }
+
+            fprintf(file, "(");
+            ast_print(file, ast->cast_expr.arg, options);
+            fprintf(file, " %sas%s ", keyword_style, reset_style);
+            type_print(file, ast->type);
+            fprintf(file, ")");
             break;
         case AST_FIELD_TYPE:
         case AST_FIELD_EXPR:
@@ -276,19 +278,24 @@ const char* unary_expr_tag_to_string(enum unary_expr_tag tag) {
 
 bool unary_expr_tag_is_prefix(enum unary_expr_tag tag) {
     switch (tag) {
-        case UNARY_EXPR_PLUS:
-        case UNARY_EXPR_NEG:
-        case UNARY_EXPR_NOT:
-        case UNARY_EXPR_PRE_INC:
-        case UNARY_EXPR_PRE_DEC:
-            return true;
         case UNARY_EXPR_POST_INC:
         case UNARY_EXPR_POST_DEC:
             return false;
         default:
-            assert(false && "invalid unary expression");
-            return false;
+            return true;
     }
+}
+
+bool unary_expr_tag_is_inc(enum unary_expr_tag tag) {
+    return tag == UNARY_EXPR_PRE_INC || tag == UNARY_EXPR_POST_INC;
+}
+
+bool unary_expr_tag_is_dec(enum unary_expr_tag tag) {
+    return tag == UNARY_EXPR_PRE_DEC || tag == UNARY_EXPR_POST_DEC;
+}
+
+bool unary_expr_tag_is_inc_or_dec(enum unary_expr_tag tag) {
+    return unary_expr_tag_is_inc(tag) || unary_expr_tag_is_dec(tag);
 }
 
 int binary_expr_tag_to_precedence(enum binary_expr_tag tag) {
@@ -350,6 +357,10 @@ enum binary_expr_tag binary_expr_tag_remove_assign(enum binary_expr_tag tag) {
         default:
             return tag;
     }
+}
+
+bool ast_is_implicit_cast(const struct ast* ast) {
+    return ast->tag == AST_CAST_EXPR && !ast->cast_expr.type;
 }
 
 bool ast_needs_semicolon(const struct ast* ast) {

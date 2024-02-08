@@ -360,6 +360,11 @@ static struct ast* parse_block_expr(struct parser* parser) {
         struct ast* stmt = NULL;
         ends_with_semicolon = false;
         switch (parser->ahead->tag) {
+            case TOK_INC:
+            case TOK_DEC:
+            case TOK_NOT:
+            case TOK_ADD:
+            case TOK_SUB:
             case TOK_TRUE:
             case TOK_FALSE:
             case TOK_IDENT:

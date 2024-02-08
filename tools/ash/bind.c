@@ -132,6 +132,11 @@ static void bind(struct name_binder* name_binder, struct ast* ast) {
             for (struct ast* arg = ast->tuple_type.args; arg; arg = arg->next)
                 bind(name_binder, arg);
             break;
+        case AST_CAST_EXPR:
+            assert(ast->cast_expr.type);
+            bind(name_binder, ast->cast_expr.arg);
+            bind(name_binder, ast->cast_expr.type);
+            break;
         case AST_BLOCK_EXPR:
             for (struct ast* stmt = ast->block_expr.stmts; stmt; stmt = stmt->next)
                 bind_head(name_binder, stmt);

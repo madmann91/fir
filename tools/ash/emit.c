@@ -230,16 +230,43 @@ static const struct fir_node* emit_implicit_cast(
     return val;
 }
 
-static const struct fir_node* emit_implicit_cast_expr(struct emitter* emitter, struct ast* cast_expr) {
-    const struct fir_node* arg = emit(emitter, cast_expr->implicit_cast_expr.expr);
-    return emit_implicit_cast(emitter, arg, cast_expr->implicit_cast_expr.expr->type, cast_expr->type);
+static const struct fir_node* emit_cast_expr(struct emitter* emitter, struct ast* cast_expr) {
+    const struct fir_node* arg = emit(emitter, cast_expr->cast_expr.arg);
+    if (type_is_subtype(cast_expr->cast_expr.arg->type, cast_expr->type))
+        return emit_implicit_cast(emitter, arg, cast_expr->cast_expr.arg->type, cast_expr->type);
+
+    assert(false && "unimplemented");
+    return NULL;
 }
 
 static const struct fir_node* emit_unary_expr(struct emitter* emitter, struct ast* unary_expr) {
-    assert(false && "unimplemented");
-    (void)emitter;
-    (void)unary_expr;
-    return NULL;
+    const struct fir_node* arg  = emit(emitter, unary_expr->unary_expr.arg);
+    switch (unary_expr->unary_expr.tag) {
+        case UNARY_EXPR_PLUS:
+            return arg;
+        case UNARY_EXPR_NOT:
+            return fir_not(arg);
+        case UNARY_EXPR_NEG:
+            if (type_is_float(unary_expr->type))
+                return fir_fneg(emitter->fp_flags, arg);
+            return fir_ineg(arg);
+        case UNARY_EXPR_PRE_INC:
+        case UNARY_EXPR_PRE_DEC:
+        case UNARY_EXPR_POST_INC:
+        case UNARY_EXPR_POST_DEC:
+            {
+                const struct fir_node* val_ty = convert_type(emitter, unary_expr->type);
+                const struct fir_node* old_val = fir_block_load(&emitter->block, 0, arg, val_ty);
+                const struct fir_node* new_val = unary_expr_tag_is_inc(unary_expr->unary_expr.tag)
+                    ? fir_iarith_op(FIR_IADD, old_val, fir_one(val_ty))
+                    : fir_iarith_op(FIR_ISUB, old_val, fir_one(val_ty));
+                fir_block_store(&emitter->block, 0, arg, new_val);
+                return unary_expr_tag_is_prefix(unary_expr->unary_expr.tag) ? new_val : old_val;
+            }
+        default:
+            assert(false && "invalid unary operation");
+            return NULL;
+    }
 }
 
 static inline const struct fir_node* emit_arith_op(
@@ -396,8 +423,8 @@ static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
             return ast->node = emit_call_expr(emitter, ast);
         case AST_FIELD_EXPR:
             return ast->node = emit(emitter, ast->field_expr.arg);
-        case AST_IMPLICIT_CAST_EXPR:
-            return ast->node = emit_implicit_cast_expr(emitter, ast);
+        case AST_CAST_EXPR:
+            return ast->node = emit_cast_expr(emitter, ast);
         case AST_UNARY_EXPR:
             return ast->node = emit_unary_expr(emitter, ast);
         case AST_BINARY_EXPR:

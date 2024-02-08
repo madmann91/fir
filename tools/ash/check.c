@@ -89,8 +89,9 @@ static const struct type* implicit_cast(
 {
     assert(type_is_subtype((*expr)->type, type));
     struct ast* cast_expr = MEM_POOL_ALLOC(*type_checker->mem_pool, struct ast);
-    cast_expr->tag = AST_IMPLICIT_CAST_EXPR;
-    cast_expr->implicit_cast_expr.expr = *expr;
+    cast_expr->tag = AST_CAST_EXPR;
+    cast_expr->cast_expr.arg = *expr;
+    cast_expr->cast_expr.type = NULL;
     cast_expr->type = type;
     cast_expr->next = (*expr)->next;
     (*expr)->next = NULL;
@@ -243,9 +244,45 @@ static const struct type* check_unary_expr(
     struct ast* unary_expr,
     const struct type* expected_type)
 {
-    (void)unary_expr;
-    (void)expected_type;
-    return type_prim(type_checker->type_set, TYPE_I32);
+    const struct type* arg_type = expected_type
+        ? check(type_checker, unary_expr->unary_expr.arg, expected_type)
+        : infer(type_checker, unary_expr->unary_expr.arg);
+    bool is_inc_or_dec = unary_expr_tag_is_inc_or_dec(unary_expr->unary_expr.tag);
+    if (is_inc_or_dec)
+        expect_mutable(type_checker, &unary_expr->unary_expr.arg->source_range, arg_type);
+    arg_type = type_remove_ref(arg_type);
+
+    switch (unary_expr->unary_expr.tag) {
+        case UNARY_EXPR_PLUS:
+        case UNARY_EXPR_NEG:
+            if (!type_is_signed_int(arg_type) && !type_is_float(arg_type)) {
+                invalid_type(type_checker, &unary_expr->unary_expr.arg->source_range, "integer or floating-point", arg_type);
+                return type_top(type_checker->type_set);
+            }
+            break;
+        case UNARY_EXPR_PRE_INC:
+        case UNARY_EXPR_PRE_DEC:
+        case UNARY_EXPR_POST_INC:
+        case UNARY_EXPR_POST_DEC:
+            if (!type_is_int(arg_type)) {
+                invalid_type(type_checker, &unary_expr->unary_expr.arg->source_range, "integer", arg_type);
+                return type_top(type_checker->type_set);
+            }
+            break;
+        case UNARY_EXPR_NOT:
+            if (!type_is_int(arg_type) && arg_type->tag != TYPE_BOOL) {
+                invalid_type(type_checker, &unary_expr->unary_expr.arg->source_range, "integer or boolean", arg_type);
+                return type_top(type_checker->type_set);
+            }
+            break;
+        default:
+            assert(false && "invalid unary operation");
+            return type_top(type_checker->type_set);
+    }
+
+    if (!is_inc_or_dec)
+        coerce(type_checker, &unary_expr->unary_expr.arg, arg_type);
+    return arg_type;
 }
 
 static const struct type* check_binary_expr(
@@ -253,7 +290,6 @@ static const struct type* check_binary_expr(
     struct ast* binary_expr,
     const struct type* expected_type)
 {
-    (void)expected_type;
     if (binary_expr->binary_expr.tag == BINARY_EXPR_ASSIGN) {
         const struct type* left_type = infer(type_checker, binary_expr->binary_expr.left);
         if (left_type->tag == TYPE_REF)
@@ -276,10 +312,12 @@ static const struct type* check_binary_expr(
     }
 
     bool is_assign = binary_expr_tag_is_assign(binary_expr->binary_expr.tag);
-    const struct type* deref_left_type = type_remove_ref(left_type);
-    const struct type* joined_type = type_is_subtype(right_type, left_type) || is_assign ? deref_left_type : right_type;
-    const struct type* result_type = joined_type;
+    if (is_assign)
+        expect_mutable(type_checker, &binary_expr->binary_expr.left->source_range, left_type);
+    left_type = type_remove_ref(left_type);
 
+    const struct type* joined_type = type_is_subtype(right_type, left_type) || is_assign ? left_type : right_type;
+    const struct type* result_type = joined_type;
     switch (binary_expr_tag_remove_assign(binary_expr->binary_expr.tag)) {
         case BINARY_EXPR_MUL:
         case BINARY_EXPR_DIV:
@@ -327,12 +365,10 @@ static const struct type* check_binary_expr(
     }
 
     coerce(type_checker, &binary_expr->binary_expr.right, joined_type);
-    if (is_assign) {
-        expect_mutable(type_checker, &binary_expr->binary_expr.left->source_range, left_type);
+    if (is_assign)
         return type_unit(type_checker->type_set);
-    } else
-        coerce(type_checker, &binary_expr->binary_expr.left, joined_type);
 
+    coerce(type_checker, &binary_expr->binary_expr.left, joined_type);
     return result_type;
 }
 
