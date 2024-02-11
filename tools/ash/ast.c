@@ -341,6 +341,10 @@ bool binary_expr_tag_is_assign(enum binary_expr_tag tag) {
     }
 }
 
+bool binary_expr_tag_is_logic(enum binary_expr_tag tag) {
+    return tag == BINARY_EXPR_LOGIC_AND || tag == BINARY_EXPR_LOGIC_OR;
+}
+
 bool binary_expr_tag_is_cmp(enum binary_expr_tag tag) {
     switch (tag) {
         case BINARY_EXPR_CMP_EQ:
@@ -370,6 +374,10 @@ enum binary_expr_tag binary_expr_tag_remove_assign(enum binary_expr_tag tag) {
         default:
             return tag;
     }
+}
+
+bool ast_is_logic_expr(const struct ast* ast) {
+    return ast->tag == AST_BINARY_EXPR && binary_expr_tag_is_logic(ast->binary_expr.tag);
 }
 
 bool ast_is_implicit_cast(const struct ast* ast) {

@@ -581,6 +581,10 @@ const struct fir_node* fir_bot(const struct fir_node* ty) {
     });
 }
 
+const struct fir_node* fir_bool_const(struct fir_mod* mod, bool bool_val) {
+    return fir_int_const(fir_bool_ty(mod), bool_val ? 1 : 0);
+}
+
 const struct fir_node* fir_int_const(const struct fir_node* ty, fir_int_val int_val) {
     assert(ty->tag == FIR_INT_TY);
     int_val &= make_bitmask(ty->data.bitwidth);

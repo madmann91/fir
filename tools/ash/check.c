@@ -147,8 +147,12 @@ static const struct type* check_block_expr(
         else
             last_stmt = stmt;
     }
-    if (!last_stmt)
-        return type_unit(type_checker->type_set);
+    if (!last_stmt) {
+        const struct type* block_type = type_unit(type_checker->type_set);
+        if (expected_type)
+            return expect_type(type_checker, &block_expr->source_range, block_type, expected_type);
+        return block_type;
+    }
     return expected_type
         ? check(type_checker, last_stmt, expected_type)
         : infer(type_checker, last_stmt);

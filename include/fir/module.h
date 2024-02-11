@@ -152,6 +152,8 @@ FIR_SYMBOL const struct fir_node* fir_top(const struct fir_node* ty);
 /// Top value, representing all possible values (full set).
 FIR_SYMBOL const struct fir_node* fir_bot(const struct fir_node* ty);
 
+/// Boolean constant.
+FIR_SYMBOL const struct fir_node* fir_bool_const(struct fir_mod*, bool bool_val);
 /// Integer constant.
 FIR_SYMBOL const struct fir_node* fir_int_const(const struct fir_node* ty, fir_int_val int_val);
 /// Floating-point constant.

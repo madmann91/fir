@@ -246,9 +246,11 @@ bool unary_expr_tag_is_dec(enum unary_expr_tag);
 bool unary_expr_tag_is_inc_or_dec(enum unary_expr_tag);
 int binary_expr_tag_to_precedence(enum binary_expr_tag);
 bool binary_expr_tag_is_assign(enum binary_expr_tag);
+bool binary_expr_tag_is_logic(enum binary_expr_tag);
 bool binary_expr_tag_is_cmp(enum binary_expr_tag);
 enum binary_expr_tag binary_expr_tag_remove_assign(enum binary_expr_tag);
 
+bool ast_is_logic_expr(const struct ast*);
 bool ast_is_implicit_cast(const struct ast*);
 bool ast_needs_semicolon(const struct ast*);
 bool ast_is_irrefutable_pattern(const struct ast*);
