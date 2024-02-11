@@ -35,10 +35,12 @@ static void invalid_type(
     const char* type_name,
     const struct type* type)
 {
-    char* type_str = type_to_string(type);
-    log_error(type_checker->log, source_range, "expected %s type, but got type '%s'",
-        type_name, type_str);
-    free(type_str);
+    if (!type->contains_top) {
+        char* type_str = type_to_string(type);
+        log_error(type_checker->log, source_range, "expected %s type, but got type '%s'",
+            type_name, type_str);
+        free(type_str);
+    }
 }
 
 static void invalid_cast(
@@ -47,11 +49,13 @@ static void invalid_cast(
     const struct type* source_type,
     const struct type* dest_type)
 {
-    char* source_type_str = type_to_string(source_type);
-    char* dest_type_str = type_to_string(dest_type);
-    log_error(type_checker->log, source_range, "cannot cast type '%s' into type '%s'", source_type_str, dest_type_str);
-    free(source_type_str);
-    free(dest_type_str);
+    if (!source_type->contains_top && !dest_type->contains_top) {
+        char* source_type_str = type_to_string(source_type);
+        char* dest_type_str = type_to_string(dest_type);
+        log_error(type_checker->log, source_range, "cannot cast type '%s' into type '%s'", source_type_str, dest_type_str);
+        free(source_type_str);
+        free(dest_type_str);
+    }
 }
 
 static const struct type* expect_type(
@@ -60,7 +64,7 @@ static const struct type* expect_type(
     const struct type* type,
     const struct type* expected_type)
 {
-    if (!type_is_subtype(type, expected_type)) {
+    if (!type_is_subtype(type, expected_type) && !expected_type->contains_top && !type->contains_top) {
         char* type_str = type_to_string(type);
         char* expected_type_str = type_to_string(expected_type);
         log_error(type_checker->log, source_range, "expected type '%s', but got type '%s'",
@@ -77,7 +81,7 @@ static void expect_mutable(
     const struct fir_source_range* source_range,
     const struct type* type)
 {
-    if (type->tag != TYPE_REF || type->ref_type.is_const) {
+    if ((type->tag != TYPE_REF || type->ref_type.is_const) && !type->contains_top) {
         char* type_str = type_to_string(type);
         log_error(type_checker->log, source_range,
             "expected mutable expression, but got expression of type '%s'", type_str);

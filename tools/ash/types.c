@@ -386,6 +386,40 @@ static const char** copy_strings(
     return strings_copy;
 }
 
+static inline bool contains_top(const struct type* type) {
+    switch (type->tag) {
+        case TYPE_TOP:
+            return true;
+        case TYPE_REF:
+        case TYPE_PTR:
+            return type->ref_type.pointee_type->contains_top;
+        case TYPE_ARRAY:
+            return type->array_type.elem_type->contains_top;
+        case TYPE_DYN_ARRAY:
+            return type->dyn_array_type.elem_type->contains_top;
+        case TYPE_VARIANT:
+            for (size_t i = 0; i < type->variant_type.option_count; ++i) {
+                if (type->variant_type.option_types[i]->contains_top)
+                    return true;
+            }
+            return false;
+        case TYPE_TUPLE:
+            for (size_t i = 0; i < type->tuple_type.arg_count; ++i) {
+                if (type->tuple_type.arg_types[i]->contains_top)
+                    return true;
+            }
+            return false;
+        case TYPE_RECORD:
+            for (size_t i = 0; i < type->record_type.field_count; ++i) {
+                if (type->record_type.field_types[i]->contains_top)
+                    return true;
+            }
+            return false;
+        default:
+            return false;
+    }
+}
+
 static const struct type* insert_type(struct type_set* type_set, const struct type* type) {
     const struct type* const* found = internal_type_set_find(&type_set->types, &type);
     if (found)
@@ -416,6 +450,7 @@ static const struct type* insert_type(struct type_set* type_set, const struct ty
         default:
             break;
     }
+    new_type->contains_top = contains_top(new_type);
     [[maybe_unused]] bool was_inserted = internal_type_set_insert(&type_set->types, (const struct type* const*)&new_type);
     assert(was_inserted);
     return new_type;

@@ -28,6 +28,7 @@ struct type;
 struct type {
     uint64_t id;
     enum type_tag tag;
+    bool contains_top;
     union {
         struct {
             const struct type* pointee_type;
