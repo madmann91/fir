@@ -359,10 +359,9 @@ static void visit_node(struct scheduler* scheduler, const struct fir_node* node)
 restart:
     while (!unique_node_stack_is_empty(&scheduler->visit_stack)) {
         const struct fir_node* node = *unique_node_stack_last(&scheduler->visit_stack);
-        assert(is_in_schedule(node));
 
         for (size_t i = 0; i < node->op_count; ++i) {
-            if (is_in_schedule(node->ops[i]) && unique_node_stack_push(&scheduler->visit_stack, &node->ops[i]))
+            if (unique_node_stack_push(&scheduler->visit_stack, &node->ops[i]))
                 goto restart;
         }
 
@@ -381,7 +380,7 @@ static void run_scheduler(struct scheduler* scheduler) {
     unique_node_stack_clear(&scheduler->visit_stack);
     VEC_FOREACH(struct graph_node*, block_ptr, scheduler->cfg->post_order) {
         const struct fir_node* func = cfg_block_func(*block_ptr);
-        if (!func || !is_in_schedule(func->ops[0]))
+        if (!func || !func->ops[0])
             continue;
         visit_node(scheduler, func->ops[0]);
     }

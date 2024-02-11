@@ -217,8 +217,10 @@ static inline const struct fir_node* insert_node(struct fir_mod* mod, const stru
     struct fir_node* new_node = alloc_node(node->op_count);
     memcpy(new_node, node, sizeof(struct fir_node) + sizeof(struct fir_node*) * node->op_count);
     if (!fir_node_is_ty(node)) {
-        for (size_t i = 0; i < node->op_count; ++i)
-            record_use(new_node, i);
+        for (size_t i = 0; i < node->op_count; ++i) {
+            if (!fir_node_is_ty(node->ops[i]))
+                record_use(new_node, i);
+        }
     }
     new_node->props = compute_props(new_node);
     new_node->id = mod->cur_id++;
@@ -1380,6 +1382,14 @@ const struct fir_node* fir_addrof(
         .ty = ptr->ty,
         .ops = { ptr, aggr_ty, index }
     });
+}
+
+const struct fir_node* fir_addrof_at(
+    const struct fir_node* ptr,
+    const struct fir_node* aggr_ty,
+    size_t index)
+{
+    return fir_addrof(ptr, aggr_ty, fir_int_const(fir_node_mod(aggr_ty)->index_ty, index));
 }
 
 const struct fir_node* fir_select(

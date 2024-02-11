@@ -278,6 +278,13 @@ FIR_SYMBOL const struct fir_node* fir_addrof(
     const struct fir_node* aggr_ty,
     const struct fir_node* index);
 
+/// Obtains the address of the element with the given index in a tuple or array, given the address
+/// of the tuple or array.
+FIR_SYMBOL const struct fir_node* fir_addrof_at(
+    const struct fir_node* ptr,
+    const struct fir_node* aggr_ty,
+    size_t index);
+
 /// Builds a selection out of an extract and an array.
 /// Shortcut for `ext(array(when_false, when_true), cond)`.
 FIR_SYMBOL const struct fir_node* fir_select(

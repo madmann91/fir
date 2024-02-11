@@ -444,6 +444,31 @@ static const struct fir_node* emit_while_loop(struct emitter* emitter, struct as
     return fir_unit(emitter->mod);
 }
 
+static const struct fir_node* emit_proj_expr(struct emitter* emitter, struct ast* proj_expr) {
+    bool is_from_ptr = proj_expr->proj_expr.arg->type->tag == TYPE_REF;
+    const struct fir_node* arg = emit(emitter, proj_expr->proj_expr.arg);
+    const struct fir_node* aggr_ty = convert_type(emitter, type_remove_ref(proj_expr->proj_expr.arg->type));
+
+    struct small_node_vec proj_elems;
+    small_node_vec_init(&proj_elems);
+    for (struct ast* elem = proj_expr->proj_expr.elems; elem; elem = elem->next) {
+        const struct fir_node* proj_elem = NULL;
+        if (is_from_ptr) {
+            proj_elem = fir_addrof_at(arg, aggr_ty, elem->proj_elem.index);
+            if (elem->type->tag != TYPE_REF)
+                proj_elem = fir_block_load(&emitter->block, 0, proj_elem, convert_type(emitter, elem->type));
+        } else {
+            proj_elem = fir_ext_at(arg, elem->proj_elem.index);
+        }
+        small_node_vec_push(&proj_elems, &proj_elem);
+    }
+    const struct fir_node* proj = proj_elems.elem_count == 1
+        ? proj_elems.elems[0]
+        : fir_tup(emitter->mod, proj_elems.elems, proj_elems.elem_count);
+    small_node_vec_destroy(&proj_elems);
+    return proj;
+}
+
 static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
     switch (ast->tag) {
         case AST_LITERAL:
@@ -473,6 +498,8 @@ static const struct fir_node* emit(struct emitter* emitter, struct ast* ast) {
             return ast->node = emit_unary_expr(emitter, ast);
         case AST_BINARY_EXPR:
             return ast->node = emit_binary_expr(emitter, ast);
+        case AST_PROJ_EXPR:
+            return ast->node = emit_proj_expr(emitter, ast);
         case AST_WHILE_LOOP:
             return ast->node = emit_while_loop(emitter, ast);
         default:
@@ -493,9 +520,7 @@ static void emit_head(struct emitter* emitter, struct ast* ast) {
 
 void ast_emit(struct ast* ast, struct fir_mod* mod) {
     assert(ast->tag == AST_PROGRAM);
-    struct emitter emitter = {
-        .mod = mod
-    };
+    struct emitter emitter = { .mod = mod };
     for (struct ast* decl = ast->program.decls; decl; decl = decl->next)
         emit_head(&emitter, decl);
     for (struct ast* decl = ast->program.decls; decl; decl = decl->next)
