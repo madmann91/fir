@@ -113,10 +113,6 @@ const struct fir_node* fir_block_call(
     return fir_node_chop(ret_val, 1);
 }
 
-const struct fir_node* fir_block_alloc(struct fir_block* block, const struct fir_node* ty) {
-    return fir_alloc(fir_func_frame(block->func), fir_bot(ty));
-}
-
 const struct fir_node* fir_block_load(
     struct fir_block* block,
     enum fir_mem_flags mem_flags,

@@ -91,7 +91,7 @@ struct fir_mod {
     uint64_t cur_id;
     struct nominal_node_vec funcs;
     struct nominal_node_vec globals;
-    struct nominal_node_vec allocs;
+    struct nominal_node_vec locals;
     struct internal_node_set nodes;
     struct node_set external_nodes;
     const struct fir_node* mem_ty;
@@ -256,14 +256,14 @@ void fir_mod_destroy(struct fir_mod* mod) {
     VEC_FOREACH(struct fir_node*, global_ptr, mod->globals) {
         free_node((struct fir_node*)*global_ptr);
     }
-    VEC_FOREACH(struct fir_node*, alloc_ptr, mod->allocs) {
-        free_node((struct fir_node*)*alloc_ptr);
+    VEC_FOREACH(struct fir_node*, local_ptr, mod->locals) {
+        free_node((struct fir_node*)*local_ptr);
     }
     node_set_destroy(&mod->external_nodes);
     internal_node_set_destroy(&mod->nodes);
     nominal_node_vec_destroy(&mod->funcs);
     nominal_node_vec_destroy(&mod->globals);
-    nominal_node_vec_destroy(&mod->allocs);
+    nominal_node_vec_destroy(&mod->locals);
     free_uses(mod->free_uses);
     free(mod);
 }
@@ -355,7 +355,7 @@ void fir_mod_cleanup(struct fir_mod* mod) {
 
     fix_nominal_nodes_uses(&mod->funcs, &live_nodes);
     fix_nominal_nodes_uses(&mod->globals, &live_nodes);
-    fix_nominal_nodes_uses(&mod->allocs, &live_nodes);
+    fix_nominal_nodes_uses(&mod->locals, &live_nodes);
 
     struct node_vec dead_nodes = node_vec_create();
     SET_FOREACH(const struct fir_node*, node_ptr, mod->nodes) {
@@ -374,7 +374,7 @@ void fir_mod_cleanup(struct fir_mod* mod) {
 
     cleanup_nominal_nodes(&mod->funcs, &live_nodes);
     cleanup_nominal_nodes(&mod->globals, &live_nodes);
-    cleanup_nominal_nodes(&mod->allocs, &live_nodes);
+    cleanup_nominal_nodes(&mod->locals, &live_nodes);
 
     node_vec_destroy(&dead_nodes);
     node_set_destroy(&live_nodes);
@@ -1401,7 +1401,7 @@ const struct fir_node* fir_choice(
     return fir_ext(array, index);
 }
 
-struct fir_node* fir_alloc(
+struct fir_node* fir_local(
     const struct fir_node* frame,
     const struct fir_node* init)
 {
@@ -1409,18 +1409,18 @@ struct fir_node* fir_alloc(
     struct fir_mod* mod = fir_node_mod(frame);
     struct fir_node* alloc = alloc_node(2);
     alloc->id = mod->cur_id++;
-    alloc->tag = FIR_ALLOC;
+    alloc->tag = FIR_LOCAL;
     alloc->ty = fir_ptr_ty(mod);
     alloc->op_count = 2;
     fir_node_set_op(alloc, 0, frame);
     fir_node_set_op(alloc, 1, init);
-    nominal_node_vec_push(&mod->allocs, &alloc);
+    nominal_node_vec_push(&mod->locals, &alloc);
     return alloc;
 }
 
-static inline bool is_from_alloc(const struct fir_node* ptr) {
+static inline bool is_from_local(const struct fir_node* ptr) {
     while (true) {
-        if (ptr->tag == FIR_ALLOC)
+        if (ptr->tag == FIR_LOCAL)
             return true;
         if (ptr->tag != FIR_ADDROF)
             return false;
@@ -1442,7 +1442,7 @@ const struct fir_node* fir_load(
     if (mem->tag == FIR_STORE && mem->ops[1] == ptr && mem->ops[2]->ty == ty && (flags & FIR_MEM_VOLATILE) == 0)
         return mem->ops[2];
 
-    if (is_from_alloc(ptr))
+    if (is_from_local(ptr))
         flags |= FIR_MEM_NON_NULL;
 
     return insert_node(fir_node_mod(mem), (const struct fir_node*)&(struct { FIR_NODE(2) }) {
@@ -1471,7 +1471,7 @@ const struct fir_node* fir_store(
     if (val->tag == FIR_BOT)
         return mem;
 
-    if (is_from_alloc(ptr))
+    if (is_from_local(ptr))
         flags |= FIR_MEM_NON_NULL;
 
     return insert_node(fir_node_mod(mem), (const struct fir_node*)&(struct { FIR_NODE(3) }) {

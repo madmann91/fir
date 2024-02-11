@@ -22,7 +22,7 @@
 
 /// Lists all nominal nodes. @see module.h
 #define FIR_NOMINAL_NODE_LIST(x) \
-    x(ALLOC, "alloc") \
+    x(LOCAL,  "local") \
     x(GLOBAL, "global") \
     x(FUNC,   "func")
 

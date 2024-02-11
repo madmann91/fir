@@ -30,13 +30,8 @@ static void emit_pattern(
             break;
         }
         case AST_IDENT_PATTERN:
-            if (pattern->ident_pattern.is_var) {
-                const struct fir_node* alloc = fir_block_alloc(&emitter->block, val->ty);
-                fir_block_store(&emitter->block, FIR_MEM_NON_NULL, alloc, val);
-                pattern->node = alloc;
-            } else {
-                pattern->node = val;
-            }
+            pattern->node = pattern->ident_pattern.is_var
+                ? fir_local(fir_func_frame(emitter->block.func), val) : val;
             break;
         default:
             assert(false && "invalid pattern");
@@ -181,12 +176,12 @@ static void emit_cond(
 }
 
 static const struct fir_node* emit_if_expr(struct emitter* emitter, struct ast* if_expr) {
-    const struct fir_node* alloc_ty = NULL;
-    const struct fir_node* alloc = NULL;
+    const struct fir_node* local_ty = NULL;
+    const struct fir_node* local = NULL;
 
     if (!type_is_unit(if_expr->type)) {
-        alloc_ty = convert_type(emitter, if_expr->type);
-        alloc = fir_block_alloc(&emitter->block, alloc_ty);
+        local_ty = convert_type(emitter, if_expr->type);
+        local = fir_local(fir_func_frame(emitter->block.func), fir_bot(local_ty));
     }
 
     struct fir_block then_block = fir_block_merge(emitter->block.func);
@@ -196,20 +191,20 @@ static const struct fir_node* emit_if_expr(struct emitter* emitter, struct ast* 
 
     emitter->block = then_block;
     const struct fir_node* then_val = emit(emitter, if_expr->if_expr.then_block);
-    if (alloc)
-        fir_block_store(&emitter->block, FIR_MEM_NON_NULL, alloc, then_val);
+    if (local)
+        fir_block_store(&emitter->block, FIR_MEM_NON_NULL, local, then_val);
     fir_block_jump(&emitter->block, &merge_block);
 
     emitter->block = else_block;
     if (if_expr->if_expr.else_block) {
         const struct fir_node* else_val = emit(emitter, if_expr->if_expr.else_block);
-        if (alloc)
-            fir_block_store(&emitter->block, FIR_MEM_NON_NULL, alloc, else_val);
+        if (local)
+            fir_block_store(&emitter->block, FIR_MEM_NON_NULL, local, else_val);
     }
     fir_block_jump(&emitter->block, &merge_block);
 
     emitter->block = merge_block;
-    return alloc ? fir_block_load(&emitter->block, FIR_MEM_NON_NULL, alloc, alloc_ty) : fir_unit(emitter->mod);
+    return local ? fir_block_load(&emitter->block, FIR_MEM_NON_NULL, local, local_ty) : fir_unit(emitter->mod);
 }
 
 static const struct fir_node* emit_call_expr(struct emitter* emitter, struct ast* call_expr) {
@@ -385,19 +380,19 @@ static inline const struct fir_node* emit_binary_expr(struct emitter* emitter, s
         struct fir_block branch_true  = fir_block_merge(emitter->block.func);
         struct fir_block branch_false = fir_block_merge(emitter->block.func);
         struct fir_block merge_block  = fir_block_merge(emitter->block.func);
-        const struct fir_node* alloc = fir_block_alloc(&emitter->block, fir_bool_ty(emitter->mod));
+        const struct fir_node* local = fir_local(fir_func_frame(emitter->block.func), fir_bot(fir_bool_ty(emitter->mod)));
 
         emit_cond(emitter, binary_expr, &branch_true, &branch_false, &merge_block);
 
         emitter->block = branch_true;
-        fir_block_store(&emitter->block, FIR_MEM_NON_NULL, alloc, fir_bool_const(emitter->mod, true));
+        fir_block_store(&emitter->block, FIR_MEM_NON_NULL, local, fir_bool_const(emitter->mod, true));
         fir_block_jump(&emitter->block, &merge_block);
         emitter->block = branch_false;
-        fir_block_store(&emitter->block, FIR_MEM_NON_NULL, alloc, fir_bool_const(emitter->mod, false));
+        fir_block_store(&emitter->block, FIR_MEM_NON_NULL, local, fir_bool_const(emitter->mod, false));
         fir_block_jump(&emitter->block, &merge_block);
 
         emitter->block = merge_block;
-        return fir_block_load(&emitter->block, FIR_MEM_NON_NULL, alloc, fir_bool_ty(emitter->mod));
+        return fir_block_load(&emitter->block, FIR_MEM_NON_NULL, local, fir_bool_ty(emitter->mod));
     }
 
     const struct fir_node* result = NULL;

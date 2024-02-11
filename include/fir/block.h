@@ -98,9 +98,6 @@ FIR_SYMBOL const struct fir_node* fir_block_call(
 /// @name Memory operations
 /// @{
 
-/// Allocates a value in the given block.
-FIR_SYMBOL const struct fir_node* fir_block_alloc(struct fir_block*, const struct fir_node* ty);
-
 /// Loads a value at the given address, in the given block.
 FIR_SYMBOL const struct fir_node* fir_block_load(
     struct fir_block*,

@@ -160,9 +160,10 @@ static inline struct fir_node* build_iter_pow(struct fir_mod* mod) {
     // done:
     //   return i
 
-    const struct fir_node* i = fir_block_alloc(&entry, int32_ty);
+    const struct fir_node* frame = fir_func_frame(pow);
+    const struct fir_node* i = fir_local(frame, fir_bot(int32_ty));
     fir_block_store(&entry, FIR_MEM_NON_NULL, i, n);
-    const struct fir_node* p = fir_block_alloc(&entry, int32_ty);
+    const struct fir_node* p = fir_local(frame, fir_bot(int32_ty));
     fir_block_store(&entry, FIR_MEM_NON_NULL, p, fir_one(int32_ty));
 
     struct fir_block loop;
