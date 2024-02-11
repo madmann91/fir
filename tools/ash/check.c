@@ -557,13 +557,15 @@ static const struct type* infer_proj_elem(
     }
 
     if (proj_elem->proj_elem.index >= type_elem_count(arg_type)) {
+        char* type_str = type_to_string(arg_type);
         if (proj_elem->proj_elem.name) {
             log_error(type_checker->log, &proj_elem->source_range,
-                "invalid member name '%s'", proj_elem->proj_elem.name);
+                "no member named '%s' in '%s'", proj_elem->proj_elem.name, type_str);
         } else {
             log_error(type_checker->log, &proj_elem->source_range,
-                "invalid member index '%zu'", proj_elem->proj_elem.index);
+                "invalid member index '%zu' for tuple type '%s'", proj_elem->proj_elem.index, type_str);
         }
+        free(type_str);
         return type_top(type_checker->type_set);
     }
 
