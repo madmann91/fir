@@ -78,3 +78,5 @@ static inline void str_clear(struct str* str) {
 static inline void str_destroy(struct str* str) {
     free(str->data);
 }
+
+void str_printf(struct str* str, const char* fmt, ...);

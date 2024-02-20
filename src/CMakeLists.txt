@@ -2,6 +2,7 @@ add_library(libfir_support STATIC
     support/io.c
     support/log.c
     support/cli.c
+    support/str.c
     support/union_find.c
     support/heap.c
     support/graph.c
