@@ -25,6 +25,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{matrix.build-type}} \
             -DCMAKE_C_COMPILER=${{matrix.compiler}} \
             -DBUILD_TESTING=ON \
+            -DENABLE_LLVM_CODEGEN=OFF \
             -DTEST_DISABLE_FORK=ON \
             -DTEST_DISABLE_REGEX=ON \
             -S $GITHUB_WORKSPACE
