@@ -150,23 +150,21 @@ static void emit_cond(
     struct emitter* emitter,
     struct ast* cond,
     struct fir_block* branch_true,
-    struct fir_block* branch_false,
-    const struct fir_block* merge_block)
+    struct fir_block* branch_false)
 {
     if (ast_is_logic_expr(cond)) {
         struct fir_block next_block = fir_block_merge(emitter->block.func);
         emit_cond(emitter, cond->binary_expr.left,
             cond->binary_expr.tag == BINARY_EXPR_LOGIC_OR  ? branch_true  : &next_block,
-            cond->binary_expr.tag == BINARY_EXPR_LOGIC_AND ? branch_false : &next_block,
-            &next_block);
+            cond->binary_expr.tag == BINARY_EXPR_LOGIC_AND ? branch_false : &next_block);
 
         emitter->block = next_block;
-        emit_cond(emitter, cond->binary_expr.right, branch_true, branch_false, merge_block);
+        emit_cond(emitter, cond->binary_expr.right, branch_true, branch_false);
     } else {
         const struct fir_node* cond_val = emit(emitter, cond);
         struct fir_block cond_true;
         struct fir_block cond_false;
-        fir_block_branch(&emitter->block, cond_val, &cond_true, &cond_false, merge_block);
+        fir_block_branch(&emitter->block, cond_val, &cond_true, &cond_false);
 
         emitter->block = cond_true;
         fir_block_jump(&emitter->block, branch_true);
@@ -187,7 +185,7 @@ static const struct fir_node* emit_if_expr(struct emitter* emitter, struct ast* 
     struct fir_block then_block = fir_block_merge(emitter->block.func);
     struct fir_block else_block = fir_block_merge(emitter->block.func);
     struct fir_block merge_block = fir_block_merge(emitter->block.func);
-    emit_cond(emitter, if_expr->if_expr.cond, &then_block, &else_block, &merge_block);
+    emit_cond(emitter, if_expr->if_expr.cond, &then_block, &else_block);
 
     emitter->block = then_block;
     const struct fir_node* then_val = emit(emitter, if_expr->if_expr.then_block);
@@ -382,7 +380,7 @@ static inline const struct fir_node* emit_binary_expr(struct emitter* emitter, s
         struct fir_block merge_block  = fir_block_merge(emitter->block.func);
         const struct fir_node* local = fir_local(fir_func_frame(emitter->block.func), fir_bot(fir_bool_ty(emitter->mod)));
 
-        emit_cond(emitter, binary_expr, &branch_true, &branch_false, &merge_block);
+        emit_cond(emitter, binary_expr, &branch_true, &branch_false);
 
         emitter->block = branch_true;
         fir_block_store(&emitter->block, FIR_MEM_NON_NULL, local, fir_bool_const(emitter->mod, true));
@@ -431,10 +429,10 @@ static const struct fir_node* emit_while_loop(struct emitter* emitter, struct as
     struct fir_block continue_block;
     struct fir_block break_block = fir_block_merge(emitter->block.func);
     struct fir_block body_block  = fir_block_merge(emitter->block.func);
-    fir_block_loop(&emitter->block, &continue_block, &break_block);
+    fir_block_loop(&emitter->block, &continue_block);
 
     emitter->block = continue_block;
-    emit_cond(emitter, while_loop->while_loop.cond, &body_block, &break_block, &break_block);
+    emit_cond(emitter, while_loop->while_loop.cond, &body_block, &break_block);
 
     emitter->block = body_block;
     emit(emitter, while_loop->while_loop.body);
