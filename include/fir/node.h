@@ -209,6 +209,13 @@ FIR_SYMBOL bool fir_node_is_one(const struct fir_node*);
 /// @see fir_all_ones.
 FIR_SYMBOL bool fir_node_is_all_ones(const struct fir_node*);
 
+/// @return `true` if the given node is the unit value (empty tuple).
+/// @see fir_unit.
+FIR_SYMBOL bool fir_node_is_unit(const struct fir_node*);
+/// @return `true` if the given node is the unit type (empty tuple type).
+/// @see fir_unit_ty.
+FIR_SYMBOL bool fir_node_is_unit_ty(const struct fir_node*);
+
 /// @return `true` if the given node is a boolean selection.
 /// @see fir_select.
 FIR_SYMBOL bool fir_node_is_select(const struct fir_node*);

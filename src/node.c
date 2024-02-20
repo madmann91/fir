@@ -125,6 +125,14 @@ bool fir_node_is_all_ones(const struct fir_node* node) {
         node->data.int_val == make_bitmask(node->ty->data.bitwidth);
 }
 
+bool fir_node_is_unit(const struct fir_node* node) {
+    return node->tag == FIR_TUP && node->op_count == 0;
+}
+
+bool fir_node_is_unit_ty(const struct fir_node* node) {
+    return node->tag == FIR_TUP_TY && node->op_count == 0;
+}
+
 bool fir_node_is_choice(const struct fir_node* node) {
     return
         node->tag == FIR_EXT &&
