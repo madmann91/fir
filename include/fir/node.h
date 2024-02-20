@@ -333,13 +333,13 @@ FIR_SYMBOL const struct fir_node* fir_node_chop(const struct fir_node* node, siz
 /// @{
 
 /// Returns the first basic-block of a function, or `NULL` if it is not set.
-FIR_SYMBOL const struct fir_node* fir_func_entry(const struct fir_node*);
+FIR_SYMBOL const struct fir_node* fir_node_func_entry(const struct fir_node*);
 /// Returns the return continuation of a function, or `NULL` if it is not set.
-FIR_SYMBOL const struct fir_node* fir_func_return(const struct fir_node*);
+FIR_SYMBOL const struct fir_node* fir_node_func_return(const struct fir_node*);
 /// Returns the stack frame of this function, or `NULL` if it is not set.
-FIR_SYMBOL const struct fir_node* fir_func_frame(const struct fir_node*);
-/// Returns the memory parameter of the given function, or `NULL` if it does not exist.
-FIR_SYMBOL const struct fir_node* fir_func_mem_param(const struct fir_node*);
+FIR_SYMBOL const struct fir_node* fir_node_func_frame(const struct fir_node*);
+/// Returns the memory parameter of the given function or basic-block, or `NULL` if it does not exist.
+FIR_SYMBOL const struct fir_node* fir_node_mem_param(const struct fir_node*);
 
 /// @}
 

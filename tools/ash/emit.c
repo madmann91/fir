@@ -31,7 +31,7 @@ static void emit_pattern(
         }
         case AST_IDENT_PATTERN:
             pattern->node = pattern->ident_pattern.is_var
-                ? fir_local(fir_func_frame(emitter->block.func), val) : val;
+                ? fir_local(fir_node_func_frame(emitter->block.func), val) : val;
             break;
         default:
             assert(false && "invalid pattern");
@@ -153,7 +153,7 @@ static void emit_cond(
     struct fir_block* branch_false)
 {
     if (ast_is_logic_expr(cond)) {
-        struct fir_block next_block = fir_block_merge(emitter->block.func);
+        struct fir_block next_block = fir_block_create_merge(emitter->block.func);
         emit_cond(emitter, cond->binary_expr.left,
             cond->binary_expr.tag == BINARY_EXPR_LOGIC_OR  ? branch_true  : &next_block,
             cond->binary_expr.tag == BINARY_EXPR_LOGIC_AND ? branch_false : &next_block);
@@ -179,12 +179,12 @@ static const struct fir_node* emit_if_expr(struct emitter* emitter, struct ast* 
 
     if (!type_is_unit(if_expr->type)) {
         local_ty = convert_type(emitter, if_expr->type);
-        local = fir_local(fir_func_frame(emitter->block.func), fir_bot(local_ty));
+        local = fir_local(fir_node_func_frame(emitter->block.func), fir_bot(local_ty));
     }
 
-    struct fir_block then_block = fir_block_merge(emitter->block.func);
-    struct fir_block else_block = fir_block_merge(emitter->block.func);
-    struct fir_block merge_block = fir_block_merge(emitter->block.func);
+    struct fir_block then_block = fir_block_create_merge(emitter->block.func);
+    struct fir_block else_block = fir_block_create_merge(emitter->block.func);
+    struct fir_block merge_block = fir_block_create_merge(emitter->block.func);
     emit_cond(emitter, if_expr->if_expr.cond, &then_block, &else_block);
 
     emitter->block = then_block;
@@ -375,10 +375,10 @@ static inline const struct fir_node* emit_binary_expr(struct emitter* emitter, s
         left = fir_block_load(&emitter->block, 0, ptr, convert_type(emitter, pointee_type));
         left_type = type_remove_ref(left_type);
     } else if (ast_is_logic_expr(binary_expr)) {
-        struct fir_block branch_true  = fir_block_merge(emitter->block.func);
-        struct fir_block branch_false = fir_block_merge(emitter->block.func);
-        struct fir_block merge_block  = fir_block_merge(emitter->block.func);
-        const struct fir_node* local = fir_local(fir_func_frame(emitter->block.func), fir_bot(fir_bool_ty(emitter->mod)));
+        struct fir_block branch_true  = fir_block_create_merge(emitter->block.func);
+        struct fir_block branch_false = fir_block_create_merge(emitter->block.func);
+        struct fir_block merge_block  = fir_block_create_merge(emitter->block.func);
+        const struct fir_node* local = fir_local(fir_node_func_frame(emitter->block.func), fir_bot(fir_bool_ty(emitter->mod)));
 
         emit_cond(emitter, binary_expr, &branch_true, &branch_false);
 
@@ -427,8 +427,8 @@ static inline const struct fir_node* emit_binary_expr(struct emitter* emitter, s
 
 static const struct fir_node* emit_while_loop(struct emitter* emitter, struct ast* while_loop) {
     struct fir_block continue_block;
-    struct fir_block break_block = fir_block_merge(emitter->block.func);
-    struct fir_block body_block  = fir_block_merge(emitter->block.func);
+    struct fir_block break_block = fir_block_create_merge(emitter->block.func);
+    struct fir_block body_block  = fir_block_create_merge(emitter->block.func);
     fir_block_loop(&emitter->block, &continue_block);
 
     emitter->block = continue_block;

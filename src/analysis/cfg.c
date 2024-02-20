@@ -15,14 +15,14 @@ static inline struct const_node_span jump_targets(const struct fir_node* node) {
 }
 
 struct cfg cfg_create(const struct scope* scope) {
-    assert(fir_func_entry(scope->func));
-    assert(fir_func_return(scope->func));
+    assert(fir_node_func_entry(scope->func));
+    assert(fir_node_func_return(scope->func));
 
     struct cfg cfg = {
         .graph = graph_create(
             CFG_USER_DATA_COUNT,
-            (void*)fir_func_entry(scope->func),
-            (void*)fir_func_return(scope->func))
+            (void*)fir_node_func_entry(scope->func),
+            (void*)fir_node_func_return(scope->func))
     };
 
     SET_FOREACH(const struct fir_node*, node_ptr, scope->nodes) {

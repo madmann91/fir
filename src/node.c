@@ -338,7 +338,7 @@ const struct fir_node* fir_node_chop(const struct fir_node* node, size_t elem_co
     return new_node;
 }
 
-const struct fir_node* fir_func_entry(const struct fir_node* func) {
+const struct fir_node* fir_node_func_entry(const struct fir_node* func) {
     assert(func->tag == FIR_FUNC);
     if (!func->ops[0])
         return NULL;
@@ -347,8 +347,8 @@ const struct fir_node* fir_func_entry(const struct fir_node* func) {
     return func->ops[0]->ops[0];
 }
 
-const struct fir_node* fir_func_return(const struct fir_node* func) {
-    const struct fir_node* entry = fir_func_entry(func);
+const struct fir_node* fir_node_func_return(const struct fir_node* func) {
+    const struct fir_node* entry = fir_node_func_entry(func);
     if (!entry)
         return NULL;
     const struct fir_node* param = fir_param(entry);
@@ -360,8 +360,8 @@ const struct fir_node* fir_func_return(const struct fir_node* func) {
     return ret;
 }
 
-const struct fir_node* fir_func_frame(const struct fir_node* func) {
-    const struct fir_node* entry = fir_func_entry(func);
+const struct fir_node* fir_node_func_frame(const struct fir_node* func) {
+    const struct fir_node* entry = fir_node_func_entry(func);
     if (!entry)
         return NULL;
     const struct fir_node* param = fir_param(entry);
@@ -372,7 +372,7 @@ const struct fir_node* fir_func_frame(const struct fir_node* func) {
     return frame;
 }
 
-const struct fir_node* fir_func_mem_param(const struct fir_node* func) {
+const struct fir_node* fir_node_mem_param(const struct fir_node* func) {
     return fir_ext_mem(fir_param(func));
 }
 

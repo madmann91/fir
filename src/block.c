@@ -41,7 +41,7 @@ const struct fir_node* fir_block_start(struct fir_block* entry, struct fir_node*
     return fir_node_chop(fir_param(func), 1);
 }
 
-struct fir_block fir_block_merge(struct fir_node* func) {
+struct fir_block fir_block_create_merge(struct fir_node* func) {
     return make_block(fir_cont(fir_mem_ty(fir_node_mod(func))), func, NULL, false);
 }
 
@@ -79,6 +79,7 @@ void fir_block_loop(struct fir_block* from, struct fir_block* continue_block) {
 
 void fir_block_jump(struct fir_block* from, struct fir_block* target) {
     assert(target->is_merge_block);
+    assert(from->func == target->func);
     if (!from->is_terminated) {
         target->is_wired = true;
         jump(from, fir_call(target->block, from->mem));
@@ -87,7 +88,7 @@ void fir_block_jump(struct fir_block* from, struct fir_block* target) {
 
 void fir_block_return(struct fir_block* from, const struct fir_node* ret_val) {
     if (!from->is_terminated)
-        jump(from, fir_call(fir_func_return(from->func), fir_node_prepend(ret_val, &from->mem, 1)));
+        jump(from, fir_call(fir_node_func_return(from->func), fir_node_prepend(ret_val, &from->mem, 1)));
 }
 
 const struct fir_node* fir_block_call(

@@ -358,7 +358,17 @@ FIR_SYMBOL const struct fir_node* fir_switch(
 /// Obtains the parameter of a function.
 FIR_SYMBOL const struct fir_node* fir_param(const struct fir_node* func);
 
-/// Enters the first basic-block of a function.
+/// Enters the first basic-block of a function. This node takes the first block of the function as
+/// an operand, which must have a type of the form:
+///
+///     func_ty(tup_ty(frame_ty, func_ty(T, noret_ty)), noret_ty)
+///
+/// where `T` is the return type of the function. The resulting `start` node has type `T`, which
+/// makes it possible to use it as the operand of the node representing the function which is being
+/// entered. The first basic-block takes two parameters: A parameter of type `frame_ty` that can be
+/// used to allocate local variables in the function, and second parameter of type
+/// `func_ty(T, noret_ty)` which is the function to call in order to return from the function, also
+/// known as the _return continuation_.
 FIR_SYMBOL const struct fir_node* fir_start(const struct fir_node* block);
 
 /// @}

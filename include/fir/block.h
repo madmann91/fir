@@ -39,7 +39,8 @@ FIR_SYMBOL const struct fir_node* fir_block_start(struct fir_block* entry, struc
 
 /// Creates a merge block in the given function. This merge block can be used to merge branches from
 /// if statements or as a loop exit.
-FIR_SYMBOL struct fir_block fir_block_merge(struct fir_node* func);
+/// @param[in] func The function to which this basic-block belongs.
+FIR_SYMBOL struct fir_block fir_block_create_merge(struct fir_node* func);
 
 /// Conditional jump on one of two target blocks, depending on a condition.
 /// @param[in] from The basic-block to branch from.
