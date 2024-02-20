@@ -4,20 +4,24 @@
 #include "support/graph.h"
 #include "support/immutable_set.h"
 
+#include "liveness.h"
+
 struct cfg;
 
 IMMUTABLE_SET_DECL(block_list, struct graph_node*, PUBLIC)
 
 struct schedule {
     struct cfg* cfg;
-    struct node_map blocks;
-    struct node_vec* block_contents;
+    struct node_map early_blocks;
+    struct node_map late_blocks;
+    struct node_vec early_stack;
+    struct node_vec late_stack;
+    struct liveness liveness;
     struct block_list_pool block_list_pool;
 };
 
 [[nodiscard]] struct schedule schedule_create(struct cfg*);
 void schedule_destroy(struct schedule*);
 
-struct const_node_span schedule_block_contents(const struct schedule*, const struct graph_node*);
-const struct block_list* schedule_node_blocks(const struct schedule*, const struct fir_node*);
-bool schedule_is_in_block(const struct schedule*, const struct fir_node*, struct graph_node*);
+const struct block_list* schedule_find_blocks(struct schedule*, const struct fir_node*);
+void schedule_list_block_contents(struct schedule* schedule, struct node_vec* block_contents);

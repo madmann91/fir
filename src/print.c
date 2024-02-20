@@ -140,20 +140,23 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
             fir_node_print(file, cfg_block_func(*block_ptr), options);
             fprintf(file, "\n");
         }
-
         fprintf(file, "\n");
+
+        struct node_vec* block_contents = xmalloc(sizeof(struct node_vec) * cfg.graph.node_count);
+        for (size_t i = 0; i < cfg.graph.node_count; ++i)
+            block_contents[i] = node_vec_create();
+        schedule_list_block_contents(&schedule, block_contents);
 
         VEC_REV_FOREACH(struct graph_node*, block_ptr, cfg.post_order) {
             if ((*block_ptr) == cfg.graph.sink)
                 continue;
 
             const struct fir_node* block_func = cfg_block_func(*block_ptr);
-
             print_indent(file, options->indent + 1, options->tab);
-            fprintf(file, "%s#%s_%"PRIu64":%s\n", comment_style, fir_node_name(block_func), block_func->id, reset_style);
+            fprintf(file, "%s#%s_%"PRIu64":%s\n",
+                comment_style, fir_node_name(block_func), block_func->id, reset_style);
 
-            struct const_node_span block_contents = schedule_block_contents(&schedule, *block_ptr);
-            CONST_SPAN_FOREACH(const struct fir_node*, node_ptr, block_contents) {
+            VEC_FOREACH(const struct fir_node*, node_ptr, block_contents[(*block_ptr)->index]) {
                 print_indent(file, options->indent + 2, options->tab);
                 fir_node_print(file, *node_ptr, options);
                 fprintf(file, "\n");
@@ -161,6 +164,9 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
             fprintf(file, "\n");
         }
 
+        for (size_t i = 0; i < cfg.graph.node_count; ++i)
+            node_vec_destroy(&block_contents[i]);
+        free(block_contents);
         schedule_destroy(&schedule);
         scope_destroy(&scope);
         cfg_destroy(&cfg);
