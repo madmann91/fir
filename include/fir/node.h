@@ -251,6 +251,8 @@ FIR_SYMBOL const char* fir_node_tag_to_string(enum fir_node_tag);
 FIR_SYMBOL struct fir_mod* fir_node_mod(const struct fir_node*);
 /// Returns the name of the given node, based on its debug information (if any).
 FIR_SYMBOL const char* fir_node_name(const struct fir_node*);
+/// Builds a unique name for the node. The returned string must be freed.
+FIR_SYMBOL char* fir_node_unique_name(const struct fir_node*);
 /// Sets the debug information attached to the node.
 FIR_SYMBOL void fir_node_set_dbg_info(const struct fir_node*, const struct fir_dbg_info*);
 /// Sets the operand of a nominal node.

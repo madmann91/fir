@@ -3,8 +3,10 @@
 
 #include "support/bits.h"
 #include "support/datatypes.h"
+#include "support/mem_stream.h"
 
 #include <assert.h>
+#include <inttypes.h>
 
 #define x(tag, ...) case FIR_##tag:
 #define pred_func(pred, list) \
@@ -194,6 +196,14 @@ struct fir_mod* fir_node_mod(const struct fir_node* node) {
 
 const char* fir_node_name(const struct fir_node* node) {
     return node->dbg_info ? node->dbg_info->name : "";
+}
+
+char* fir_node_unique_name(const struct fir_node* node) {
+    struct mem_stream mem_stream;
+    mem_stream_init(&mem_stream);
+    fprintf(mem_stream.file, "%s_%"PRIu64, fir_node_name(node), node->id);
+    mem_stream_destroy(&mem_stream);
+    return mem_stream.buf;
 }
 
 void fir_node_set_dbg_info(const struct fir_node* node, const struct fir_dbg_info* dbg_info) {
