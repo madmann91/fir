@@ -32,9 +32,11 @@ add_library(libfir
     parse/token.c
     print.c)
 
-target_include_directories(libfir PUBLIC ../include)
-target_include_directories(libfir_support PUBLIC ../include ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(libfir PUBLIC ../${PROJECT_SOURCE_DIR}/include)
+target_include_directories(libfir_support PUBLIC ${PROJECT_SOURCE_DIR}/include .)
 target_link_libraries(libfir_analysis PUBLIC libfir_support)
+
+add_subdirectory(codegen)
 
 string(TIMESTAMP timestamp "%Y%m%d")
 

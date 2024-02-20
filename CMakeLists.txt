@@ -6,6 +6,7 @@ option(BUILD_TOOLS "Build tools." ON)
 option(TEST_DISABLE_FORK "Disable fork() in the testing framework." OFF)
 option(TEST_DISABLE_REGEX "Disable regular expressions when filtering tests." OFF)
 option(ENABLE_COVERAGE "Turn on code coverage in debug mode." OFF)
+option(ENABLE_LLVM_CODEGEN "Enables code generation via LLVM." ON)
 
 add_compile_options(
     $<$<C_COMPILER_ID:GNU,Clang>:-Wall>
