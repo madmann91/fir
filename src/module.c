@@ -270,6 +270,10 @@ void fir_mod_destroy(struct fir_mod* mod) {
     free(mod);
 }
 
+const char* fir_mod_name(const struct fir_mod* mod) {
+    return mod->name;
+}
+
 static void visit_live_node(
     const struct fir_node* node,
     struct node_vec* stack,

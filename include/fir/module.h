@@ -31,6 +31,9 @@ FIR_SYMBOL struct fir_mod* fir_mod_create(const char* name);
 /// Destroys the given module. This releases memory holding all the nodes in the module.
 FIR_SYMBOL void fir_mod_destroy(struct fir_mod*);
 
+/// Returns the module name.
+FIR_SYMBOL const char* fir_mod_name(const struct fir_mod*);
+
 /// Cleans up the module. This performs dead code elimination on the entire module,
 /// and updates the uses of each node correspondingly. The complexity of this function is linear in
 /// the number of live nodes.
