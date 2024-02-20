@@ -101,20 +101,21 @@
         vec->capacity = SMALL_VEC_CAPACITY; \
     } \
     VISIBILITY(vis) void name##_destroy(struct name* vec) { \
-        if (vec->elems != vec->small_elems) \
+        if (vec->capacity > SMALL_VEC_CAPACITY) \
             free(vec->elems); \
         memset(vec, 0, sizeof(struct name)); \
     } \
     VISIBILITY(vis) void name##_resize(struct name* vec, size_t elem_count) { \
         if (elem_count > vec->capacity) { \
+            bool is_allocated = vec->capacity > SMALL_VEC_CAPACITY; \
             vec->capacity += vec->capacity >> 1; \
             if (elem_count > vec->capacity) \
                 vec->capacity = elem_count; \
-            if (vec->elems == vec->small_elems) { \
+            if (is_allocated) { \
+                vec->elems = xrealloc(vec->elems, vec->capacity * sizeof(elem_ty)); \
+            } else { \
                 vec->elems = xmalloc(vec->capacity * sizeof(elem_ty)); \
                 memcpy(vec->elems, vec->small_elems, vec->elem_count * sizeof(elem_ty)); \
-            } else { \
-                vec->elems = xrealloc(vec->elems, vec->capacity * sizeof(elem_ty)); \
             } \
         } \
         vec->elem_count = elem_count; \
