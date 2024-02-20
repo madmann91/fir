@@ -142,8 +142,9 @@ FIR_SYMBOL bool fir_node_tag_has_mem_flags(enum fir_node_tag);
 /// @return `true` if the given node tag represents a type with a bitwidth.
 FIR_SYMBOL bool fir_node_tag_has_bitwidth(enum fir_node_tag);
 
-/// @return `true` if the given node tag corresponds to a node that can be made external. Such nodes
-/// can be marked by setting the FIR_PROP_EXTERNAL bit on their properties.
+/// @return `true` if the given node tag corresponds to a node that can be made external (typically
+/// functions and globals).
+/// @see fir_node_make_external, fir_node_make_internal.
 FIR_SYMBOL bool fir_node_tag_can_be_external(enum fir_node_tag);
 
 /// @see fir_node_tag_is_ty.

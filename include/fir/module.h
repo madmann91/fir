@@ -141,6 +141,11 @@ FIR_SYMBOL struct fir_node* fir_func(const struct fir_node* func_ty);
 /// Creates a global variable, typed as a pointer.
 FIR_SYMBOL struct fir_node* fir_global(struct fir_mod*);
 
+/// Allocates a piece of data local to the current function.
+FIR_SYMBOL struct fir_node* fir_local(
+    const struct fir_node* frame,
+    const struct fir_node* init);
+
 /// Creates a continuation with the given parameter type.
 /// Shortcut for `func(func_ty(param_ty, noret_ty))`.
 FIR_SYMBOL struct fir_node* fir_cont(const struct fir_node* param_ty);
@@ -306,11 +311,6 @@ FIR_SYMBOL const struct fir_node* fir_choice(
 
 /// @name Memory operations
 /// @{
-
-/// Allocates a piece of data local to the current function.
-FIR_SYMBOL struct fir_node* fir_local(
-    const struct fir_node* frame,
-    const struct fir_node* init);
 
 /// Loads the data located at the given address.
 FIR_SYMBOL const struct fir_node* fir_load(
