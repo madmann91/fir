@@ -109,7 +109,9 @@ static LLVMTypeRef convert_ty(struct llvm_codegen* codegen, const struct fir_nod
             }
             break;
         case FIR_PTR_TY:
-            llvm_type = LLVMPointerTypeInContext(codegen->llvm_context, 0);
+            // Note: Older versions of LLVM do not support opaque pointers. For that reason, we just
+            // create a byte pointer instead, which should be supported everywhere.
+            llvm_type = LLVMPointerType(LLVMIntTypeInContext(codegen->llvm_context, 8), 0);
             break;
         case FIR_TUP_TY:
             llvm_type = convert_tup_ty(codegen, ty);
