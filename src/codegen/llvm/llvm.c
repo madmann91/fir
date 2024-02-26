@@ -411,18 +411,22 @@ static LLVMValueRef gen_node(
     }
 }
 
+static bool enqueue_node(struct llvm_codegen* codegen, const struct fir_node* node) {
+    if (node->tag == FIR_FUNC ||
+        node->tag == FIR_GLOBAL ||
+        can_be_llvm_param(node) ||
+        can_be_llvm_constant(node))
+        return true;
+    return !unique_node_stack_push(&codegen->node_stack, &node);
+}
+
 static bool enqueue_nodes(
     struct llvm_codegen* codegen,
     const struct fir_node* const* nodes,
     size_t node_count)
 {
     for (size_t i = 0; i < node_count; ++i) {
-        if (nodes[i]->tag == FIR_FUNC ||
-            nodes[i]->tag == FIR_GLOBAL ||
-            can_be_llvm_param(nodes[i]) ||
-            can_be_llvm_constant(nodes[i]))
-            continue;
-        if (unique_node_stack_push(&codegen->node_stack, &nodes[i]))
+        if (!enqueue_node(codegen, nodes[i]))
             return false;
     }
     return true;
@@ -432,7 +436,7 @@ static bool enqueue_ops(struct llvm_codegen* codegen, const struct fir_node* nod
     return enqueue_nodes(codegen, node->ops, node->op_count);
 }
 
-static bool enqueue_call(struct llvm_codegen* codegen, const struct fir_node* call) {
+static bool enqueue_call_dependencies(struct llvm_codegen* codegen, const struct fir_node* call) {
     // Calls and jumps do not need to have an LLVM tuple as an argument, since we can set
     // each individual function argument for function calls, and each individual phi node
     // for jumps. However, returns still need a tuple when multiple values are returned.
@@ -440,7 +444,7 @@ static bool enqueue_call(struct llvm_codegen* codegen, const struct fir_node* ca
     if (FIR_CALL_ARG(call)->ty->tag == FIR_TUP_TY && !is_return) {
         if (!enqueue_ops(codegen, FIR_CALL_ARG(call)))
             return false;
-    } else if (!enqueue_nodes(codegen, &FIR_CALL_ARG(call), 1)) {
+    } else if (!enqueue_node(codegen, FIR_CALL_ARG(call))) {
         return false;
     }
 
@@ -450,12 +454,20 @@ static bool enqueue_call(struct llvm_codegen* codegen, const struct fir_node* ca
         if (!enqueue_nodes(codegen, fir_node_jump_targets(call), fir_node_jump_target_count(call)))
             return false;
         if (fir_node_is_switch(call) &&
-            !enqueue_nodes(codegen, (const struct fir_node*[]) { fir_node_switch_cond(call) }, 1))
+            !enqueue_node(codegen, fir_node_switch_cond(call)))
             return false;
-    } else if (!enqueue_nodes(codegen, &FIR_CALL_CALLEE(call), 1)) {
+    } else if (!enqueue_node(codegen, FIR_CALL_CALLEE(call))) {
         return false;
     }
     return true;
+}
+
+static bool enqueue_node_dependencies(struct llvm_codegen* codegen, const struct fir_node* node) {
+    if (node->tag == FIR_CALL) {
+        return enqueue_call_dependencies(codegen, node);
+    } else {
+        return enqueue_ops(codegen, node);
+    }
 }
 
 static void gen_nodes_in_block(struct llvm_codegen* codegen, struct graph_node* block) {
@@ -464,12 +476,9 @@ static void gen_nodes_in_block(struct llvm_codegen* codegen, struct graph_node* 
     unique_node_stack_push(&codegen->node_stack, &FIR_FUNC_BODY(block_func));
     while (!unique_node_stack_is_empty(&codegen->node_stack)) {
         const struct fir_node* node = *unique_node_stack_last(&codegen->node_stack);
-        if (node->tag == FIR_CALL) {
-            if (!enqueue_call(codegen, node))
-                continue;
-        } else if (!enqueue_ops(codegen, node)) {
+        if (!enqueue_node_dependencies(codegen, node))
             continue;
-        }
+
         unique_node_stack_pop(&codegen->node_stack);
 
         const struct block_list* target_blocks = schedule_find_blocks(&codegen->schedule, node);
