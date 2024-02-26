@@ -376,7 +376,6 @@ FIR_SYMBOL const struct fir_use* fir_use_find(
 
 /// @}
 
-
 /// @name Operand access macros
 /// @{
 
