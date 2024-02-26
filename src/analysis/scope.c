@@ -19,7 +19,7 @@ struct scope scope_create(const struct fir_node* func) {
             continue;
 
         if (node->tag == FIR_PARAM)
-            node_vec_push(&node_stack, &node->ops[0]);
+            node_vec_push(&node_stack, &FIR_PARAM_FUNC(node));
 
         for (const struct fir_use* use = node->uses; use; use = use->next)
             node_vec_push(&node_stack, &use->user);

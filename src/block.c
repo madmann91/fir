@@ -30,7 +30,7 @@ static inline void jump(struct fir_block* from, const struct fir_node* target) {
 
 const struct fir_node* fir_block_start(struct fir_block* entry, struct fir_node* func) {
     struct fir_mod* mod = fir_node_mod(func);
-    const struct fir_node* ret_ty = fir_cont_ty(func->ty->ops[1]);
+    const struct fir_node* ret_ty = fir_cont_ty(FIR_FUNC_TY_RET(func->ty));
     const struct fir_node* start_ty = fir_tup_ty(mod,
         (const struct fir_node*[]) { fir_frame_ty(mod), ret_ty }, 2);
     const struct fir_node* mem = fir_ext_mem(fir_param(func));

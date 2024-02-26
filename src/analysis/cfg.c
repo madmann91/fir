@@ -5,15 +5,6 @@
 
 #include "fir/node.h"
 
-static inline struct const_node_span jump_targets(const struct fir_node* node) {
-    assert(fir_node_is_jump(node));
-    if (fir_node_is_choice(node->ops[0])) {
-        const struct fir_node* array = node->ops[0]->ops[0];
-        return (struct const_node_span) { .elems = array->ops, .elem_count = array->op_count };
-    }
-    return (struct const_node_span) { .elems = &node->ops[0], .elem_count = 1 };
-}
-
 struct cfg cfg_create(const struct scope* scope) {
     assert(fir_node_func_entry(scope->func));
     assert(fir_node_func_return(scope->func));
@@ -27,14 +18,14 @@ struct cfg cfg_create(const struct scope* scope) {
 
     SET_FOREACH(const struct fir_node*, node_ptr, scope->nodes) {
         const struct fir_node* func = *node_ptr;
-        if (func->tag != FIR_FUNC || !func->ops[0])
+        if (func->tag != FIR_FUNC || !FIR_FUNC_BODY(func))
             continue;
 
         struct graph_node* from = graph_insert(&cfg.graph, (void*)func);
-        struct const_node_span targets = jump_targets(func->ops[0]);
-        CONST_SPAN_FOREACH(const struct fir_node*, target_ptr, targets) {
-            if (scope_contains(scope, *target_ptr)) {
-                struct graph_node* to = graph_insert(&cfg.graph, (void*)*target_ptr);
+        const struct fir_node* const* targets = fir_node_jump_targets(FIR_FUNC_BODY(func));
+        for (size_t i = 0, n = fir_node_jump_target_count(FIR_FUNC_BODY(func)); i < n; ++i) {
+            if (scope_contains(scope, targets[i])) {
+                struct graph_node* to = graph_insert(&cfg.graph, (void*)targets[i]);
                 graph_connect(&cfg.graph, from, to);
             }
         }

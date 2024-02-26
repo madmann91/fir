@@ -38,6 +38,14 @@ pred_func(is_control_op, FIR_CONTROL_OP_LIST)
 #undef pred_func
 #undef x
 
+bool fir_node_tag_is_arith_op(enum fir_node_tag tag) {
+    return fir_node_tag_is_iarith_op(tag) || fir_node_tag_is_farith_op(tag);
+}
+
+bool fir_node_tag_is_cmp_op(enum fir_node_tag tag) {
+    return fir_node_tag_is_icmp_op(tag) || fir_node_tag_is_fcmp_op(tag);
+}
+
 bool fir_node_tag_has_fp_flags(enum fir_node_tag tag) {
     return fir_node_tag_is_farith_op(tag);
 }
@@ -66,6 +74,14 @@ bool fir_node_has_bitwidth(const struct fir_node* node) {
     return fir_node_tag_has_bitwidth(node->tag);
 }
 
+bool fir_node_is_arith_op(const struct fir_node* node) {
+    return fir_node_tag_is_arith_op(node->tag);
+}
+
+bool fir_node_is_cmp_op(const struct fir_node* node) {
+    return fir_node_tag_is_cmp_op(node->tag);
+}
+
 bool fir_node_is_int_const(const struct fir_node* node) {
     return node->tag == FIR_CONST && node->ty->tag == FIR_INT_TY;
 }
@@ -79,31 +95,31 @@ bool fir_node_is_bool_ty(const struct fir_node* node) {
 }
 
 bool fir_node_is_cont_ty(const struct fir_node* node) {
-    return node->tag == FIR_FUNC_TY && node->ops[1]->tag == FIR_NORET_TY;
+    return node->tag == FIR_FUNC_TY && FIR_FUNC_TY_RET(node)->tag == FIR_NORET_TY;
 }
 
 bool fir_node_is_not(const struct fir_node* node) {
     assert(node->ty->tag == FIR_INT_TY);
     return
         node->tag == FIR_XOR &&
-        node->ops[0]->tag == FIR_CONST &&
-        node->ops[0]->data.int_val == make_bitmask(node->ty->data.bitwidth);
+        FIR_BIT_OP_LEFT(node)->tag == FIR_CONST &&
+        FIR_BIT_OP_LEFT(node)->data.int_val == make_bitmask(node->ty->data.bitwidth);
 }
 
 bool fir_node_is_ineg(const struct fir_node* node) {
     assert(node->ty->tag == FIR_INT_TY);
     return
         node->tag == FIR_ISUB &&
-        node->ops[0]->tag == FIR_CONST &&
-        node->ops[0]->data.int_val == 0;
+        FIR_ARITH_OP_LEFT(node)->tag == FIR_CONST &&
+        FIR_ARITH_OP_LEFT(node)->data.int_val == 0;
 }
 
 bool fir_node_is_fneg(const struct fir_node* node) {
     assert(node->ty->tag == FIR_FLOAT_TY);
     return
         node->tag == FIR_FSUB &&
-        node->ops[0]->tag == FIR_CONST &&
-        node->ops[0]->data.float_val == 0;
+        FIR_ARITH_OP_LEFT(node)->tag == FIR_CONST &&
+        FIR_ARITH_OP_LEFT(node)->data.float_val == 0;
 }
 
 bool fir_node_is_zero(const struct fir_node* node) {
@@ -138,13 +154,12 @@ bool fir_node_is_unit_ty(const struct fir_node* node) {
 bool fir_node_is_choice(const struct fir_node* node) {
     return
         node->tag == FIR_EXT &&
-        node->ops[0]->tag == FIR_ARRAY &&
-        node->ops[0]->ty->tag == FIR_ARRAY_TY &&
-        fir_node_is_bool_ty(node->ops[1]->ty);
+        FIR_EXT_AGGR(node)->tag == FIR_ARRAY &&
+        fir_node_is_bool_ty(FIR_EXT_INDEX(node)->ty);
 }
 
 bool fir_node_is_select(const struct fir_node* node) {
-    return fir_node_is_choice(node) && node->ops[0]->ty->data.array_dim == 2;
+    return fir_node_is_choice(node) && FIR_EXT_AGGR(node)->ty->data.array_dim == 2;
 }
 
 bool fir_node_is_jump(const struct fir_node* node) {
@@ -152,11 +167,11 @@ bool fir_node_is_jump(const struct fir_node* node) {
 }
 
 bool fir_node_is_branch(const struct fir_node* node) {
-    return fir_node_is_jump(node) && fir_node_is_select(node->ops[0]);
+    return fir_node_is_jump(node) && fir_node_is_select(FIR_CALL_CALLEE(node));
 }
 
 bool fir_node_is_switch(const struct fir_node* node) {
-    return fir_node_is_jump(node) && fir_node_is_choice(node->ops[0]);
+    return fir_node_is_jump(node) && fir_node_is_choice(FIR_CALL_CALLEE(node));
 }
 
 static inline bool has_non_null_ops(const struct fir_node* node, bool flip) {
@@ -340,11 +355,11 @@ const struct fir_node* fir_node_chop(const struct fir_node* node, size_t elem_co
 
 const struct fir_node* fir_node_func_entry(const struct fir_node* func) {
     assert(func->tag == FIR_FUNC);
-    if (!func->ops[0])
+    if (!FIR_FUNC_BODY(func))
         return NULL;
-    assert(func->ops[0]->tag == FIR_START);
-    assert(func->ops[0]->ops[0]->tag == FIR_FUNC);
-    return func->ops[0]->ops[0];
+    assert(FIR_FUNC_BODY(func)->tag == FIR_START);
+    assert(FIR_START_FUNC(FIR_FUNC_BODY(func))->tag == FIR_FUNC);
+    return FIR_START_FUNC(FIR_FUNC_BODY(func));
 }
 
 const struct fir_node* fir_node_func_return(const struct fir_node* func) {
@@ -356,7 +371,7 @@ const struct fir_node* fir_node_func_return(const struct fir_node* func) {
     assert(param->ty->op_count == 2);
     const struct fir_node* ret = fir_ext_at(param, 1);
     assert(fir_node_is_cont_ty(ret->ty));
-    assert(ret->ty->ops[0] == func->ty->ops[1]);
+    assert(FIR_FUNC_TY_PARAM(ret->ty) == FIR_FUNC_TY_RET(func->ty));
     return ret;
 }
 
@@ -374,6 +389,25 @@ const struct fir_node* fir_node_func_frame(const struct fir_node* func) {
 
 const struct fir_node* fir_node_mem_param(const struct fir_node* func) {
     return fir_ext_mem(fir_param(func));
+}
+
+const struct fir_node* const* fir_node_jump_targets(const struct fir_node* node) {
+    assert(fir_node_is_jump(node));
+    if (fir_node_is_choice(FIR_CALL_CALLEE(node)))
+        return FIR_EXT_AGGR(FIR_CALL_CALLEE(node))->ops;
+    return &FIR_CALL_CALLEE(node);
+}
+
+size_t fir_node_jump_target_count(const struct fir_node* node) {
+    assert(fir_node_is_jump(node));
+    if (fir_node_is_choice(FIR_CALL_CALLEE(node)))
+        return FIR_EXT_AGGR(FIR_CALL_CALLEE(node))->op_count;
+    return 1;
+}
+
+const struct fir_node* fir_node_switch_cond(const struct fir_node* node) {
+    assert(fir_node_is_switch(node));
+    return FIR_EXT_INDEX(FIR_CALL_CALLEE(node));
 }
 
 size_t fir_use_count(const struct fir_use* use) {
@@ -399,4 +433,17 @@ const struct fir_use* fir_use_find(
         use = use->next;
     }
     return NULL;
+}
+
+const struct fir_node* fir_assert_tag_debug(const struct fir_node* node, enum fir_node_tag tag) {
+    assert(node->tag == tag);
+    return node;
+}
+
+const struct fir_node* fir_assert_kind_debug(
+    const struct fir_node* node,
+    bool (*kind)(const struct fir_node*))
+{
+    assert(kind(node));
+    return node;
 }

@@ -135,7 +135,7 @@ restart:
 
         struct graph_node* early_block = NULL;
         if (node->tag == FIR_PARAM) {
-            early_block = find_func_block(schedule->cfg, node->ops[0]);
+            early_block = find_func_block(schedule->cfg, FIR_PARAM_FUNC(node));
         } else if ((node->props & FIR_PROP_INVARIANT) || fir_node_is_nominal(node)) {
             early_block = schedule->cfg->graph.source;
         } else {
@@ -271,7 +271,7 @@ static inline const struct block_list* compute_late_blocks(
 
     // Loads should be scheduled _before_ the stores that write to their memory object.
     if (node->tag == FIR_LOAD) {
-        for (const struct fir_use* use = node->ops[0]->uses; use; use = use->next) {
+        for (const struct fir_use* use = FIR_LOAD_MEM(node)->uses; use; use = use->next) {
             if (use->user->tag != FIR_STORE)
                 continue;
             if (!collect_late_blocks(schedule, &late_blocks, use->user))
@@ -316,7 +316,7 @@ restart:
 
         const struct block_list* late_blocks = NULL;
         if (node->tag == FIR_PARAM) {
-            struct graph_node* param_block = find_func_block(schedule->cfg, node->ops[0]);
+            struct graph_node* param_block = find_func_block(schedule->cfg, FIR_PARAM_FUNC(node));
             late_blocks = block_list_pool_insert(&schedule->block_list_pool, &param_block, 1);
         } else if (node->tag == FIR_FUNC && fir_node_is_cont_ty(node->ty)) {
             struct graph_node* block = find_func_block(schedule->cfg, node);
@@ -370,10 +370,10 @@ void schedule_list_block_contents(struct schedule* schedule, struct node_vec* bl
     struct unique_node_stack stack = unique_node_stack_create();
     VEC_REV_FOREACH(struct graph_node*, block_ptr, schedule->cfg->post_order) {
         const struct fir_node* func = cfg_block_func(*block_ptr);
-        if (!func || !func->ops[0])
+        if (!func || func->tag != FIR_FUNC || !FIR_FUNC_BODY(func))
             continue;
         assert(unique_node_stack_is_empty(&stack));
-        unique_node_stack_push(&stack, &func->ops[0]);
+        unique_node_stack_push(&stack, &FIR_FUNC_BODY(func));
     restart:
         while (!unique_node_stack_is_empty(&stack)) {
             const struct fir_node* node = *unique_node_stack_last(&stack);

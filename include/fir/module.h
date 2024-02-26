@@ -213,8 +213,8 @@ FIR_SYMBOL const struct fir_node* fir_bit_op(
 /// Integer bitshift operations. @see FIR_SHIFT_OP_LIST.
 FIR_SYMBOL const struct fir_node* fir_shift_op(
     enum fir_node_tag tag,
-    const struct fir_node* left,
-    const struct fir_node* right);
+    const struct fir_node* val,
+    const struct fir_node* amount);
 
 /// Casts between primitive (integer and floating-point) types. @see FIR_CAST_OP_LIST.
 FIR_SYMBOL const struct fir_node* fir_cast_op(
