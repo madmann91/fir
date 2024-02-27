@@ -13,12 +13,14 @@ enum token_tag {
 #define x(tag, str) TOK_##tag = FIR_##tag,
     FIR_NODE_LIST(x)
 #undef x
+    TOK_MOD,
     TOK_EXTERN,
     TOK_EOF,
     TOK_ERR,
     TOK_IDENT,
     TOK_INT,
     TOK_FLOAT,
+    TOK_STR,
     TOK_LPAREN,
     TOK_RPAREN,
     TOK_LBRACKET,

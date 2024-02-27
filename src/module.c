@@ -276,6 +276,16 @@ const char* fir_mod_name(const struct fir_mod* mod) {
     return mod->name;
 }
 
+void fir_mod_set_name(struct fir_mod* mod, const char* name) {
+    free(mod->name);
+    mod->name = strdup(name);
+}
+
+void fir_mod_set_name_with_length(struct fir_mod* mod, const char* name, size_t name_len) {
+    free(mod->name);
+    mod->name = strndup(name, name_len);
+}
+
 static void visit_live_node(
     const struct fir_node* node,
     struct node_vec* stack,

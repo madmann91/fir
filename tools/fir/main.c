@@ -72,7 +72,7 @@ static enum fir_codegen_tag codegen_tag_from_string(const char* name) {
     return FIR_CODEGEN_DUMMY;
 }
 
-static inline bool generate_code(struct fir_mod* mod, const char* file_name, const struct options* options) {
+static inline bool generate_code(struct fir_mod* mod, const struct options* options) {
     struct fir_codegen* codegen = fir_codegen_create(codegen_tag_from_string(options->codegen), NULL, 0);
     if (!codegen) {
         fprintf(stderr, "code generator '%s' is not supported\n", options->codegen);
@@ -80,8 +80,8 @@ static inline bool generate_code(struct fir_mod* mod, const char* file_name, con
     }
 
     struct str output_file = str_create();
-    str_printf(&output_file, "%s.o", file_name);
-    bool status = fir_codegen_run(codegen, mod, output_file.data);
+    str_printf(&output_file, "%s.o", fir_mod_name(mod));
+    bool status = fir_codegen_run(codegen, mod, str_terminate(&output_file));
     str_destroy(&output_file);
     fir_codegen_destroy(codegen);
     return status;
@@ -110,7 +110,7 @@ static inline bool compile_file(const char* file_name, const struct options* opt
     print_options.verbosity = options->is_verbose ? FIR_VERBOSITY_HIGH : FIR_VERBOSITY_MEDIUM;
     fir_mod_print(stdout, mod, &print_options);
 
-    status &= generate_code(mod, file_name, options);
+    status &= generate_code(mod, options);
 
     fir_mod_destroy(mod);
     return status;

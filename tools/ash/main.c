@@ -3,6 +3,7 @@
 #include "types.h"
 
 #include "support/io.h"
+#include "support/path.h"
 #include "support/cli.h"
 #include "support/str.h"
 #include "support/log.h"
@@ -29,6 +30,12 @@ static bool usage(void*, char*) {
         "      --print-ast          Prints the AST on the standard output.\n"
         "      --print-ir           Prints the IR on the standard output.\n");
     return true;
+}
+
+static inline struct str make_mod_name(const char* file_name) {
+    struct str mod_name = str_create();
+    str_append(&mod_name, trim_ext(skip_dir(STR_VIEW(file_name))));
+    return mod_name;
 }
 
 static bool compile_file(const char* file_name, const struct options* options) {
@@ -72,7 +79,9 @@ static bool compile_file(const char* file_name, const struct options* options) {
     if (options->print_ast)
         ast_print(stdout, program, &print_options);
 
-    mod = fir_mod_create(file_name);
+    struct str mod_name = make_mod_name(file_name);
+    mod = fir_mod_create(str_terminate(&mod_name));
+    str_destroy(&mod_name);
     ast_emit(program, mod);
     if (!options->disable_cleanup)
         fir_mod_cleanup(mod);

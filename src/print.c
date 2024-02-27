@@ -104,8 +104,13 @@ void fir_node_dump(const struct fir_node* node) {
 }
 
 void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print_options* options) {
+    const char* keyword_style = options->disable_colors ? "" : TERM1(TERM_FG_BLUE);
     const char* comment_style = options->disable_colors ? "" : TERM2(TERM_FG_CYAN, TERM_ITALIC);
     const char* reset_style   = options->disable_colors ? "" : TERM1(TERM_RESET);
+
+    fprintf(file, "%smod%s \"%.*s\"\n\n",
+        keyword_style, reset_style,
+        (int)strlen(fir_mod_name(mod)), fir_mod_name(mod));
 
     struct fir_node* const* globals = fir_mod_globals(mod);
     struct fir_node* const* funcs = fir_mod_funcs(mod);

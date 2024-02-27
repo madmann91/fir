@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #define STR_VIEW(x) ((struct str_view) { .data = (x), .length = strlen((x)) })
 
@@ -37,8 +38,9 @@ struct str {
     return (struct str) {};
 }
 
-[[nodiscard]] static inline struct str_view str_to_view(const struct str* str) {
-    return (struct str_view) { .data = str->data, .length = str->length };
+[[nodiscard]] static inline struct str_view str_view_shrink(struct str_view str_view, size_t left, size_t right) {
+    assert(str_view.length >= left + right);
+    return (struct str_view) { .data = str_view.data + left, .length = str_view.length - left - right };
 }
 
 [[nodiscard]] static inline struct str str_copy(struct str_view view) {
@@ -71,6 +73,11 @@ static inline void str_append(struct str* str, struct str_view view) {
     str->length += view.length;
 }
 
+static inline void str_append_char(struct str* str, char c) {
+    str_grow(str, 1);
+    str->data[str->length++] = c;
+}
+
 static inline void str_clear(struct str* str) {
     str->length = 0;
 }
@@ -79,4 +86,11 @@ static inline void str_destroy(struct str* str) {
     free(str->data);
 }
 
+static inline const char* str_terminate(struct str* str) {
+    if (str->length == 0 || str->data[str->length - 1] != 0)
+        str_append_char(str, '\0');
+    return str->data;
+}
+
+[[gnu::format(printf, 2, 3)]]
 void str_printf(struct str* str, const char* fmt, ...);

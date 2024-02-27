@@ -400,6 +400,17 @@ static inline void parse_delayed_nominal_nodes(struct parser* parser) {
     }
 }
 
+static inline void parse_header(struct parser* parser) {
+    if (!accept_token(parser, TOK_MOD))
+        return;
+
+    struct str_view name = token_str_view(parser->state.lexer.data, parser->state.ahead);
+    if (name.length >= 2)
+        name = str_view_shrink(name, 1, 1);
+    expect_token(parser, TOK_STR);
+    fir_mod_set_name_with_length(parser->mod, name.data, name.length);
+}
+
 bool fir_mod_parse(struct fir_mod* mod, const struct fir_parse_input* input) {
     bool disable_colors = input->error_log ? !is_terminal(input->error_log) : true;
     struct parser parser = {
@@ -423,6 +434,7 @@ bool fir_mod_parse(struct fir_mod* mod, const struct fir_parse_input* input) {
     for (size_t i = 0; i < TOKEN_LOOKAHEAD; ++i)
         next_token(&parser);
 
+    parse_header(&parser);
     while (parser.state.ahead->tag != TOK_EOF)
         parse_node(&parser);
 

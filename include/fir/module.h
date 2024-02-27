@@ -33,6 +33,10 @@ FIR_SYMBOL void fir_mod_destroy(struct fir_mod*);
 
 /// Returns the module name.
 FIR_SYMBOL const char* fir_mod_name(const struct fir_mod*);
+/// Sets the module name.
+FIR_SYMBOL void fir_mod_set_name(struct fir_mod*, const char* name);
+/// Sets the module name given a string with the given length.
+FIR_SYMBOL void fir_mod_set_name_with_length(struct fir_mod*, const char* name, size_t name_len);
 
 /// Cleans up the module. This performs dead code elimination on the entire module,
 /// and updates the uses of each node correspondingly. The complexity of this function is linear in

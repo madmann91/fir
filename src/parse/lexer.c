@@ -79,7 +79,8 @@ static inline enum token_tag find_keyword(struct str_view ident) {
 #define x(tag, str) if (str_view_is_equal(&ident, &STR_VIEW(str))) return TOK_##tag;
     FIR_NODE_LIST(x)
 #undef x
-    if(str_view_is_equal(&ident, &STR_VIEW("extern"))) return TOK_EXTERN;
+    if (str_view_is_equal(&ident, &STR_VIEW("mod")))    return TOK_MOD;
+    if (str_view_is_equal(&ident, &STR_VIEW("extern"))) return TOK_EXTERN;
     return TOK_ERR;
 }
 
@@ -140,6 +141,17 @@ struct token lexer_advance(struct lexer* lexer) {
         if (accept_char(lexer, '}')) return make_token(lexer, begin_pos, TOK_RBRACKET);
         if (accept_char(lexer, ',')) return make_token(lexer, begin_pos, TOK_COMMA);
         if (accept_char(lexer, '=')) return make_token(lexer, begin_pos, TOK_EQ);
+
+        if (accept_char(lexer, '\"')) {
+            while (true) {
+                if (is_eof(lexer) || cur_char(lexer) == '\n')
+                    return make_token(lexer, begin_pos, TOK_ERR);
+                if (accept_char(lexer, '\"'))
+                    break;
+                eat_char(lexer);
+            }
+            return make_token(lexer, begin_pos, TOK_STR);
+        }
 
         if (accept_char(lexer, '-')) {
             if (!is_eof(lexer) && isdigit(cur_char(lexer)))
