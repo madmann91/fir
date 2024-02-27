@@ -515,6 +515,30 @@ static LLVMValueRef gen_addrof(
         (LLVMValueRef[]) { LLVMConstNull(LLVMTypeOf(index)), index }, 2, "addrof_elem");
 }
 
+static LLVMValueRef gen_cast_op(
+    struct llvm_codegen* codegen,
+    struct graph_node* block,
+    const struct fir_node* cast_op)
+{
+    LLVMValueRef arg = find_op(codegen, block, FIR_CAST_OP_ARG(cast_op));
+    LLVMTypeRef dest_type = convert_ty(codegen, cast_op->ty);
+    switch (cast_op->tag) {
+        case FIR_BITCAST: return LLVMBuildBitCast(codegen->llvm_builder, arg, dest_type, "bitcast");
+        case FIR_UTOF:    return LLVMBuildUIToFP(codegen->llvm_builder, arg, dest_type, "utof");
+        case FIR_STOF:    return LLVMBuildSIToFP(codegen->llvm_builder, arg, dest_type, "stof");
+        case FIR_FTOU:    return LLVMBuildFPToUI(codegen->llvm_builder, arg, dest_type, "ftou");
+        case FIR_FTOS:    return LLVMBuildFPToSI(codegen->llvm_builder, arg, dest_type, "ftos");
+        case FIR_FEXT:    return LLVMBuildFPExt(codegen->llvm_builder, arg, dest_type, "fext");
+        case FIR_ZEXT:    return LLVMBuildZExt(codegen->llvm_builder, arg, dest_type, "zext");
+        case FIR_SEXT:    return LLVMBuildSExt(codegen->llvm_builder, arg, dest_type, "sext");
+        case FIR_ITRUNC:  return LLVMBuildTrunc(codegen->llvm_builder, arg, dest_type, "itrunc");
+        case FIR_FTRUNC:  return LLVMBuildFPTrunc(codegen->llvm_builder, arg, dest_type, "ftrunc");
+        default:
+            assert(false && "invalid cast type");
+            return NULL;
+    }
+}
+
 static LLVMValueRef gen_node(
     struct llvm_codegen* codegen,
     struct graph_node* block,
@@ -558,6 +582,9 @@ static LLVMValueRef gen_node(
             return gen_ins(codegen, block, node);
         case FIR_ADDROF:
             return gen_addrof(codegen, block, node);
+        #define x(tag, ...) case FIR_##tag:
+        FIR_CAST_OP_LIST(x)
+            return gen_cast_op(codegen, block, node);
         default:
             assert(false && "invalid node tag");
             return NULL;
