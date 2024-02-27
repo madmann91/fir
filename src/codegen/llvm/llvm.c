@@ -280,12 +280,29 @@ static void gen_return(
     struct graph_node* block,
     const struct fir_node* ret)
 {
-    if (fir_node_is_unit(FIR_CALL_ARG(ret))) {
-        LLVMBuildRetVoid(codegen->llvm_builder);
+    struct small_llvm_value_vec args;
+    small_llvm_value_vec_init(&args);
+    if (FIR_CALL_ARG(ret)->tag == FIR_TUP) {
+        const struct fir_node* tup = FIR_CALL_ARG(ret);
+        for (size_t i = 0; i < tup->op_count; ++i) {
+            if (!can_be_llvm_type(tup->ops[i]->ty))
+                continue;
+            LLVMValueRef arg = find_op(codegen, block, tup->ops[i]);
+            small_llvm_value_vec_push(&args, &arg);
+        }
     } else {
         LLVMValueRef arg = find_op(codegen, block, FIR_CALL_ARG(ret));
-        LLVMBuildRet(codegen->llvm_builder, arg);
+        small_llvm_value_vec_push(&args, &arg);
     }
+
+    if (args.elem_count == 0) {
+        LLVMBuildRetVoid(codegen->llvm_builder);
+    } else if (args.elem_count == 1) {
+        LLVMBuildRet(codegen->llvm_builder, args.elems[0]);
+    } else {
+        LLVMBuildAggregateRet(codegen->llvm_builder, args.elems, args.elem_count);
+    }
+    small_llvm_value_vec_destroy(&args);
 }
 
 static void gen_branch(
@@ -334,15 +351,16 @@ static LLVMValueRef gen_call(
 
 static LLVMValueRef gen_tup_from_args(
     struct llvm_codegen* codegen,
-    LLVMTypeRef llvm_type,
+    const struct fir_node* aggr_ty,
     const LLVMValueRef* args,
     size_t arg_count)
 {
-    assert(arg_count != 0);
+    if (arg_count == 0)
+        return NULL;
     if (arg_count == 1)
         return args[0];
 
-    LLVMValueRef llvm_val = LLVMGetUndef(llvm_type);
+    LLVMValueRef llvm_val = LLVMGetUndef(convert_ty(codegen, aggr_ty));
     for (size_t i = 0; i < arg_count; ++i)
         llvm_val = LLVMBuildInsertValue(codegen->llvm_builder, llvm_val, args[i], i, "tup");
     return llvm_val;
@@ -361,8 +379,7 @@ static LLVMValueRef gen_tup(
         LLVMValueRef arg = find_op(codegen, block, tup->ops[i]);
         small_llvm_value_vec_push(&args, &arg);
     }
-    LLVMValueRef llvm_val = gen_tup_from_args(codegen,
-        convert_ty(codegen, tup->ty), args.elems, args.elem_count);
+    LLVMValueRef llvm_val = gen_tup_from_args(codegen, tup->ty, args.elems, args.elem_count);
     small_llvm_value_vec_destroy(&args);
     return llvm_val;
 }
@@ -381,8 +398,7 @@ static LLVMValueRef gen_param_as_tup(
         LLVMValueRef arg = find_op(codegen, block, fir_ext_at(param, i));
         small_llvm_value_vec_push(&args, &arg);
     }
-    LLVMValueRef llvm_val = gen_tup_from_args(codegen,
-        convert_ty(codegen, param->ty), args.elems, args.elem_count);
+    LLVMValueRef llvm_val = gen_tup_from_args(codegen, param->ty, args.elems, args.elem_count);
     small_llvm_value_vec_destroy(&args);
     return llvm_val;
 }
