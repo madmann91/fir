@@ -176,6 +176,29 @@ static inline LLVMValueRef gen_constant_tup(struct llvm_codegen* codegen, const 
     return LLVMConstStructInContext(codegen->llvm_context, args.elems, args.elem_count, false);
 }
 
+static LLVMValueRef gen_constant_uncached(
+    struct llvm_codegen* codegen,
+    const struct fir_node* node)
+{
+    switch (node->tag) {
+        case FIR_CONST:
+            if (fir_node_is_int_const(node)) {
+                return LLVMConstInt(convert_ty(codegen, node->ty), node->data.int_val, false);
+            } else if (fir_node_is_float_const(node)) {
+                return LLVMConstReal(convert_ty(codegen, node->ty), node->data.float_val);
+            } else {
+                assert(false && "unsupported literal constant");
+                return NULL;
+            }
+            break;
+        case FIR_TUP:
+            return gen_constant_tup(codegen, node);
+        default:
+            assert(false && "unsupported constant");
+            return NULL;
+    }
+}
+
 static LLVMValueRef gen_constant(
     struct llvm_codegen* codegen,
     const struct fir_node* node)
@@ -185,27 +208,8 @@ static LLVMValueRef gen_constant(
     if (constant_ptr)
         return *constant_ptr;
 
-    LLVMValueRef llvm_constant = NULL;
-    switch (node->tag) {
-        case FIR_CONST:
-            if (fir_node_is_int_const(node)) {
-                llvm_constant = LLVMConstInt(convert_ty(codegen, node->ty), node->data.int_val, false);
-            } else if (fir_node_is_float_const(node)) {
-                llvm_constant = LLVMConstReal(convert_ty(codegen, node->ty), node->data.float_val);
-            } else {
-                assert(false && "unsupported literal constant");
-                return NULL;
-            }
-            break;
-        case FIR_TUP:
-            llvm_constant = gen_constant_tup(codegen, node);
-            break;
-        default:
-            assert(false && "unsupported constant");
-            return NULL;
-    }
+    LLVMValueRef llvm_constant = gen_constant_uncached(codegen, node);
     assert(llvm_constant);
-
     [[maybe_unused]] bool was_inserted = node_map_insert(&codegen->llvm_constants, &node, (void*[]) { llvm_constant });
     assert(was_inserted);
     return llvm_constant;
@@ -415,7 +419,7 @@ static LLVMValueRef gen_ext_or_ins_via_alloca(
     LLVMValueRef ptr = gen_alloca(codegen, aggr->ty, "tmp_alloca");
     LLVMBuildStore(codegen->llvm_builder, find_op(codegen, block, aggr), ptr);
     LLVMValueRef elem_ptr = LLVMBuildInBoundsGEP2(codegen->llvm_builder, aggr_type, ptr,
-        (LLVMValueRef[]) { LLVMConstNull(LLVMTypeOf(llvm_index)), llvm_index }, 2, "elem_addr"); 
+        (LLVMValueRef[]) { LLVMConstNull(LLVMTypeOf(llvm_index)), llvm_index }, 2, "elem_addr");
     if (elem) {
         LLVMValueRef llvm_elem = find_op(codegen, block, elem);
         LLVMBuildStore(codegen->llvm_builder, llvm_elem, elem_ptr);
@@ -488,6 +492,18 @@ static LLVMValueRef gen_local(
     return ptr;
 }
 
+static LLVMValueRef gen_addrof(
+    struct llvm_codegen* codegen,
+    struct graph_node* block,
+    const struct fir_node* addrof)
+{
+    LLVMValueRef ptr = find_op(codegen, block, FIR_ADDROF_PTR(addrof));
+    LLVMTypeRef aggr_type = convert_ty(codegen, FIR_ADDROF_TY(addrof));
+    LLVMValueRef index = find_op(codegen, block, FIR_ADDROF_INDEX(addrof));
+    return LLVMBuildInBoundsGEP2(codegen->llvm_builder, aggr_type, ptr,
+        (LLVMValueRef[]) { LLVMConstNull(LLVMTypeOf(index)), index }, 2, "addrof_elem");
+}
+
 static LLVMValueRef gen_node(
     struct llvm_codegen* codegen,
     struct graph_node* block,
@@ -529,6 +545,8 @@ static LLVMValueRef gen_node(
             return gen_ext(codegen, block, node);
         case FIR_INS:
             return gen_ins(codegen, block, node);
+        case FIR_ADDROF:
+            return gen_addrof(codegen, block, node);
         default:
             assert(false && "invalid node tag");
             return NULL;
@@ -539,7 +557,8 @@ static bool enqueue_node(struct llvm_codegen* codegen, const struct fir_node* no
     if (node->tag == FIR_FUNC ||
         node->tag == FIR_GLOBAL ||
         can_be_llvm_param(node) ||
-        can_be_llvm_constant(node))
+        can_be_llvm_constant(node) ||
+        fir_node_is_ty(node))
         return true;
     return !unique_node_stack_push(&codegen->node_stack, &node);
 }
