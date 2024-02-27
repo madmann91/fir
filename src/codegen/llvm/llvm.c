@@ -440,6 +440,17 @@ static LLVMValueRef gen_ext_or_ins_via_alloca(
     return LLVMBuildLoad2(codegen->llvm_builder, elem_type, elem_ptr, "ext_load");
 }
 
+static unsigned remap_index(const struct fir_node* aggr_ty, size_t index) {
+    if (aggr_ty->tag != FIR_TUP_TY)
+        return index;
+    // Some tuple elements may not be convertible into LLVM types and are then skipped. Thus,
+    // indices used in an extract or insert operation need to be remapped.
+    unsigned new_index = 0;
+    for (size_t i = 0; i < index; i++)
+        new_index += can_be_llvm_type(aggr_ty->ops[i]) ? 1 : 0;
+    return new_index;
+}
+
 static LLVMValueRef gen_ext(
     struct llvm_codegen* codegen,
     struct graph_node* block,
@@ -447,8 +458,10 @@ static LLVMValueRef gen_ext(
 {
     if (FIR_EXT_INDEX(ext)->tag == FIR_CONST) {
         LLVMValueRef aggr = find_op(codegen, block, FIR_EXT_AGGR(ext));
-        return LLVMBuildExtractValue(codegen->llvm_builder, aggr, FIR_EXT_INDEX(ext)->data.int_val, "ext");
+        unsigned index = remap_index(FIR_EXT_AGGR(ext)->ty, FIR_EXT_INDEX(ext)->data.int_val);
+        return LLVMBuildExtractValue(codegen->llvm_builder, aggr, index, "ext");
     }
+
     return gen_ext_or_ins_via_alloca(codegen, block, ext->ty, FIR_EXT_AGGR(ext), FIR_EXT_INDEX(ext), NULL);
 }
 
@@ -460,8 +473,10 @@ static LLVMValueRef gen_ins(
     if (FIR_INS_INDEX(ins)->tag == FIR_CONST) {
         LLVMValueRef aggr = find_op(codegen, block, FIR_INS_AGGR(ins));
         LLVMValueRef elem = find_op(codegen, block, FIR_INS_ELEM(ins));
-        return LLVMBuildInsertValue(codegen->llvm_builder, aggr, elem, FIR_INS_INDEX(ins)->data.int_val, "ins");
+        unsigned index = remap_index(ins->ty, FIR_INS_INDEX(ins)->data.int_val);
+        return LLVMBuildInsertValue(codegen->llvm_builder, aggr, elem, index, "ins");
     }
+
     return gen_ext_or_ins_via_alloca(codegen, block,
         FIR_INS_ELEM(ins)->ty, FIR_INS_AGGR(ins), FIR_INS_INDEX(ins), FIR_INS_ELEM(ins));
 }
