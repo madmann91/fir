@@ -278,8 +278,8 @@ static void gen_param(struct llvm_codegen* codegen, const struct fir_node* param
 
 static void gen_return(
     struct llvm_codegen* codegen,
-    const struct fir_node* ret,
-    struct graph_node* block)
+    struct graph_node* block,
+    const struct fir_node* ret)
 {
     if (fir_node_is_unit(FIR_CALL_ARG(ret))) {
         LLVMBuildRetVoid(codegen->llvm_builder);
@@ -291,8 +291,8 @@ static void gen_return(
 
 static void gen_branch(
     struct llvm_codegen* codegen,
-    const struct fir_node* branch,
-    struct graph_node* block)
+    struct graph_node* block,
+    const struct fir_node* branch)
 {
     assert(fir_node_jump_target_count(branch) == 2);
     const struct fir_node* const* targets = fir_node_jump_targets(branch);
@@ -306,8 +306,8 @@ static void gen_branch(
 
 static void gen_switch(
     struct llvm_codegen* codegen,
-    const struct fir_node* switch_,
-    struct graph_node* block)
+    struct graph_node* block,
+    const struct fir_node* switch_)
 {
     // TODO
     assert(false && "unimplemented");
@@ -326,17 +326,33 @@ static void gen_jump(
 
 static LLVMValueRef gen_call(
     struct llvm_codegen* codegen,
-    const struct fir_node* call,
-    struct graph_node* block)
+    struct graph_node* block,
+    const struct fir_node* call)
 {
     assert(false && "unimplemented");
     return NULL;
 }
 
+static LLVMValueRef gen_tup_from_args(
+    struct llvm_codegen* codegen,
+    LLVMTypeRef llvm_type,
+    const LLVMValueRef* args,
+    size_t arg_count)
+{
+    assert(arg_count != 0);
+    if (arg_count == 1)
+        return args[0];
+
+    LLVMValueRef llvm_val = LLVMGetUndef(llvm_type);
+    for (size_t i = 0; i < arg_count; ++i)
+        llvm_val = LLVMBuildInsertValue(codegen->llvm_builder, llvm_val, args[i], i, "tup");
+    return llvm_val;
+}
+
 static LLVMValueRef gen_tup(
     struct llvm_codegen* codegen,
-    const struct fir_node* tup,
-    struct graph_node* block)
+    struct graph_node* block,
+    const struct fir_node* tup)
 {
     struct small_llvm_value_vec args;
     small_llvm_value_vec_init(&args);
@@ -346,23 +362,136 @@ static LLVMValueRef gen_tup(
         LLVMValueRef arg = find_op(codegen, block, tup->ops[i]);
         small_llvm_value_vec_push(&args, &arg);
     }
-    assert(args.elem_count != 0);
-    LLVMValueRef llvm_val = NULL;
-    if (args.elem_count == 1) {
-        llvm_val = args.elems[0];
-    } else {
-        llvm_val = LLVMGetUndef(convert_ty(codegen, tup->ty));
-        for (size_t i = 0; i < args.elem_count; ++i)
-            llvm_val = LLVMBuildInsertValue(codegen->llvm_builder, llvm_val, args.elems[i], i, "tup");
-    }
+    LLVMValueRef llvm_val = gen_tup_from_args(codegen,
+        convert_ty(codegen, tup->ty), args.elems, args.elem_count);
     small_llvm_value_vec_destroy(&args);
     return llvm_val;
 }
 
+static LLVMValueRef gen_param_as_tup(
+    struct llvm_codegen* codegen,
+    struct graph_node* block,
+    const struct fir_node* param)
+{
+    assert(param->ty->tag == FIR_TUP_TY);
+    struct small_llvm_value_vec args;
+    small_llvm_value_vec_init(&args);
+    for (size_t i = 0; i < param->ty->op_count; ++i) {
+        if (!can_be_llvm_type(param->ty->ops[i]))
+            continue;
+        LLVMValueRef arg = find_op(codegen, block, fir_ext_at(param, i));
+        small_llvm_value_vec_push(&args, &arg);
+    }
+    LLVMValueRef llvm_val = gen_tup_from_args(codegen,
+        convert_ty(codegen, param->ty), args.elems, args.elem_count);
+    small_llvm_value_vec_destroy(&args);
+    return llvm_val;
+}
+
+static LLVMValueRef gen_alloca(
+    struct llvm_codegen* codegen,
+    const struct fir_node* ty,
+    const char* name)
+{
+    LLVMBasicBlockRef old_block   = LLVMGetInsertBlock(codegen->llvm_builder);
+    LLVMBasicBlockRef entry_block = LLVMGetEntryBasicBlock(codegen->llvm_func);
+    LLVMPositionBuilderAtEnd(codegen->llvm_builder, entry_block);
+    LLVMValueRef alloca = LLVMBuildAlloca(codegen->llvm_builder, convert_ty(codegen, ty), name);
+    LLVMPositionBuilderAtEnd(codegen->llvm_builder, old_block);
+    return alloca;
+}
+
+static LLVMValueRef gen_ext_or_ins_via_alloca(
+    struct llvm_codegen* codegen,
+    struct graph_node* block,
+    const struct fir_node* elem_ty,
+    const struct fir_node* aggr,
+    const struct fir_node* index,
+    const struct fir_node* elem)
+{
+    // Write the aggregate into a temporary alloca
+    LLVMTypeRef aggr_type = convert_ty(codegen, aggr->ty);
+    LLVMValueRef llvm_index = find_op(codegen, block, index);
+    LLVMValueRef ptr = gen_alloca(codegen, aggr->ty, "tmp_alloca");
+    LLVMBuildStore(codegen->llvm_builder, find_op(codegen, block, aggr), ptr);
+    LLVMValueRef elem_ptr = LLVMBuildInBoundsGEP2(codegen->llvm_builder, aggr_type, ptr,
+        (LLVMValueRef[]) { LLVMConstNull(LLVMTypeOf(llvm_index)), llvm_index }, 2, "elem_addr"); 
+    if (elem) {
+        LLVMValueRef llvm_elem = find_op(codegen, block, elem);
+        LLVMBuildStore(codegen->llvm_builder, llvm_elem, elem_ptr);
+        return LLVMBuildLoad2(codegen->llvm_builder, aggr_type, ptr, "ins_load");
+    }
+    LLVMTypeRef elem_type = convert_ty(codegen, elem_ty);
+    return LLVMBuildLoad2(codegen->llvm_builder, elem_type, elem_ptr, "ext_load");
+}
+
+static LLVMValueRef gen_ext(
+    struct llvm_codegen* codegen,
+    struct graph_node* block,
+    const struct fir_node* ext)
+{
+    if (FIR_EXT_INDEX(ext)->tag == FIR_CONST) {
+        LLVMValueRef aggr = find_op(codegen, block, FIR_EXT_AGGR(ext));
+        return LLVMBuildExtractValue(codegen->llvm_builder, aggr, FIR_EXT_INDEX(ext)->data.int_val, "ext");
+    }
+    return gen_ext_or_ins_via_alloca(codegen, block, ext->ty, FIR_EXT_AGGR(ext), FIR_EXT_INDEX(ext), NULL);
+}
+
+static LLVMValueRef gen_ins(
+    struct llvm_codegen* codegen,
+    struct graph_node* block,
+    const struct fir_node* ins)
+{
+    if (FIR_INS_INDEX(ins)->tag == FIR_CONST) {
+        LLVMValueRef aggr = find_op(codegen, block, FIR_INS_AGGR(ins));
+        LLVMValueRef elem = find_op(codegen, block, FIR_INS_ELEM(ins));
+        return LLVMBuildInsertValue(codegen->llvm_builder, aggr, elem, FIR_INS_INDEX(ins)->data.int_val, "ins");
+    }
+    return gen_ext_or_ins_via_alloca(codegen, block,
+        FIR_INS_ELEM(ins)->ty, FIR_INS_AGGR(ins), FIR_INS_INDEX(ins), FIR_INS_ELEM(ins));
+}
+
+static LLVMValueRef gen_store(
+    struct llvm_codegen* codegen,
+    struct graph_node* block,
+    const struct fir_node* store)
+{
+    LLVMValueRef ptr = find_op(codegen, block, FIR_STORE_PTR(store));
+    LLVMValueRef val = find_op(codegen, block, FIR_STORE_VAL(store));
+    LLVMValueRef llvm_store = LLVMBuildStore(codegen->llvm_builder, val, ptr);
+    if (store->data.mem_flags & FIR_MEM_VOLATILE)
+        LLVMSetVolatile(llvm_store, 1);
+    return NULL;
+}
+
+static LLVMValueRef gen_load(
+    struct llvm_codegen* codegen,
+    struct graph_node* block,
+    const struct fir_node* load)
+{
+    LLVMValueRef ptr = find_op(codegen, block, FIR_LOAD_PTR(load));
+    LLVMTypeRef load_type = convert_ty(codegen, load->ty);
+    LLVMValueRef llvm_load = LLVMBuildLoad2(codegen->llvm_builder, load_type, ptr, "load");
+    if (load->data.mem_flags & FIR_MEM_VOLATILE)
+        LLVMSetVolatile(llvm_load, 1);
+    return llvm_load;
+}
+
+static LLVMValueRef gen_local(
+    struct llvm_codegen* codegen,
+    struct graph_node* block,
+    const struct fir_node* local)
+{
+    LLVMValueRef ptr = gen_alloca(codegen, FIR_LOCAL_INIT(local)->ty, "local");
+    if (FIR_LOCAL_INIT(local)->tag != FIR_BOT)
+        LLVMBuildStore(codegen->llvm_builder, find_op(codegen, block, FIR_LOCAL_INIT(local)), ptr);
+    return ptr;
+}
+
 static LLVMValueRef gen_node(
     struct llvm_codegen* codegen,
-    const struct fir_node* node,
-    struct graph_node* block)
+    struct graph_node* block,
+    const struct fir_node* node)
 {
     assert(!can_be_llvm_constant(node) && "constants do not need to be placed in a specific block");
     assert(!can_be_llvm_param(node) && "parameters are not instructions in LLVM IR");
@@ -370,41 +499,36 @@ static LLVMValueRef gen_node(
     LLVMPositionBuilderAtEnd(codegen->llvm_builder, llvm_block);
 
     switch (node->tag) {
-        case FIR_LOCAL: {
-            LLVMTypeRef alloca_type = convert_ty(codegen, FIR_LOCAL_INIT(node)->ty);
-            LLVMValueRef ptr = LLVMBuildAlloca(codegen->llvm_builder, alloca_type, "local");
-            if (FIR_LOCAL_INIT(node)->tag != FIR_BOT)
-                LLVMBuildStore(codegen->llvm_builder, find_op(codegen, block, FIR_LOCAL_INIT(node)), ptr);
-            return ptr;
-        }
-        case FIR_LOAD: {
-            LLVMValueRef ptr = find_op(codegen, block, FIR_LOAD_PTR(node));
-            return LLVMBuildLoad2(codegen->llvm_builder, convert_ty(codegen, node->ty), ptr, "load");
-        }
-        case FIR_STORE: {
-            LLVMValueRef ptr = find_op(codegen, block, FIR_STORE_PTR(node));
-            LLVMValueRef val = find_op(codegen, block, FIR_STORE_VAL(node));
-            return LLVMBuildStore(codegen->llvm_builder, val, ptr);
-        }
-        case FIR_CALL: {
+        case FIR_LOCAL:
+            return gen_local(codegen, block, node);
+        case FIR_LOAD:
+            return gen_load(codegen, block, node);
+        case FIR_STORE:
+            return gen_store(codegen, block, node);
+        case FIR_CALL:
             if (FIR_CALL_CALLEE(node) == fir_node_func_return(codegen->scope.func)) {
-                gen_return(codegen, node, block);
+                gen_return(codegen, block, node);
                 return NULL;
             } else if (fir_node_is_jump(node)) {
                 if (fir_node_is_branch(node)) {
-                    gen_branch(codegen, node, block);
+                    gen_branch(codegen, block, node);
                 } else if (fir_node_is_choice(node)) {
-                    gen_switch(codegen, node, block);
+                    gen_switch(codegen, block, node);
                 } else {
                     gen_jump(codegen, node);
                 }
                 return NULL;
             } else {
-                return gen_call(codegen, node, block);
+                return gen_call(codegen, block, node);
             }
-        }
         case FIR_TUP:
-            return gen_tup(codegen, node, block);
+            return gen_tup(codegen, block, node);
+        case FIR_PARAM:
+            return gen_param_as_tup(codegen, block, node);
+        case FIR_EXT:
+            return gen_ext(codegen, block, node);
+        case FIR_INS:
+            return gen_ins(codegen, block, node);
         default:
             assert(false && "invalid node tag");
             return NULL;
@@ -436,12 +560,12 @@ static bool enqueue_ops(struct llvm_codegen* codegen, const struct fir_node* nod
     return enqueue_nodes(codegen, node->ops, node->op_count);
 }
 
-static bool enqueue_call_dependencies(struct llvm_codegen* codegen, const struct fir_node* call) {
+static bool enqueue_call_deps(struct llvm_codegen* codegen, const struct fir_node* call) {
     // Calls and jumps do not need to have an LLVM tuple as an argument, since we can set
     // each individual function argument for function calls, and each individual phi node
     // for jumps. However, returns still need a tuple when multiple values are returned.
     bool is_return = FIR_CALL_CALLEE(call) == fir_node_func_return(codegen->scope.func);
-    if (FIR_CALL_ARG(call)->ty->tag == FIR_TUP_TY && !is_return) {
+    if (FIR_CALL_ARG(call)->tag == FIR_TUP && !is_return) {
         if (!enqueue_ops(codegen, FIR_CALL_ARG(call)))
             return false;
     } else if (!enqueue_node(codegen, FIR_CALL_ARG(call))) {
@@ -462,12 +586,10 @@ static bool enqueue_call_dependencies(struct llvm_codegen* codegen, const struct
     return true;
 }
 
-static bool enqueue_node_dependencies(struct llvm_codegen* codegen, const struct fir_node* node) {
-    if (node->tag == FIR_CALL) {
-        return enqueue_call_dependencies(codegen, node);
-    } else {
-        return enqueue_ops(codegen, node);
-    }
+static bool enqueue_node_deps(struct llvm_codegen* codegen, const struct fir_node* node) {
+    if (node->tag == FIR_CALL)
+        return enqueue_call_deps(codegen, node);
+    return enqueue_ops(codegen, node);
 }
 
 static void gen_nodes_in_block(struct llvm_codegen* codegen, struct graph_node* block) {
@@ -476,7 +598,7 @@ static void gen_nodes_in_block(struct llvm_codegen* codegen, struct graph_node* 
     unique_node_stack_push(&codegen->node_stack, &FIR_FUNC_BODY(block_func));
     while (!unique_node_stack_is_empty(&codegen->node_stack)) {
         const struct fir_node* node = *unique_node_stack_last(&codegen->node_stack);
-        if (!enqueue_node_dependencies(codegen, node))
+        if (!enqueue_node_deps(codegen, node))
             continue;
 
         unique_node_stack_pop(&codegen->node_stack);
@@ -486,7 +608,7 @@ static void gen_nodes_in_block(struct llvm_codegen* codegen, struct graph_node* 
             struct graph_node* target_block = target_blocks->elems[i];
             struct scheduled_node scheduled_node = { .node = node, .block = target_block };
             assert(!scheduled_node_map_find(&codegen->llvm_values, &scheduled_node));
-            LLVMValueRef llvm_value = gen_node(codegen, node, target_block);
+            LLVMValueRef llvm_value = gen_node(codegen, target_block, node);
             if (!llvm_value)
                 continue;
             [[maybe_unused]] bool was_inserted =
