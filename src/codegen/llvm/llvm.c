@@ -128,7 +128,6 @@ static LLVMTypeRef convert_ty_uncached(struct llvm_codegen* codegen, const struc
     switch (ty->tag) {
         case FIR_INT_TY:
             return LLVMIntTypeInContext(codegen->llvm_context, ty->data.bitwidth);
-            break;
         case FIR_FLOAT_TY:
             switch (ty->data.bitwidth) {
                 case 16: return LLVMHalfTypeInContext(codegen->llvm_context);
@@ -138,15 +137,12 @@ static LLVMTypeRef convert_ty_uncached(struct llvm_codegen* codegen, const struc
                     assert(false && "unsupported floating-point bitwidth");
                     return NULL;
             }
-            break;
         case FIR_PTR_TY:
             // Note: Older versions of LLVM do not support opaque pointers. For that reason, we just
             // create a byte pointer instead, which should be supported everywhere.
             return LLVMPointerType(LLVMIntTypeInContext(codegen->llvm_context, 8), 0);
-            break;
         case FIR_TUP_TY:
             return convert_tup_ty(codegen, ty);
-            break;
         default:
             assert(false && "unsupported type");
             return NULL;
@@ -190,7 +186,6 @@ static LLVMValueRef gen_constant_uncached(
                 assert(false && "unsupported literal constant");
                 return NULL;
             }
-            break;
         case FIR_TUP:
             return gen_constant_tup(codegen, node);
         default:
