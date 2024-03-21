@@ -63,13 +63,13 @@ static inline void eat_digits(struct lexer* lexer, int base) {
 
 static inline struct token make_token(
     struct lexer* lexer,
-    struct fir_source_pos begin_pos,
+    const struct fir_source_pos* begin_pos,
     enum token_tag tag)
 {
     return (struct token) {
         .tag = tag,
         .source_range = {
-            .begin = begin_pos,
+            .begin = *begin_pos,
             .end = lexer->source_pos
         }
     };
@@ -86,7 +86,7 @@ static inline enum token_tag find_keyword(struct str_view ident) {
 
 static inline struct token parse_literal(
     struct lexer* lexer,
-    struct fir_source_pos begin_pos,
+    const struct fir_source_pos* begin_pos,
     bool has_minus)
 {
     bool is_float = false;
@@ -131,38 +131,38 @@ struct token lexer_advance(struct lexer* lexer) {
 
         struct fir_source_pos begin_pos = lexer->source_pos;
         if (is_eof(lexer))
-            return make_token(lexer, begin_pos, TOK_EOF);
+            return make_token(lexer, &begin_pos, TOK_EOF);
 
-        if (accept_char(lexer, '(')) return make_token(lexer, begin_pos, TOK_LPAREN);
-        if (accept_char(lexer, ')')) return make_token(lexer, begin_pos, TOK_RPAREN);
-        if (accept_char(lexer, '[')) return make_token(lexer, begin_pos, TOK_LBRACKET);
-        if (accept_char(lexer, ']')) return make_token(lexer, begin_pos, TOK_RBRACKET);
-        if (accept_char(lexer, '{')) return make_token(lexer, begin_pos, TOK_LBRACKET);
-        if (accept_char(lexer, '}')) return make_token(lexer, begin_pos, TOK_RBRACKET);
-        if (accept_char(lexer, ',')) return make_token(lexer, begin_pos, TOK_COMMA);
-        if (accept_char(lexer, '=')) return make_token(lexer, begin_pos, TOK_EQ);
+        if (accept_char(lexer, '(')) return make_token(lexer, &begin_pos, TOK_LPAREN);
+        if (accept_char(lexer, ')')) return make_token(lexer, &begin_pos, TOK_RPAREN);
+        if (accept_char(lexer, '[')) return make_token(lexer, &begin_pos, TOK_LBRACKET);
+        if (accept_char(lexer, ']')) return make_token(lexer, &begin_pos, TOK_RBRACKET);
+        if (accept_char(lexer, '{')) return make_token(lexer, &begin_pos, TOK_LBRACKET);
+        if (accept_char(lexer, '}')) return make_token(lexer, &begin_pos, TOK_RBRACKET);
+        if (accept_char(lexer, ',')) return make_token(lexer, &begin_pos, TOK_COMMA);
+        if (accept_char(lexer, '=')) return make_token(lexer, &begin_pos, TOK_EQ);
 
         if (accept_char(lexer, '\"')) {
             while (true) {
                 if (is_eof(lexer) || cur_char(lexer) == '\n')
-                    return make_token(lexer, begin_pos, TOK_ERR);
+                    return make_token(lexer, &begin_pos, TOK_ERR);
                 if (accept_char(lexer, '\"'))
                     break;
                 eat_char(lexer);
             }
-            return make_token(lexer, begin_pos, TOK_STR);
+            return make_token(lexer, &begin_pos, TOK_STR);
         }
 
         if (accept_char(lexer, '-')) {
             if (!is_eof(lexer) && isdigit(cur_char(lexer)))
-                return parse_literal(lexer, lexer->source_pos, true);
-            return make_token(lexer, begin_pos, TOK_MINUS);
+                return parse_literal(lexer, &lexer->source_pos, true);
+            return make_token(lexer, &begin_pos, TOK_MINUS);
         }
 
         if (accept_char(lexer, '+')) {
             if (!is_eof(lexer) && isdigit(cur_char(lexer)))
-                return parse_literal(lexer, lexer->source_pos, false);
-            return make_token(lexer, begin_pos, TOK_PLUS);
+                return parse_literal(lexer, &lexer->source_pos, false);
+            return make_token(lexer, &begin_pos, TOK_PLUS);
         }
 
         if (accept_char(lexer, '#')) {
@@ -174,7 +174,7 @@ struct token lexer_advance(struct lexer* lexer) {
         if (isalpha(cur_char(lexer)) || cur_char(lexer) == '_') {
             while (!is_eof(lexer) && (isalnum(cur_char(lexer)) || cur_char(lexer) == '_'))
                 eat_char(lexer);
-            struct token token = make_token(lexer, begin_pos, TOK_IDENT);
+            struct token token = make_token(lexer, &begin_pos, TOK_IDENT);
             enum token_tag keyword_tag = find_keyword(token_str_view(lexer->data, &token));
             if (keyword_tag != TOK_ERR)
                 token.tag = keyword_tag;
@@ -182,9 +182,9 @@ struct token lexer_advance(struct lexer* lexer) {
         }
 
         if (isdigit(cur_char(lexer)))
-            return parse_literal(lexer, begin_pos, false);
+            return parse_literal(lexer, &begin_pos, false);
 
         eat_char(lexer);
-        return make_token(lexer, begin_pos, TOK_ERR);
+        return make_token(lexer, &begin_pos, TOK_ERR);
     }
 }

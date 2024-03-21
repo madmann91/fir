@@ -123,6 +123,7 @@ int main(int argc, char** argv) {
         status &= compile_file(argv[i], &options);
         file_count++;
     }
+
     if (file_count == 0) {
         fprintf(stderr, "no input file\n");
         return 1;

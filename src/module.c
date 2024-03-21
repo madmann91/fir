@@ -166,6 +166,10 @@ static void free_node(struct fir_node* node) {
 static inline bool has_side_effect(const struct fir_node* node) {
     switch (node->tag) {
         case FIR_CALL:
+            return
+                node->ty->tag == FIR_NORET_TY ||
+                FIR_CALL_CALLEE(node)->tag != FIR_FUNC ||
+                (FIR_CALL_CALLEE(node)->data.func_flags & FIR_FUNC_PURE) == 0;
         case FIR_STORE:
             return true;
         case FIR_LOAD:

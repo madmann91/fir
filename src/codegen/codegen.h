@@ -1,9 +1,13 @@
 #pragma once
 
+#include "support/datatypes.h"
+
 #include <stddef.h>
 #include <stdbool.h>
 
 struct fir_mod;
+struct fir_node;
+struct graph_node;
 
 struct fir_codegen {
     void (*destroy)(struct fir_codegen*);

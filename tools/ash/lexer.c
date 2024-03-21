@@ -51,7 +51,7 @@ static inline void eat_spaces(struct lexer* lexer) {
 
 static inline struct token make_token(
     struct lexer* lexer,
-    struct fir_source_pos* begin_pos,
+    const struct fir_source_pos* begin_pos,
     enum token_tag tag)
 {
     return (struct token) {

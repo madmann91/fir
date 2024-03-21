@@ -55,14 +55,22 @@ enum fir_mem_flags {
     FIR_MEM_VOLATILE = 0x02  ///< The value pointed to may change outside of the program.
 };
 
+/// Flags for functions.
+enum fir_func_flags {
+    /// A function is deemed pure when it has no side-effects, always terminates, and produces the
+    /// same return value given the same input values.
+    FIR_FUNC_PURE = 0x01,
+};
+
 /// Node data that is not representable via operands.
 union fir_node_data {
-    enum fir_mem_flags mem_flags; ///< Flags for operations that deal with memory.
-    enum fir_fp_flags fp_flags;   ///< Floating-point flags, for floating-point instructions.
-    fir_int_val int_val;          ///< Integer value, for integer constants.
-    fir_float_val float_val;      ///< Floating-point value, for floating-point constants.
-    size_t bitwidth;              ///< Bitwidth, for integer or floating-point types.
-    size_t array_dim;             ///< Array dimension, for fixed-size array types.
+    enum fir_func_flags func_flags; ///< Flags for functions.
+    enum fir_mem_flags mem_flags;   ///< Flags for operations that deal with memory.
+    enum fir_fp_flags fp_flags;     ///< Floating-point flags, for floating-point instructions.
+    fir_int_val int_val;            ///< Integer value, for integer constants.
+    fir_float_val float_val;        ///< Floating-point value, for floating-point constants.
+    size_t bitwidth;                ///< Bitwidth, for integer or floating-point types.
+    size_t array_dim;               ///< Array dimension, for fixed-size array types.
 };
 
 /// Properties of structural nodes.

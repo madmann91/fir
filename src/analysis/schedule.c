@@ -101,7 +101,7 @@ static inline struct graph_node* compute_early_block(struct schedule* schedule, 
 
     if (node->tag == FIR_STORE) {
         // Stores need to be scheduled at the earliest _after_ all the loads on the same memory object.
-        for (const struct fir_use* use = node->ops[0]->uses; use; use = use->next) {
+        for (const struct fir_use* use = FIR_STORE_MEM(node)->uses; use; use = use->next) {
             if (use->user->tag != FIR_LOAD)
                 continue;
 
@@ -381,6 +381,15 @@ void schedule_list_block_contents(struct schedule* schedule, struct node_vec* bl
             for (size_t i = 0; i < node->op_count; ++i) {
                 if (node->ops[i] && unique_node_stack_push(&stack, &node->ops[i]))
                     goto restart;
+            }
+
+            if (node->tag == FIR_STORE) {
+                for (const struct fir_use* use = FIR_STORE_MEM(node)->uses; use; use = use->next) {
+                    if (use->user->tag != FIR_LOAD)
+                        continue;
+                    if (unique_node_stack_push(&stack, &use->user))
+                        goto restart;
+                }
             }
 
             unique_node_stack_pop(&stack);
