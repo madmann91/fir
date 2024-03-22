@@ -84,15 +84,12 @@ static inline enum token_tag find_keyword(struct str_view ident) {
     return TOK_ERR;
 }
 
-static inline struct token parse_literal(
-    struct lexer* lexer,
-    const struct fir_source_pos* begin_pos,
-    bool has_minus)
-{
+static inline struct token parse_literal(struct lexer* lexer, bool has_minus) {
     bool is_float = false;
 
     int base = 10;
     int prefix_len = 0;
+    struct fir_source_pos begin_pos = lexer->source_pos;
     if (accept_char(lexer, '0')) {
         if (accept_char(lexer, 'b')) { base = 2; prefix_len = 2; }
         else if (accept_char(lexer, 'x')) { base = 16; prefix_len = 2; }
@@ -113,7 +110,7 @@ static inline struct token parse_literal(
         eat_digits(lexer, 10);
     }
 
-    struct token token = make_token(lexer, begin_pos, is_float ? TOK_FLOAT : TOK_INT);
+    struct token token = make_token(lexer, &begin_pos, is_float ? TOK_FLOAT : TOK_INT);
     if (is_float) {
         token.float_val = copysign(strtod(token_str_view(lexer->data, &token).data, NULL), has_minus ? -1.0 : 1.0);
     } else if (has_minus) {
@@ -137,8 +134,8 @@ struct token lexer_advance(struct lexer* lexer) {
         if (accept_char(lexer, ')')) return make_token(lexer, &begin_pos, TOK_RPAREN);
         if (accept_char(lexer, '[')) return make_token(lexer, &begin_pos, TOK_LBRACKET);
         if (accept_char(lexer, ']')) return make_token(lexer, &begin_pos, TOK_RBRACKET);
-        if (accept_char(lexer, '{')) return make_token(lexer, &begin_pos, TOK_LBRACKET);
-        if (accept_char(lexer, '}')) return make_token(lexer, &begin_pos, TOK_RBRACKET);
+        if (accept_char(lexer, '{')) return make_token(lexer, &begin_pos, TOK_LBRACE);
+        if (accept_char(lexer, '}')) return make_token(lexer, &begin_pos, TOK_RBRACE);
         if (accept_char(lexer, ',')) return make_token(lexer, &begin_pos, TOK_COMMA);
         if (accept_char(lexer, '=')) return make_token(lexer, &begin_pos, TOK_EQ);
 
@@ -155,13 +152,13 @@ struct token lexer_advance(struct lexer* lexer) {
 
         if (accept_char(lexer, '-')) {
             if (!is_eof(lexer) && isdigit(cur_char(lexer)))
-                return parse_literal(lexer, &lexer->source_pos, true);
+                return parse_literal(lexer, true);
             return make_token(lexer, &begin_pos, TOK_MINUS);
         }
 
         if (accept_char(lexer, '+')) {
             if (!is_eof(lexer) && isdigit(cur_char(lexer)))
-                return parse_literal(lexer, &lexer->source_pos, false);
+                return parse_literal(lexer, false);
             return make_token(lexer, &begin_pos, TOK_PLUS);
         }
 
@@ -182,7 +179,7 @@ struct token lexer_advance(struct lexer* lexer) {
         }
 
         if (isdigit(cur_char(lexer)))
-            return parse_literal(lexer, &begin_pos, false);
+            return parse_literal(lexer, false);
 
         eat_char(lexer);
         return make_token(lexer, &begin_pos, TOK_ERR);
