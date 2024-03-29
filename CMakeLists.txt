@@ -38,7 +38,7 @@ endif()
 find_package(Doxygen QUIET)
 if (DOXYGEN_FOUND)
     message(STATUS "Enabling Doxygen documentation target")
-    add_custom_target(doc COMMAND Doxygen::doxygen WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/doc)
+    add_custom_target(doc COMMAND Doxygen::doxygen doc WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 endif()
 
 include(CTest)

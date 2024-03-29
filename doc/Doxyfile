@@ -9,15 +9,13 @@ EXTRACT_STATIC         = YES
 EXTRACT_LOCAL_CLASSES  = NO
 SHOW_INCLUDE_FILES     = NO
 FORCE_LOCAL_INCLUDES   = YES
-INPUT                  = ../README.md \
-                         ../include
-FILE_PATTERNS          = *.h \
-                         *.md
+INPUT                  = README.md include
+FILE_PATTERNS          = *.md *.h
 RECURSIVE              = YES
-USE_MDFILE_AS_MAINPAGE = ../README.md
+USE_MDFILE_AS_MAINPAGE = README.md
 HTML_EXTRA_STYLESHEET  = doxygen-awesome-css/doxygen-awesome.css \
                          doxygen-awesome-css/doxygen-awesome-sidebar-only.css
-STRIP_FROM_PATH        = ../include
+STRIP_FROM_PATH        = include
 GENERATE_TREEVIEW      = YES
 GENERATE_LATEX         = NO
 WARN_AS_ERROR          = YES
