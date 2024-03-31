@@ -144,7 +144,10 @@ static inline bool hash_table_remove(
     while (hash_table_is_bucket_occupied(hash_table, next_idx)) {
         uint32_t next_hash = hash_table->hashes[next_idx];
         size_t ideal_next_idx = mod_prime(next_hash, hash_table->capacity);
-        if (ideal_next_idx <= idx || ideal_next_idx > next_idx) {
+        if (
+            (next_idx > idx && (ideal_next_idx <= idx || ideal_next_idx > next_idx)) ||
+            (next_idx < idx && (ideal_next_idx <= idx && ideal_next_idx > next_idx)))
+        {
             memcpy(hash_table->keys + idx * key_size, hash_table->keys + next_idx * key_size, key_size);
             memcpy(hash_table->vals + idx * val_size, hash_table->vals + next_idx * val_size, val_size);
             hash_table->hashes[idx] = hash_table->hashes[next_idx];

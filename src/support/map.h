@@ -69,9 +69,8 @@
     } \
     VISIBILITY(vis) bool name##_insert(struct name* map, key_ty const* key, val_ty const* val) { \
         if (hash_table_insert(&map->hash_table, key, val, sizeof(key_ty), sizeof(val_ty), hash(hash_init(), key), name##_is_equal_wrapper)) { \
-            if (hash_table_needs_rehash(&map->hash_table, map->elem_count)) \
+            if (hash_table_needs_rehash(&map->hash_table, map->elem_count++)) \
                 hash_table_grow(&map->hash_table, sizeof(key_ty), sizeof(val_ty)); \
-            map->elem_count++; \
             return true; \
         } \
         return false; \
