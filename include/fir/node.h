@@ -97,6 +97,7 @@ enum fir_node_props {
         const struct fir_node* ty; \
         struct fir_mod* mod; \
     }; \
+    const struct fir_node* ctrl; \
     const struct fir_node* ops[n];
 
 /// @struct fir_node
@@ -288,9 +289,16 @@ FIR_SYMBOL const struct fir_node* fir_node_rebuild(
     struct fir_mod*,
     enum fir_node_tag tag,
     const union fir_node_data* data,
+    const struct fir_node* ctrl,
     const struct fir_node* ty,
     const struct fir_node* const* ops,
     size_t op_count);
+
+/// Returns a version of the node with the given control dependence.
+FIR_SYMBOL const struct fir_node* fir_node_pin(const struct fir_node* node, const struct fir_node* ctrl);
+
+/// Returns a version of the node that is not pinned to any block.
+FIR_SYMBOL const struct fir_node* fir_node_unpin(const struct fir_node* node);
 
 /// @name Printing
 /// @{
@@ -453,8 +461,10 @@ FIR_SYMBOL const struct fir_use* fir_use_find(
 #define FIR_CAST_OP_ARG(x) (fir_assert_kind((x), fir_node_is_cast_op)->ops[0])
 /// Obtains the function to which a parameter belongs.
 #define FIR_PARAM_FUNC(x) (fir_assert_tag((x), FIR_PARAM)->ops[0])
+/// Obtains the basic-block connected to a control-dependence.
+#define FIR_CTRL_BLOCK(x) (fir_assert_tag((x), FIR_CTRL)->ops[0])
 /// Obtains the basic-block that is specified by a start instruction.
-#define FIR_START_FUNC(x) (fir_assert_tag((x), FIR_START)->ops[0])
+#define FIR_START_BLOCK(x) (fir_assert_tag((x), FIR_START)->ops[0])
 /// Obtains the callee of a call instruction.
 #define FIR_CALL_CALLEE(x) (fir_assert_tag((x), FIR_CALL)->ops[0])
 /// Obtains the argument of a call instruction.

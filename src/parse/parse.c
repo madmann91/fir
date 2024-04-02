@@ -223,6 +223,7 @@ static inline const struct fir_node* parse_ty(struct parser* parser) {
         case TOK_FUNC_TY:     return parse_func_ty(parser);
         case TOK_TUP_TY:      return parse_tup_ty(parser);
         case TOK_FRAME_TY:    return next_token(parser), fir_frame_ty(parser->mod);
+        case TOK_CTRL_TY:     return next_token(parser), fir_ctrl_ty(parser->mod);
         case TOK_NORET_TY:    return next_token(parser), fir_noret_ty(parser->mod);
         case TOK_MEM_TY:      return next_token(parser), fir_mem_ty(parser->mod);
         case TOK_PTR_TY:      return next_token(parser), fir_ptr_ty(parser->mod);
@@ -355,7 +356,11 @@ static inline const struct fir_node* parse_node_body(struct parser* parser, cons
     if (!valid_ops)
         return NULL;
 
-    const struct fir_node* node = fir_node_rebuild(parser->mod, tag, &data, ty, ops.elems, ops.elem_count);
+    const struct fir_node* ctrl = NULL;
+    if (accept_token(parser, TOK_AT))
+        ctrl = parse_op(parser);
+
+    const struct fir_node* node = fir_node_rebuild(parser->mod, tag, &data, ctrl, ty, ops.elems, ops.elem_count);
     assert(node->ty == ty);
 
     small_node_vec_destroy(&ops);
@@ -382,6 +387,7 @@ static inline const struct fir_node* parse_node(struct parser* parser) {
                 (int)ident.length, ident.data);
         }
     }
+
     return node;
 }
 

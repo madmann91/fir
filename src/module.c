@@ -43,6 +43,8 @@ static uint32_t hash_node(uint32_t h, const struct fir_node* const* node_ptr) {
         h = hash_uint64(h, node->ty->id);
     h = hash_node_data(h, node);
     h = hash_uint64(h, node->op_count);
+    if (node->ctrl)
+        h = hash_uint64(h, node->ctrl->id);
     for (size_t i = 0; i < node->op_count; ++i)
         h = hash_uint64(h, node->ops[i]->id);
     return h;
@@ -74,6 +76,8 @@ static inline bool is_node_equal(
         return false;
     if (!fir_node_is_ty(node) && node->ty != other->ty)
         return false;
+    if (node->ctrl != other->ctrl)
+        return false;
     if (!has_same_node_data(node, other))
         return false;
     for (size_t i = 0; i < node->op_count; ++i) {
@@ -96,6 +100,7 @@ struct fir_mod {
     struct node_set external_nodes;
     const struct fir_node* mem_ty;
     const struct fir_node* frame_ty;
+    const struct fir_node* ctrl_ty;
     const struct fir_node* noret_ty;
     const struct fir_node* ptr_ty;
     const struct fir_node* unit_ty;
@@ -244,6 +249,7 @@ struct fir_mod* fir_mod_create(const char* name) {
     mod->external_nodes = node_set_create();
     mod->mem_ty   = insert_node(mod, &(struct fir_node) { .tag = FIR_MEM_TY,   .mod = mod });
     mod->frame_ty = insert_node(mod, &(struct fir_node) { .tag = FIR_FRAME_TY, .mod = mod });
+    mod->ctrl_ty  = insert_node(mod, &(struct fir_node) { .tag = FIR_CTRL_TY,  .mod = mod });
     mod->noret_ty = insert_node(mod, &(struct fir_node) { .tag = FIR_NORET_TY, .mod = mod });
     mod->ptr_ty   = insert_node(mod, &(struct fir_node) { .tag = FIR_PTR_TY,   .mod = mod });
     mod->unit_ty  = insert_node(mod, &(struct fir_node) { .tag = FIR_TUP_TY,   .mod = mod });
@@ -301,6 +307,8 @@ static void visit_live_node(
         if (!node_set_insert(visited_nodes, &top))
             continue;
 
+        if (top->ctrl)
+            node_vec_push(stack, &top->ctrl);
         for (size_t i = 0; i < top->op_count; ++i) {
             if (top->ops[i])
                 node_vec_push(stack, &top->ops[i]);
@@ -444,6 +452,7 @@ size_t fir_mod_global_count(const struct fir_mod* mod) {
 
 const struct fir_node* fir_mem_ty(struct fir_mod* mod) { return mod->mem_ty; }
 const struct fir_node* fir_frame_ty(struct fir_mod* mod) { return mod->frame_ty; }
+const struct fir_node* fir_ctrl_ty(struct fir_mod* mod) { return mod->ctrl_ty; }
 const struct fir_node* fir_noret_ty(struct fir_mod* mod) { return mod->noret_ty; }
 const struct fir_node* fir_ptr_ty(struct fir_mod* mod) { return mod->ptr_ty; }
 
@@ -692,9 +701,11 @@ static inline fir_int_val eval_iarith_op(
 
 const struct fir_node* fir_iarith_op(
     enum fir_node_tag tag,
+    const struct fir_node* ctrl,
     const struct fir_node* left,
     const struct fir_node* right)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(left->ty == right->ty);
     assert(left->ty->tag == FIR_INT_TY);
     assert(fir_node_tag_is_iarith_op(tag));
@@ -711,7 +722,7 @@ const struct fir_node* fir_iarith_op(
 
     // iarith_op(x, const[i]) -> iarith_op(const[i], x)
     if (should_swap_ops(tag, left, right))
-        return fir_iarith_op(tag, right, left);
+        return fir_iarith_op(tag, ctrl, right, left);
 
     // isub(x, x) -> const[0]
     if (left == right && tag == FIR_ISUB)
@@ -749,6 +760,7 @@ const struct fir_node* fir_iarith_op(
         .tag = tag,
         .op_count = 2,
         .ty = left->ty,
+        .ctrl = ctrl,
         .ops = { left, right }
     });
 }
@@ -779,9 +791,11 @@ static inline double eval_farith_op(
 const struct fir_node* fir_farith_op(
     enum fir_node_tag tag,
     enum fir_fp_flags fp_flags,
+    const struct fir_node* ctrl,
     const struct fir_node* left,
     const struct fir_node* right)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(left->ty == right->ty);
     assert(left->ty->tag == FIR_FLOAT_TY);
     assert(fir_node_tag_is_farith_op(tag));
@@ -798,7 +812,7 @@ const struct fir_node* fir_farith_op(
 
     // farith_op(x, const[i]) -> farith_op(const[i], x)
     if (should_swap_ops(tag, left, right))
-        return fir_farith_op(tag, fp_flags, right, left);
+        return fir_farith_op(tag, fp_flags, ctrl, right, left);
 
     const bool is_finite_only = (fp_flags & FIR_FP_FINITE_ONLY) != 0;
 
@@ -833,15 +847,18 @@ const struct fir_node* fir_farith_op(
         .data.fp_flags = fp_flags,
         .op_count = 2,
         .ty = left->ty,
+        .ctrl = ctrl,
         .ops = { left, right }
     });
 }
 
 const struct fir_node* fir_icmp_op(
     enum fir_node_tag tag,
+    const struct fir_node* ctrl,
     const struct fir_node* left,
     const struct fir_node* right)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(left->ty == right->ty);
     assert(left->ty->tag == FIR_INT_TY);
     assert(fir_node_tag_is_icmp_op(tag));
@@ -850,15 +867,18 @@ const struct fir_node* fir_icmp_op(
         .tag = tag,
         .op_count = 2,
         .ty = fir_bool_ty(mod),
+        .ctrl = ctrl,
         .ops = { left, right }
     });
 }
 
 const struct fir_node* fir_fcmp_op(
     enum fir_node_tag tag,
+    const struct fir_node* ctrl,
     const struct fir_node* left,
     const struct fir_node* right)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(left->ty == right->ty);
     assert(left->ty->tag == FIR_FLOAT_TY);
     assert(fir_node_tag_is_fcmp_op(tag));
@@ -867,6 +887,7 @@ const struct fir_node* fir_fcmp_op(
         .tag = tag,
         .op_count = 2,
         .ty = fir_bool_ty(mod),
+        .ctrl = ctrl,
         .ops = { left, right }
     });
 }
@@ -881,9 +902,11 @@ static inline fir_int_val eval_bit_op(enum fir_node_tag tag, fir_int_val left_va
 
 const struct fir_node* fir_bit_op(
     enum fir_node_tag tag,
+    const struct fir_node* ctrl,
     const struct fir_node* left,
     const struct fir_node* right)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(left->ty == right->ty);
     assert(left->ty->tag == FIR_INT_TY);
     assert(fir_node_tag_is_bit_op(tag));
@@ -896,7 +919,7 @@ const struct fir_node* fir_bit_op(
 
     // farith_op(x, const[i]) -> farith_op(const[i], x)
     if (should_swap_ops(tag, left, right))
-        return fir_bit_op(tag, right, left);
+        return fir_bit_op(tag, ctrl, right, left);
 
     // and(x, x) -> x
     // or(x, x) -> x
@@ -925,6 +948,7 @@ const struct fir_node* fir_bit_op(
         .tag = tag,
         .op_count = 2,
         .ty = left->ty,
+        .ctrl = ctrl,
         .ops = { left, right }
     });
 }
@@ -944,9 +968,11 @@ static inline fir_int_val eval_shift_op(
 
 const struct fir_node* fir_shift_op(
     enum fir_node_tag tag,
+    const struct fir_node* ctrl,
     const struct fir_node* val,
     const struct fir_node* amount)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(fir_node_tag_is_shift_op(tag));
     assert(amount->ty->tag == FIR_INT_TY);
     assert(val->ty->tag == FIR_INT_TY);
@@ -975,6 +1001,7 @@ const struct fir_node* fir_shift_op(
         .tag = tag,
         .op_count = 2,
         .ty = val->ty,
+        .ctrl = ctrl,
         .ops = { val, amount }
     });
 }
@@ -1074,9 +1101,11 @@ static inline fir_int_val eval_ftos(size_t bitwidth, fir_float_val arg_val) {
 
 const struct fir_node* fir_cast_op(
     enum fir_node_tag tag,
+    const struct fir_node* ctrl,
     const struct fir_node* ty,
     const struct fir_node* arg)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(fir_node_tag_is_cast_op(tag));
     assert(is_cast_possible(tag, ty, arg->ty));
 
@@ -1108,20 +1137,25 @@ const struct fir_node* fir_cast_op(
         .tag = tag,
         .op_count = 1,
         .ty = ty,
+        .ctrl = ctrl,
         .ops = { arg }
     });
 }
 
-const struct fir_node* fir_not(const struct fir_node* arg) {
-    return fir_bit_op(FIR_XOR, fir_int_const(arg->ty, make_bitmask(arg->ty->data.bitwidth)), arg);
+const struct fir_node* fir_not(const struct fir_node* ctrl, const struct fir_node* arg) {
+    return fir_bit_op(FIR_XOR, ctrl, fir_int_const(arg->ty, make_bitmask(arg->ty->data.bitwidth)), arg);
 }
 
-const struct fir_node* fir_ineg(const struct fir_node* arg) {
-    return fir_iarith_op(FIR_ISUB, fir_int_const(arg->ty, 0), arg);
+const struct fir_node* fir_ineg(const struct fir_node* ctrl, const struct fir_node* arg) {
+    return fir_iarith_op(FIR_ISUB, ctrl, fir_int_const(arg->ty, 0), arg);
 }
 
-const struct fir_node* fir_fneg(enum fir_fp_flags fp_flags, const struct fir_node* arg) {
-    return fir_farith_op(FIR_FSUB, fp_flags, fir_float_const(arg->ty, 0), arg);
+const struct fir_node* fir_fneg(
+    enum fir_fp_flags fp_flags,
+    const struct fir_node* ctrl,
+    const struct fir_node* arg)
+{
+    return fir_farith_op(FIR_FSUB, fp_flags, ctrl, fir_float_const(arg->ty, 0), arg);
 }
 
 static const struct fir_node* infer_tup_ty(
@@ -1158,9 +1192,12 @@ static inline bool is_from_exts(
 
 const struct fir_node* fir_tup(
     struct fir_mod* mod,
+    const struct fir_node* ctrl,
     const struct fir_node* const* elems,
     size_t elem_count)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
+
     if (elem_count == 0)
         return fir_unit(mod);
 
@@ -1176,6 +1213,7 @@ const struct fir_node* fir_tup(
     tup->tag = FIR_TUP;
     tup->ty = tup_ty;
     tup->op_count = elem_count;
+    tup->ctrl = ctrl;
     memcpy(tup->ops, elems, sizeof(struct fir_node*) * elem_count);
     const struct fir_node* result = insert_node(mod, tup);
     if (elem_count > SMALL_NODE_OP_COUNT)
@@ -1188,9 +1226,12 @@ const struct fir_node* fir_unit(struct fir_mod* mod) {
 }
 
 const struct fir_node* fir_array(
+    const struct fir_node* ctrl,
     const struct fir_node* ty,
     const struct fir_node* const* elems)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
+
     // array(ext(x, 0), ext(x, 1), ..., ext(x, n)) -> x
     if (is_from_exts(ty, elems, ty->data.array_dim))
         return FIR_EXT_AGGR(elems[0]);
@@ -1208,6 +1249,7 @@ const struct fir_node* fir_array(
         array = alloc_node(ty->data.array_dim);
     array->tag = FIR_ARRAY;
     array->ty = ty;
+    array->ctrl = ctrl;
     array->op_count = ty->data.array_dim;
     memcpy(array->ops, elems, sizeof(struct fir_node*) * ty->data.array_dim);
     const struct fir_node* result = insert_node(mod, array);
@@ -1258,9 +1300,12 @@ static inline const struct fir_node* find_ins(
 }
 
 const struct fir_node* fir_ext(
+    const struct fir_node* ctrl,
     const struct fir_node* aggr,
     const struct fir_node* index)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
+
     // ext(tup(x1, ..., xn), const[i]) -> xi
     // ext(array(x1, ..., xn), const[i]) -> xi
     if (aggr->tag == FIR_TUP || (aggr->tag == FIR_ARRAY && index->tag == FIR_CONST)) {
@@ -1280,7 +1325,7 @@ const struct fir_node* fir_ext(
         fir_node_is_bool_ty(index))
     {
         const struct fir_node* swapped_ops[] = { aggr->ops[1], aggr->ops[0] };
-        return fir_ext(fir_array(aggr->ty, swapped_ops), index->ops[1]);
+        return fir_ext(ctrl, fir_array(ctrl, aggr->ty, swapped_ops), index->ops[1]);
     }
 
     // ext(ins(ins(...(ins(x, const[i], y)...))), const[i]) -> y
@@ -1292,11 +1337,13 @@ const struct fir_node* fir_ext(
         .tag = FIR_EXT,
         .op_count = 2,
         .ty = infer_ext_ty(aggr->ty, index),
+        .ctrl = ctrl,
         .ops = { aggr, index }
     });
 }
 
 static inline const struct fir_node* remove_ins(
+    const struct fir_node* ctrl,
     const struct fir_node* aggr,
     const struct fir_node* ins)
 {
@@ -1311,20 +1358,24 @@ static inline const struct fir_node* remove_ins(
     }
     const struct fir_node* result = FIR_INS_AGGR(ins);
     for (size_t i = stack.elem_count; i-- > 0;)
-        result = fir_ins(result, FIR_INS_INDEX(stack.elems[i]), FIR_INS_ELEM(stack.elems[i]));
+        result = fir_ins(ctrl, result, FIR_INS_INDEX(stack.elems[i]), FIR_INS_ELEM(stack.elems[i]));
     return result;
 }
 
-const struct fir_node* fir_ext_at(const struct fir_node* aggr, size_t index) {
-    return fir_ext(aggr, fir_int_const(fir_node_mod(aggr)->index_ty, index));
+const struct fir_node* fir_ext_at(
+    const struct fir_node* ctrl,
+    const struct fir_node* aggr,
+    size_t index)
+{
+    return fir_ext(ctrl, aggr, fir_int_const(fir_node_mod(aggr)->index_ty, index));
 }
 
-const struct fir_node* fir_ext_mem(const struct fir_node* val) {
+const struct fir_node* fir_ext_mem(const struct fir_node* ctrl, const struct fir_node* val) {
     if (val->ty->tag == FIR_MEM_TY)
         return val;
     if (val->ty->tag == FIR_TUP_TY) {
         for (size_t i = 0; i < val->ty->op_count; ++i) {
-            const struct fir_node* mem = fir_ext_mem(fir_ext_at(val, i));
+            const struct fir_node* mem = fir_ext_mem(ctrl, fir_ext_at(ctrl, val, i));
             if (mem)
                 return mem;
         }
@@ -1333,10 +1384,12 @@ const struct fir_node* fir_ext_mem(const struct fir_node* val) {
 }
 
 const struct fir_node* fir_ins(
+    const struct fir_node* ctrl,
     const struct fir_node* aggr,
     const struct fir_node* index,
     const struct fir_node* elem)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(infer_ext_ty(aggr->ty, index) == elem->ty);
 
     // ins(tup(x1, ..., xn), const[i], y) -> tup(x1, ...,, xi-1, y, xi+1, ..., xn)
@@ -1347,8 +1400,8 @@ const struct fir_node* fir_ins(
         for (size_t i = 0; i < aggr->op_count; ++i)
             small_node_vec_push(&small_ops, i == index->data.int_val ? &elem : &aggr->ops[i]);
         const struct fir_node* ins_aggr = aggr->tag == FIR_TUP
-            ? fir_tup(fir_node_mod(aggr), small_ops.elems, small_ops.elem_count)
-            : fir_array(aggr->ty, small_ops.elems);
+            ? fir_tup(fir_node_mod(aggr), ctrl, small_ops.elems, small_ops.elem_count)
+            : fir_array(ctrl, aggr->ty, small_ops.elems);
         small_node_vec_destroy(&small_ops);
         return ins_aggr;
     }
@@ -1356,79 +1409,92 @@ const struct fir_node* fir_ins(
     // ins(ins(...(ins(x, const[i], y)...)), const[i], z) -> ins(ins(...x...), const[i], z)
     const struct fir_node* ins = find_ins(aggr, index);
     if (ins)
-        aggr = remove_ins(aggr, ins);
+        aggr = remove_ins(ctrl, aggr, ins);
 
     return insert_node(fir_node_mod(aggr), (const struct fir_node*)&(struct { FIR_NODE(3) }) {
         .tag = FIR_INS,
         .op_count = 3,
         .ty = aggr->ty,
+        .ctrl = ctrl,
         .ops = { aggr, index, elem }
     });
 }
 
 const struct fir_node* fir_ins_at(
+    const struct fir_node* ctrl,
     const struct fir_node* aggr,
     size_t index,
     const struct fir_node* elem)
 {
-    return fir_ins(aggr, fir_int_const(fir_node_mod(aggr)->index_ty, index), elem);
+    return fir_ins(ctrl, aggr, fir_int_const(fir_node_mod(aggr)->index_ty, index), elem);
 }
 
-const struct fir_node* fir_ins_mem(const struct fir_node* val, const struct fir_node* mem) {
+const struct fir_node* fir_ins_mem(
+    const struct fir_node* ctrl,
+    const struct fir_node* val,
+    const struct fir_node* mem)
+{
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(mem->ty->tag == FIR_MEM_TY);
     if (val->ty->tag == FIR_MEM_TY)
         return mem;
     if (val->ty->tag == FIR_TUP_TY) {
         for (size_t i = 0; i < val->ty->op_count; ++i) {
-            const struct fir_node* elem = fir_ext_at(val, i);
-            const struct fir_node* elem_with_mem = fir_ins_mem(elem, mem);
+            const struct fir_node* elem = fir_ext_at(ctrl, val, i);
+            const struct fir_node* elem_with_mem = fir_ins_mem(ctrl, elem, mem);
             if (elem_with_mem != elem)
-                return fir_ins_at(val, i, elem_with_mem);
+                return fir_ins_at(ctrl, val, i, elem_with_mem);
         }
     }
     return val;
 }
 
 const struct fir_node* fir_addrof(
+    const struct fir_node* ctrl,
     const struct fir_node* ptr,
     const struct fir_node* aggr_ty,
     const struct fir_node* index)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(ptr->ty->tag == FIR_PTR_TY);
     assert(infer_ext_ty(aggr_ty, index));
     return insert_node(fir_node_mod(ptr), (const struct fir_node*)&(struct { FIR_NODE(3) }) {
         .tag = FIR_ADDROF,
         .op_count = 3,
         .ty = ptr->ty,
+        .ctrl = ctrl,
         .ops = { ptr, aggr_ty, index }
     });
 }
 
 const struct fir_node* fir_addrof_at(
+    const struct fir_node* ctrl,
     const struct fir_node* ptr,
     const struct fir_node* aggr_ty,
     size_t index)
 {
-    return fir_addrof(ptr, aggr_ty, fir_int_const(fir_node_mod(aggr_ty)->index_ty, index));
+    return fir_addrof(ctrl, ptr, aggr_ty, fir_int_const(fir_node_mod(aggr_ty)->index_ty, index));
 }
 
 const struct fir_node* fir_select(
+    const struct fir_node* ctrl,
     const struct fir_node* cond,
     const struct fir_node* when_true,
     const struct fir_node* when_false)
 {
-    return fir_choice(cond, (const struct fir_node*[]) { when_false, when_true }, 2);
+    return fir_choice(ctrl, cond, (const struct fir_node*[]) { when_false, when_true }, 2);
 }
 
 const struct fir_node* fir_choice(
+    const struct fir_node* ctrl,
     const struct fir_node* index,
     const struct fir_node* const* elems,
     size_t elem_count)
 {
     assert(elem_count > 0);
     const struct fir_node* array_ty = fir_array_ty(elems[0]->ty, elem_count);
-    const struct fir_node* array = fir_array(array_ty, elems);
-    return fir_ext(array, index);
+    const struct fir_node* array = fir_array(ctrl, array_ty, elems);
+    return fir_ext(ctrl, array, index);
 }
 
 struct fir_node* fir_local(
@@ -1460,10 +1526,12 @@ static inline bool is_from_local(const struct fir_node* ptr) {
 
 const struct fir_node* fir_load(
     enum fir_mem_flags flags,
+    const struct fir_node* ctrl,
     const struct fir_node* mem,
     const struct fir_node* ptr,
     const struct fir_node* ty)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(mem->ty->tag == FIR_MEM_TY);
     assert(ptr->ty->tag == FIR_PTR_TY);
     assert(is_valid_pointee_ty(ty));
@@ -1480,16 +1548,19 @@ const struct fir_node* fir_load(
         .op_count = 2,
         .ty = ty,
         .data.mem_flags = flags,
+        .ctrl = ctrl,
         .ops = { mem, ptr }
     });
 }
 
 const struct fir_node* fir_store(
     enum fir_mem_flags flags,
+    const struct fir_node* ctrl,
     const struct fir_node* mem,
     const struct fir_node* ptr,
     const struct fir_node* val)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(mem->ty->tag == FIR_MEM_TY);
     assert(ptr->ty->tag == FIR_PTR_TY);
     assert(is_valid_pointee_ty(val->ty));
@@ -1509,41 +1580,47 @@ const struct fir_node* fir_store(
         .op_count = 3,
         .ty = mem->ty,
         .data.mem_flags = flags,
+        .ctrl = ctrl,
         .ops = { mem, ptr, val }
     });
 }
 
 const struct fir_node* fir_call(
+    const struct fir_node* ctrl,
     const struct fir_node* callee,
     const struct fir_node* arg)
 {
+    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(callee->ty->tag == FIR_FUNC_TY);
     assert(FIR_FUNC_TY_PARAM(callee->ty) == arg->ty);
     return insert_node(fir_node_mod(callee), (const struct fir_node*)&(struct { FIR_NODE(2) }) {
         .tag = FIR_CALL,
         .op_count = 2,
         .ty = FIR_FUNC_TY_RET(callee->ty),
+        .ctrl = ctrl,
         .ops = { callee, arg }
     });
 }
 
 const struct fir_node* fir_branch(
+    const struct fir_node* ctrl,
     const struct fir_node* cond,
     const struct fir_node* arg,
     const struct fir_node* jump_true,
     const struct fir_node* jump_false)
 {
-    return fir_switch(cond, arg, (const struct fir_node*[]) { jump_false, jump_true }, 2);
+    return fir_switch(ctrl, cond, arg, (const struct fir_node*[]) { jump_false, jump_true }, 2);
 }
 
 const struct fir_node* fir_switch(
+    const struct fir_node* ctrl,
     const struct fir_node* index,
     const struct fir_node* arg,
     const struct fir_node* const* targets,
     size_t target_count)
 {
     assert(target_count > 0);
-    return fir_call(fir_choice(index, targets, target_count), arg);
+    return fir_call(ctrl, fir_choice(ctrl, index, targets, target_count), arg);
 }
 
 const struct fir_node* fir_param(const struct fir_node* func) {
@@ -1552,6 +1629,17 @@ const struct fir_node* fir_param(const struct fir_node* func) {
         .tag = FIR_PARAM,
         .op_count = 1,
         .ty = FIR_FUNC_TY_PARAM(func->ty),
+        .ops = { func }
+    });
+}
+
+const struct fir_node* fir_ctrl(const struct fir_node* func) {
+    assert(func->tag == FIR_FUNC);
+    struct fir_mod* mod = fir_node_mod(func);
+    return insert_node(mod, (const struct fir_node*)&(struct { FIR_NODE(1) }) {
+        .tag = FIR_CTRL,
+        .op_count = 1,
+        .ty = fir_ctrl_ty(mod),
         .ops = { func }
     });
 }

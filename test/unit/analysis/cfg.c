@@ -18,8 +18,8 @@ static inline struct fir_node* build_rec_pow(struct fir_mod* mod) {
     struct fir_node* pow = fir_func(fir_func_ty(param_ty, ret_ty));
     struct fir_block entry;
     const struct fir_node* param = fir_block_start(&entry, pow);
-    const struct fir_node* x = fir_ext_at(param, 0);
-    const struct fir_node* n = fir_ext_at(param, 1);
+    const struct fir_node* x = fir_ext_at(NULL, param, 0);
+    const struct fir_node* n = fir_ext_at(NULL, param, 1);
 
     // if (n == 0)
     //   goto is_zero;
@@ -28,7 +28,7 @@ static inline struct fir_node* build_rec_pow(struct fir_mod* mod) {
     struct fir_block is_zero;
     struct fir_block is_non_zero;
 
-    const struct fir_node* cond = fir_icmp_op(FIR_ICMPEQ, n, fir_zero(int32_ty));
+    const struct fir_node* cond = fir_icmp_op(FIR_ICMPEQ, NULL, n, fir_zero(int32_ty));
     fir_block_branch(&entry, cond, &is_zero, &is_non_zero);
 
     // is_zero:
@@ -37,10 +37,10 @@ static inline struct fir_node* build_rec_pow(struct fir_mod* mod) {
 
     // is_non_zero:
     //   return x * pow(x, n - 1)
-    const struct fir_node* n_minus_1 = fir_iarith_op(FIR_ISUB, n, fir_one(int32_ty));
-    const struct fir_node* x_n_minus_1 = fir_tup(mod, (const struct fir_node*[]) { x, n_minus_1 }, 2);
+    const struct fir_node* n_minus_1 = fir_iarith_op(FIR_ISUB, NULL, n, fir_one(int32_ty));
+    const struct fir_node* x_n_minus_1 = fir_tup(mod, NULL, (const struct fir_node*[]) { x, n_minus_1 }, 2);
     const struct fir_node* pow_x_n_minus_1 = fir_block_call(&is_non_zero, pow, x_n_minus_1);
-    fir_block_return(&is_non_zero, fir_iarith_op(FIR_IMUL, x, pow_x_n_minus_1));
+    fir_block_return(&is_non_zero, fir_iarith_op(FIR_IMUL, NULL, x, pow_x_n_minus_1));
 
     return pow;
 }
@@ -136,8 +136,8 @@ static inline struct fir_node* build_iter_pow(struct fir_mod* mod) {
     struct fir_node* pow = fir_func(fir_func_ty(param_ty, ret_ty));
     struct fir_block entry;
     const struct fir_node* param = fir_block_start(&entry, pow);
-    const struct fir_node* x = fir_ext_at(param, 0);
-    const struct fir_node* n = fir_ext_at(param, 1);
+    const struct fir_node* x = fir_ext_at(NULL, param, 0);
+    const struct fir_node* n = fir_ext_at(NULL, param, 1);
 
     // i = n;
     // p = 1;
@@ -172,12 +172,12 @@ static inline struct fir_node* build_iter_pow(struct fir_mod* mod) {
     struct fir_block is_zero;
     struct fir_block is_non_zero;
     const struct fir_node* cur_i = fir_block_load(&loop, FIR_MEM_NON_NULL, i, int32_ty);
-    const struct fir_node* cond = fir_icmp_op(FIR_ICMPEQ, cur_i, fir_zero(int32_ty));
+    const struct fir_node* cond = fir_icmp_op(FIR_ICMPEQ, NULL, cur_i, fir_zero(int32_ty));
     fir_block_branch(&loop, cond, &is_zero, &is_non_zero);
     fir_block_jump(&is_zero, &done);
 
-    const struct fir_node* q = fir_iarith_op(FIR_IMUL, fir_block_load(&is_non_zero, FIR_MEM_NON_NULL, p, int32_ty), x);
-    const struct fir_node* j = fir_iarith_op(FIR_ISUB, fir_block_load(&is_non_zero, FIR_MEM_NON_NULL, i, int32_ty), fir_one(int32_ty));
+    const struct fir_node* q = fir_iarith_op(FIR_IMUL, NULL, fir_block_load(&is_non_zero, FIR_MEM_NON_NULL, p, int32_ty), x);
+    const struct fir_node* j = fir_iarith_op(FIR_ISUB, NULL, fir_block_load(&is_non_zero, FIR_MEM_NON_NULL, i, int32_ty), fir_one(int32_ty));
     fir_block_store(&is_non_zero, FIR_MEM_NON_NULL, p, q);
     fir_block_store(&is_non_zero, FIR_MEM_NON_NULL, i, j);
     fir_block_jump(&is_non_zero, &loop);

@@ -89,8 +89,10 @@ FIR_SYMBOL bool fir_mod_parse(struct fir_mod*, const struct fir_parse_input* inp
 
 /// Type of memory tokens used to keep track of memory effects.
 FIR_SYMBOL const struct fir_node* fir_mem_ty(struct fir_mod*);
-/// Type of frame tokens used to keep track of function frames.
+/// Type of frame tokens used to keep track of function stack frames.
 FIR_SYMBOL const struct fir_node* fir_frame_ty(struct fir_mod*);
+/// Type of control objects used to keep track of control-dependencies.
+FIR_SYMBOL const struct fir_node* fir_ctrl_ty(struct fir_mod*);
 /// Special type used as the return type of continuations.
 FIR_SYMBOL const struct fir_node* fir_noret_ty(struct fir_mod*);
 /// Generic pointer type.
@@ -122,7 +124,8 @@ FIR_SYMBOL const struct fir_node* fir_func_ty(
     const struct fir_node* param_ty,
     const struct fir_node* ret_ty);
 
-/// Function type carrying a memory object.
+/// Function type carrying a memory object. This prepends a memory object type to the parameter
+/// type list and return type list.
 FIR_SYMBOL const struct fir_node* fir_mem_func_ty(
     const struct fir_node* param_ty,
     const struct fir_node* ret_ty);
@@ -131,7 +134,8 @@ FIR_SYMBOL const struct fir_node* fir_mem_func_ty(
 /// Shortcut for `func_ty(param_ty, noret_ty)`
 FIR_SYMBOL const struct fir_node* fir_cont_ty(const struct fir_node* param_ty);
 
-/// Continuation type carrying a memory object.
+/// Continuation type carrying a memory object. This prepends a memory object type to the parameter
+/// type list.
 FIR_SYMBOL const struct fir_node* fir_mem_cont_ty(const struct fir_node* param_ty);
 
 /// @}
@@ -186,6 +190,7 @@ FIR_SYMBOL const struct fir_node* fir_all_ones(const struct fir_node* ty);
 /// Integer arithmetic operations. @see FIR_IARITH_OP_LIST.
 FIR_SYMBOL const struct fir_node* fir_iarith_op(
     enum fir_node_tag tag,
+    const struct fir_node* ctrl,
     const struct fir_node* left,
     const struct fir_node* right);
 
@@ -193,47 +198,60 @@ FIR_SYMBOL const struct fir_node* fir_iarith_op(
 FIR_SYMBOL const struct fir_node* fir_farith_op(
     enum fir_node_tag tag,
     enum fir_fp_flags,
+    const struct fir_node* ctrl,
     const struct fir_node* left,
     const struct fir_node* right);
 
 /// Integer comparisons. @see FIR_ICMP_OP_LIST.
 FIR_SYMBOL const struct fir_node* fir_icmp_op(
     enum fir_node_tag tag,
+    const struct fir_node* ctrl,
     const struct fir_node* left,
     const struct fir_node* right);
 
 /// Floating-point comparisons. @see FIR_FCMP_OP_LIST.
 FIR_SYMBOL const struct fir_node* fir_fcmp_op(
     enum fir_node_tag tag,
+    const struct fir_node* ctrl,
     const struct fir_node* left,
     const struct fir_node* right);
 
 /// Bitwise operations. @see FIR_BIT_OP_LIST.
 FIR_SYMBOL const struct fir_node* fir_bit_op(
     enum fir_node_tag tag,
+    const struct fir_node* ctrl,
     const struct fir_node* left,
     const struct fir_node* right);
 
 /// Integer bitshift operations. @see FIR_SHIFT_OP_LIST.
 FIR_SYMBOL const struct fir_node* fir_shift_op(
     enum fir_node_tag tag,
+    const struct fir_node* ctrl,
     const struct fir_node* val,
     const struct fir_node* amount);
 
 /// Casts between primitive (integer and floating-point) types. @see FIR_CAST_OP_LIST.
 FIR_SYMBOL const struct fir_node* fir_cast_op(
     enum fir_node_tag tag,
+    const struct fir_node* ctrl,
     const struct fir_node* ty,
     const struct fir_node* arg);
 
 /// Constructs a bitwise not, using a XOR instruction.
-FIR_SYMBOL const struct fir_node* fir_not(const struct fir_node* arg);
+FIR_SYMBOL const struct fir_node* fir_not(
+    const struct fir_node* ctrl,
+    const struct fir_node* arg);
 
 /// Constructs an integer negation, using a subtraction instruction.
-FIR_SYMBOL const struct fir_node* fir_ineg(const struct fir_node* arg);
+FIR_SYMBOL const struct fir_node* fir_ineg(
+    const struct fir_node* ctrl,
+    const struct fir_node* arg);
 
 /// Constructs a floating-point negation, using a subtraction instruction.
-FIR_SYMBOL const struct fir_node* fir_fneg(enum fir_fp_flags, const struct fir_node* arg);
+FIR_SYMBOL const struct fir_node* fir_fneg(
+    enum fir_fp_flags,
+    const struct fir_node* ctrl,
+    const struct fir_node* arg);
 
 /// @}
 
@@ -243,6 +261,7 @@ FIR_SYMBOL const struct fir_node* fir_fneg(enum fir_fp_flags, const struct fir_n
 /// Creates a tuple with the given elements.
 FIR_SYMBOL const struct fir_node* fir_tup(
     struct fir_mod* mod,
+    const struct fir_node* ctrl,
     const struct fir_node* const* elems,
     size_t elem_count);
 
@@ -251,41 +270,52 @@ FIR_SYMBOL const struct fir_node* fir_unit(struct fir_mod*);
 
 /// Creates a fixed-size array.
 FIR_SYMBOL const struct fir_node* fir_array(
+    const struct fir_node* ctrl,
     const struct fir_node* ty,
     const struct fir_node* const* elems);
 
 /// Extracts an element from an existing tuple or array.
 FIR_SYMBOL const struct fir_node* fir_ext(
+    const struct fir_node* ctrl,
     const struct fir_node* aggr,
     const struct fir_node* index);
 
 /// Extracts an element from an existing tuple or array at the given constant index.
 /// Shortcut for `ext(aggr, const[index])`.
-FIR_SYMBOL const struct fir_node* fir_ext_at(const struct fir_node* aggr, size_t index);
+FIR_SYMBOL const struct fir_node* fir_ext_at(
+    const struct fir_node* ctrl,
+    const struct fir_node* aggr,
+    size_t index);
 
 /// Extracts the memory object from a value, if any.
 /// @return The memory object contained in the value, if it exists, or `NULL` otherwise.
-FIR_SYMBOL const struct fir_node* fir_ext_mem(const struct fir_node* val);
+FIR_SYMBOL const struct fir_node* fir_ext_mem(
+    const struct fir_node* ctrl,
+    const struct fir_node* val);
 
 /// Inserts an element into an existing tuple or array.
 FIR_SYMBOL const struct fir_node* fir_ins(
+    const struct fir_node* ctrl,
     const struct fir_node* aggr,
     const struct fir_node* index,
     const struct fir_node* elem);
 
 /// Inserts an element into an existing tuple or array at the given constant index.
 FIR_SYMBOL const struct fir_node* fir_ins_at(
+    const struct fir_node* ctrl,
     const struct fir_node* aggr,
     size_t index,
     const struct fir_node* elem);
 
 /// Inserts a new memory object into an existing value that is or contains a memory object.
 FIR_SYMBOL const struct fir_node* fir_ins_mem(
+    const struct fir_node* ctrl,
     const struct fir_node* val,
     const struct fir_node* mem);
 
 /// Obtains the address of an element of a tuple or array, given the address of the tuple or array.
 FIR_SYMBOL const struct fir_node* fir_addrof(
+    const struct fir_node* ctrl,
     const struct fir_node* ptr,
     const struct fir_node* aggr_ty,
     const struct fir_node* index);
@@ -293,6 +323,7 @@ FIR_SYMBOL const struct fir_node* fir_addrof(
 /// Obtains the address of the element with the given index in a tuple or array, given the address
 /// of the tuple or array.
 FIR_SYMBOL const struct fir_node* fir_addrof_at(
+    const struct fir_node* ctrl,
     const struct fir_node* ptr,
     const struct fir_node* aggr_ty,
     size_t index);
@@ -300,6 +331,7 @@ FIR_SYMBOL const struct fir_node* fir_addrof_at(
 /// Builds a selection out of an extract and an array.
 /// Shortcut for `ext(array(when_false, when_true), cond)`.
 FIR_SYMBOL const struct fir_node* fir_select(
+    const struct fir_node* ctrl,
     const struct fir_node* cond,
     const struct fir_node* when_true,
     const struct fir_node* when_false);
@@ -307,6 +339,7 @@ FIR_SYMBOL const struct fir_node* fir_select(
 /// Builds a n-ary selection out of an extract and an array.
 /// Shortcut for `ext(array(x1, ..., xn), index)`.
 FIR_SYMBOL const struct fir_node* fir_choice(
+    const struct fir_node* ctrl,
     const struct fir_node* index,
     const struct fir_node* const* elems,
     size_t elem_count);
@@ -316,9 +349,10 @@ FIR_SYMBOL const struct fir_node* fir_choice(
 /// @name Memory operations
 /// @{
 
-/// Loads the data located at the given address.
+/// Loads the data located at the given address. The block
 FIR_SYMBOL const struct fir_node* fir_load(
     enum fir_mem_flags flags,
+    const struct fir_node* ctrl,
     const struct fir_node* mem,
     const struct fir_node* ptr,
     const struct fir_node* ty);
@@ -326,6 +360,7 @@ FIR_SYMBOL const struct fir_node* fir_load(
 /// Stores data at the given address.
 FIR_SYMBOL const struct fir_node* fir_store(
     enum fir_mem_flags flags,
+    const struct fir_node* ctrl,
     const struct fir_node* mem,
     const struct fir_node* ptr,
     const struct fir_node* val);
@@ -337,13 +372,15 @@ FIR_SYMBOL const struct fir_node* fir_store(
 
 /// Calls a regular function, or jumps to a continuation.
 FIR_SYMBOL const struct fir_node* fir_call(
+    const struct fir_node* ctrl,
     const struct fir_node* callee,
     const struct fir_node* arg);
 
 /// Branches to either continuation based on the condition.
 /// Shortcut for `call(ext(array(jump_false, jump_true), cond), arg)`.
-/// @see fir_select
+/// @see fir_select, fir_call.
 FIR_SYMBOL const struct fir_node* fir_branch(
+    const struct fir_node* ctrl,
     const struct fir_node* cond,
     const struct fir_node* arg,
     const struct fir_node* jump_true,
@@ -352,8 +389,9 @@ FIR_SYMBOL const struct fir_node* fir_branch(
 /// Branches to a continuation based on the given index.
 /// This is a more general version of @ref fir_branch, as it supports more than 2 jump targets.
 /// Shortcut for `call(ext(array(target1, ..., targetn), index), arg)`.
-/// @see fir_choice
+/// @see fir_choice, fir_call.
 FIR_SYMBOL const struct fir_node* fir_switch(
+    const struct fir_node* ctrl,
     const struct fir_node* cond,
     const struct fir_node* arg,
     const struct fir_node* const* targets,
@@ -361,6 +399,9 @@ FIR_SYMBOL const struct fir_node* fir_switch(
 
 /// Obtains the parameter of a function.
 FIR_SYMBOL const struct fir_node* fir_param(const struct fir_node* func);
+
+/// Obtains the control-dependence object of a function or basic-block.
+FIR_SYMBOL const struct fir_node* fir_ctrl(const struct fir_node* func);
 
 /// Enters the first basic-block of a function. This node takes the first block of the function as
 /// an operand, which must have a type of the form:

@@ -229,6 +229,7 @@ const struct fir_node* fir_node_rebuild(
     struct fir_mod* mod,
     enum fir_node_tag tag,
     const union fir_node_data* data,
+    const struct fir_node* ctrl,
     const struct fir_node* ty,
     const struct fir_node* const* ops,
     size_t op_count)
@@ -253,32 +254,46 @@ const struct fir_node* fir_node_rebuild(
                 : fir_float_const(ty, data->float_val);
 #define x(tag, ...) case FIR_##tag:
         FIR_IARITH_OP_LIST(x)
-            return fir_iarith_op(tag, ops[0], ops[1]);
+            return fir_iarith_op(tag, ctrl, ops[0], ops[1]);
         FIR_FARITH_OP_LIST(x)
-            return fir_farith_op(tag, data->fp_flags, ops[0], ops[1]);
+            return fir_farith_op(tag, data->fp_flags, ctrl, ops[0], ops[1]);
         FIR_ICMP_OP_LIST(x)
-            return fir_icmp_op(tag, ops[0], ops[1]);
+            return fir_icmp_op(tag, ctrl, ops[0], ops[1]);
         FIR_FCMP_OP_LIST(x)
-            return fir_fcmp_op(tag, ops[0], ops[1]);
+            return fir_fcmp_op(tag, ctrl, ops[0], ops[1]);
         FIR_BIT_OP_LIST(x)
-            return fir_bit_op(tag, ops[0], ops[1]);
+            return fir_bit_op(tag, ctrl, ops[0], ops[1]);
         FIR_CAST_OP_LIST(x)
-            return fir_cast_op(tag, ty, ops[0]);
+            return fir_cast_op(tag, ctrl, ty, ops[0]);
 #undef x
-        case FIR_TUP:    return fir_tup(mod, ops, op_count);
-        case FIR_ARRAY:  return fir_array(ty, ops);
-        case FIR_EXT:    return fir_ext(ops[0], ops[1]);
-        case FIR_INS:    return fir_ins(ops[0], ops[1], ops[2]);
-        case FIR_ADDROF: return fir_addrof(ops[0], ops[1], ops[2]);
-        case FIR_STORE:  return fir_store(data->mem_flags, ops[0], ops[1], ops[2]);
-        case FIR_LOAD:   return fir_load(data->mem_flags, ops[0], ops[1], ty);
-        case FIR_CALL:   return fir_call(ops[0], ops[1]);
+        case FIR_TUP:    return fir_tup(mod, ctrl, ops, op_count);
+        case FIR_ARRAY:  return fir_array(ctrl, ty, ops);
+        case FIR_EXT:    return fir_ext(ctrl, ops[0], ops[1]);
+        case FIR_INS:    return fir_ins(ctrl, ops[0], ops[1], ops[2]);
+        case FIR_ADDROF: return fir_addrof(ctrl, ops[0], ops[1], ops[2]);
+        case FIR_STORE:  return fir_store(data->mem_flags, ctrl, ops[0], ops[1], ops[2]);
+        case FIR_LOAD:   return fir_load(data->mem_flags, ctrl, ops[0], ops[1], ty);
+        case FIR_CALL:   return fir_call(ctrl, ops[0], ops[1]);
         case FIR_PARAM:  return fir_param(ops[0]);
+        case FIR_CTRL:   return fir_ctrl(ops[0]);
         case FIR_START:  return fir_start(ops[0]);
         default:
             assert(false && "invalid node tag");
             return NULL;
     }
+}
+
+const struct fir_node* fir_node_pin(const struct fir_node* node, const struct fir_node* ctrl)
+{
+    assert(ctrl);
+    assert(ctrl->ty->tag == FIR_CTRL_TY);
+    struct fir_mod* mod = fir_node_mod(node);
+    return fir_node_rebuild(mod, node->tag, &node->data, ctrl, node->ty, node->ops, node->op_count);
+}
+
+const struct fir_node* fir_node_unpin(const struct fir_node* node) {
+    struct fir_mod* mod = fir_node_mod(node);
+    return fir_node_rebuild(mod, node->tag, &node->data, NULL, node->ty, node->ops, node->op_count);
 }
 
 struct fir_node* fir_node_clone(
@@ -314,7 +329,7 @@ const struct fir_node* fir_node_prepend(
     const struct fir_node* ty = is_ty ? node : node->ty;
     if (ty->tag == FIR_TUP_TY) {
         for (size_t i = 0; i < ty->op_count; ++i) {
-            const struct fir_node* arg = is_ty ? ty->ops[i] : fir_ext_at(node, i);
+            const struct fir_node* arg = is_ty ? ty->ops[i] : fir_ext_at(node->ctrl, node, i);
             small_node_vec_push(&args, &arg);
         }
     } else {
@@ -323,7 +338,7 @@ const struct fir_node* fir_node_prepend(
 
     const struct fir_node* new_node = is_ty
         ? fir_tup_ty(mod, args.elems, args.elem_count)
-        : fir_tup(mod, args.elems, args.elem_count);
+        : fir_tup(mod, node->ctrl, args.elems, args.elem_count);
     small_node_vec_destroy(&args);
     return new_node;
 }
@@ -336,7 +351,7 @@ const struct fir_node* fir_node_chop(const struct fir_node* node, size_t elem_co
     bool is_ty = fir_node_is_ty(node);
     const struct fir_node* ty = is_ty ? node : node->ty;
     for (size_t i = elem_count; i < ty->op_count; ++i) {
-        const struct fir_node* arg = is_ty ? ty->ops[i] : fir_ext_at(node, i);
+        const struct fir_node* arg = is_ty ? ty->ops[i] : fir_ext_at(node->ctrl, node, i);
         small_node_vec_push(&args, &arg);
     }
 
@@ -347,7 +362,7 @@ const struct fir_node* fir_node_chop(const struct fir_node* node, size_t elem_co
     } else {
         new_node = is_ty
             ? fir_tup_ty(mod, args.elems, args.elem_count)
-            : fir_tup(mod, args.elems, args.elem_count);
+            : fir_tup(mod, node->ctrl, args.elems, args.elem_count);
     }
     small_node_vec_destroy(&args);
     return new_node;
@@ -358,8 +373,8 @@ const struct fir_node* fir_node_func_entry(const struct fir_node* func) {
     if (!FIR_FUNC_BODY(func))
         return NULL;
     assert(FIR_FUNC_BODY(func)->tag == FIR_START);
-    assert(FIR_START_FUNC(FIR_FUNC_BODY(func))->tag == FIR_FUNC);
-    return FIR_START_FUNC(FIR_FUNC_BODY(func));
+    assert(FIR_START_BLOCK(FIR_FUNC_BODY(func))->tag == FIR_FUNC);
+    return FIR_START_BLOCK(FIR_FUNC_BODY(func));
 }
 
 const struct fir_node* fir_node_func_return(const struct fir_node* func) {
@@ -369,7 +384,7 @@ const struct fir_node* fir_node_func_return(const struct fir_node* func) {
     const struct fir_node* param = fir_param(entry);
     assert(param->ty->tag == FIR_TUP_TY);
     assert(param->ty->op_count == 2);
-    const struct fir_node* ret = fir_ext_at(param, 1);
+    const struct fir_node* ret = fir_ext_at(NULL, param, 1);
     assert(fir_node_is_cont_ty(ret->ty));
     assert(FIR_FUNC_TY_PARAM(ret->ty) == FIR_FUNC_TY_RET(func->ty));
     return ret;
@@ -382,13 +397,13 @@ const struct fir_node* fir_node_func_frame(const struct fir_node* func) {
     const struct fir_node* param = fir_param(entry);
     assert(param->ty->tag == FIR_TUP_TY);
     assert(param->ty->op_count == 2);
-    const struct fir_node* frame = fir_ext_at(param, 0);
+    const struct fir_node* frame = fir_ext_at(NULL, param, 0);
     assert(frame->ty->tag == FIR_FRAME_TY);
     return frame;
 }
 
 const struct fir_node* fir_node_mem_param(const struct fir_node* func) {
-    return fir_ext_mem(fir_param(func));
+    return fir_ext_mem(NULL, fir_param(func));
 }
 
 const struct fir_node* const* fir_node_jump_targets(const struct fir_node* node) {

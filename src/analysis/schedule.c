@@ -134,7 +134,9 @@ restart:
         assert(!find_early_block(schedule, node));
 
         struct graph_node* early_block = NULL;
-        if (node->tag == FIR_PARAM) {
+        if (node->ctrl) {
+            early_block = find_func_block(schedule->cfg, FIR_CTRL_BLOCK(node->ctrl));
+        } else if (node->tag == FIR_PARAM) {
             early_block = find_func_block(schedule->cfg, FIR_PARAM_FUNC(node));
         } else if ((node->props & FIR_PROP_INVARIANT) || fir_node_is_nominal(node)) {
             early_block = schedule->cfg->graph.source;
@@ -315,7 +317,10 @@ restart:
         const struct fir_node* node = *node_vec_last(&schedule->late_stack);
 
         const struct block_list* late_blocks = NULL;
-        if (node->tag == FIR_PARAM) {
+        if (node->ctrl) {
+            struct graph_node* ctrl_block = find_func_block(schedule->cfg, FIR_CTRL_BLOCK(node->ctrl));
+            late_blocks = block_list_pool_insert(&schedule->block_list_pool, &ctrl_block, 1);
+        } else if (node->tag == FIR_PARAM) {
             struct graph_node* param_block = find_func_block(schedule->cfg, FIR_PARAM_FUNC(node));
             late_blocks = block_list_pool_insert(&schedule->block_list_pool, &param_block, 1);
         } else if (node->tag == FIR_FUNC && fir_node_is_cont_ty(node->ty)) {

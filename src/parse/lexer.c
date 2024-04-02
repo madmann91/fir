@@ -138,6 +138,7 @@ struct token lexer_advance(struct lexer* lexer) {
         if (accept_char(lexer, '}')) return make_token(lexer, &begin_pos, TOK_RBRACE);
         if (accept_char(lexer, ',')) return make_token(lexer, &begin_pos, TOK_COMMA);
         if (accept_char(lexer, '=')) return make_token(lexer, &begin_pos, TOK_EQ);
+        if (accept_char(lexer, '@')) return make_token(lexer, &begin_pos, TOK_AT);
 
         if (accept_char(lexer, '\"')) {
             while (true) {

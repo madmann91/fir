@@ -10,6 +10,8 @@
 
 #include <inttypes.h>
 
+static void print_node(FILE*, const struct fir_node*, const struct fir_print_options*);
+
 static inline void print_indent(FILE* file, size_t indent, const char* tab) {
     for (size_t i = 0; i < indent; ++i)
         fputs(tab, file);
@@ -21,9 +23,29 @@ static void print_fp_flags(FILE* file, enum fir_fp_flags flags) {
     if (flags & FIR_FP_ASSOCIATIVE)    fprintf(file, "+a");
     if (flags & FIR_FP_DISTRIBUTIVE)   fprintf(file, "+d");
 }
+
 static void print_mem_flags(FILE* file, enum fir_mem_flags flags) {
     if (flags & FIR_MEM_NON_NULL) fprintf(file, "+nn");
     if (flags & FIR_MEM_VOLATILE) fprintf(file, "+v");
+}
+
+static void print_node_name(FILE* file, const struct fir_node* node) {
+    fprintf(file, "%s_%"PRIu64, fir_node_name(node), node->id);
+}
+
+static void print_op(FILE* file, const struct fir_node* op, const struct fir_print_options* options) {
+    const char* error_style   = options->disable_colors ? "" : TERM2(TERM_FG_RED, TERM_BOLD);
+    const char* reset_style   = options->disable_colors ? "" : TERM1(TERM_RESET);
+    if (!op)
+        fprintf(file, "%s<unset>%s", error_style, reset_style);
+    else if (!fir_node_is_nominal(op) && (op->props & FIR_PROP_INVARIANT) != 0) {
+        if (!fir_node_is_ty(op)) {
+            print_node(file, op->ty, options);
+            fprintf(file, " ");
+        }
+        print_node(file, op, options);
+    } else
+        print_node_name(file, op);
 }
 
 static void print_node(FILE* file, const struct fir_node* node, const struct fir_print_options* options) {
@@ -32,7 +54,6 @@ static void print_node(FILE* file, const struct fir_node* node, const struct fir
     const char* keyword_style = type_style;
     const char* reset_style   = options->disable_colors ? "" : TERM1(TERM_RESET);
     const char* data_style    = options->disable_colors ? "" : TERM1(TERM_FG_CYAN);
-    const char* error_style   = options->disable_colors ? "" : TERM2(TERM_FG_RED, TERM_BOLD);
     if (fir_node_is_external(node))
         fprintf(file, "%sextern%s ", keyword_style, reset_style);
     fprintf(file, "%s%s%s",
@@ -60,20 +81,15 @@ static void print_node(FILE* file, const struct fir_node* node, const struct fir
         return;
     fprintf(file, "(");
     for (size_t i = 0; i < node->op_count; ++i) {
-        if (!node->ops[i])
-            fprintf(file, "%s<unset>%s", error_style, reset_style);
-        else if (!fir_node_is_nominal(node->ops[i]) && (node->ops[i]->props & FIR_PROP_INVARIANT) != 0) {
-            if (!fir_node_is_ty(node->ops[i])) {
-                print_node(file, node->ops[i]->ty, options);
-                fprintf(file, " ");
-            }
-            print_node(file, node->ops[i], options);
-        } else
-            fprintf(file, "%s_%"PRIu64, fir_node_name(node->ops[i]), node->ops[i]->id);
+        print_op(file, node->ops[i], options);
         if (i != node->op_count - 1)
             fprintf(file, ", ");
     }
     fprintf(file, ")");
+    if (node->ctrl && options->verbosity != FIR_VERBOSITY_COMPACT) {
+        fprintf(file, "@");
+        print_op(file, node->ctrl, options);
+    }
 }
 
 void fir_node_print(FILE* file, const struct fir_node* node, const struct fir_print_options* options) {
@@ -83,7 +99,8 @@ void fir_node_print(FILE* file, const struct fir_node* node, const struct fir_pr
             print_node(file, node->ty, options);
             fprintf(file, " ");
         }
-        fprintf(file, "%s_%"PRIu64" = ", fir_node_name(node), node->id);
+        print_node_name(file, node);
+        fprintf(file, " = ");
     }
     print_node(file, node, options);
 }
@@ -158,8 +175,9 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
 
             const struct fir_node* block_func = cfg_block_func(*block_ptr);
             print_indent(file, options->indent + 1, options->tab);
-            fprintf(file, "%s#%s_%"PRIu64":%s\n",
-                comment_style, fir_node_name(block_func), block_func->id, reset_style);
+            fprintf(file, "%s#", comment_style);
+            print_node_name(file, block_func);
+            fprintf(file, ": %s\n", reset_style);
 
             VEC_FOREACH(const struct fir_node*, node_ptr, block_contents[(*block_ptr)->index]) {
                 print_indent(file, options->indent + 2, options->tab);

@@ -15,7 +15,7 @@ static inline struct fir_block make_block(
     return (struct fir_block) {
         .func = func,
         .block = block,
-        .mem = mem ? mem : fir_ext_mem(fir_param(block)),
+        .mem = mem ? mem : fir_ext_mem(NULL, fir_param(block)),
         .is_merge_block = mem == NULL,
         .is_terminated = false,
         .is_wired = is_wired
@@ -33,7 +33,7 @@ const struct fir_node* fir_block_start(struct fir_block* entry, struct fir_node*
     const struct fir_node* ret_ty = fir_cont_ty(FIR_FUNC_TY_RET(func->ty));
     const struct fir_node* start_ty = fir_tup_ty(mod,
         (const struct fir_node*[]) { fir_frame_ty(mod), ret_ty }, 2);
-    const struct fir_node* mem = fir_ext_mem(fir_param(func));
+    const struct fir_node* mem = fir_ext_mem(NULL, fir_param(func));
     assert(mem);
     *entry = make_block(fir_cont(start_ty), func, mem, true);
     entry->is_merge_block = false;
@@ -67,14 +67,14 @@ void fir_block_switch(
         *targets[i]  = make_block(fir_cont(fir_unit_ty(mod)), from->func, from->mem, true);
         small_node_vec_push(&target_blocks, (const struct fir_node*[]) { targets[i]->block });
     }
-    jump(from, fir_switch(index, fir_unit(mod), target_blocks.elems, target_count));
+    jump(from, fir_switch(fir_ctrl(from->block), index, fir_unit(mod), target_blocks.elems, target_count));
     small_node_vec_destroy(&target_blocks);
 }
 
 void fir_block_loop(struct fir_block* from, struct fir_block* continue_block) {
     struct fir_mod* mod = fir_node_mod(from->block);
     *continue_block = make_block(fir_cont(fir_mem_ty(mod)), from->func, NULL, true);
-    jump(from, fir_call(continue_block->block, from->mem));
+    jump(from, fir_call(fir_ctrl(from->block), continue_block->block, from->mem));
 }
 
 void fir_block_jump(struct fir_block* from, struct fir_block* target) {
@@ -82,13 +82,17 @@ void fir_block_jump(struct fir_block* from, struct fir_block* target) {
     assert(from->func == target->func);
     if (!from->is_terminated) {
         target->is_wired = true;
-        jump(from, fir_call(target->block, from->mem));
+        jump(from, fir_call(fir_ctrl(from->block), target->block, from->mem));
     }
 }
 
 void fir_block_return(struct fir_block* from, const struct fir_node* ret_val) {
-    if (!from->is_terminated)
-        jump(from, fir_call(fir_node_func_return(from->func), fir_node_prepend(ret_val, &from->mem, 1)));
+    if (!from->is_terminated) {
+        jump(from, fir_call(
+            fir_ctrl(from->block),
+            fir_node_func_return(from->func),
+            fir_node_prepend(ret_val, &from->mem, 1)));
+    }
 }
 
 const struct fir_node* fir_block_call(
@@ -96,8 +100,8 @@ const struct fir_node* fir_block_call(
     const struct fir_node* callee,
     const struct fir_node* arg)
 {
-    const struct fir_node* ret_val = fir_call(callee, fir_node_prepend(arg, &block->mem, 1));
-    block->mem = fir_ext_at(ret_val, 0);
+    const struct fir_node* ret_val = fir_call(NULL, callee, fir_node_prepend(arg, &block->mem, 1));
+    block->mem = fir_ext_at(NULL, ret_val, 0);
     assert(block->mem->ty->tag == FIR_MEM_TY);
     return fir_node_chop(ret_val, 1);
 }
@@ -109,7 +113,7 @@ const struct fir_node* fir_block_load(
     const struct fir_node* ty)
 {
     assert(!block->is_terminated);
-    return fir_load(mem_flags, block->mem, ptr, ty);
+    return fir_load(mem_flags, NULL, block->mem, ptr, ty);
 }
 
 void fir_block_store(
@@ -119,5 +123,5 @@ void fir_block_store(
     const struct fir_node* val)
 {
     assert(!block->is_terminated);
-    block->mem = fir_store(mem_flags, block->mem, ptr, val);
+    block->mem = fir_store(mem_flags, NULL, block->mem, ptr, val);
 }

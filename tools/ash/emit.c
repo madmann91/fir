@@ -26,7 +26,7 @@ static void emit_pattern(
         case AST_TUPLE_PATTERN: {
             size_t i = 0;
             for (struct ast* arg = pattern->tuple_pattern.args; arg; arg = arg->next)
-                emit_pattern(emitter, arg, fir_ext_at(val, i++));
+                emit_pattern(emitter, arg, fir_ext_at(NULL, val, i++));
             break;
         }
         case AST_IDENT_PATTERN:
@@ -98,7 +98,7 @@ static const struct fir_node* emit_tuple_expr(struct emitter* emitter, struct as
     small_node_vec_init(&args);
     for (struct ast* arg = tuple_expr->tuple_expr.args; arg; arg = arg->next)
         small_node_vec_push(&args, (const struct fir_node*[]) { emit(emitter, arg) });
-    const struct fir_node* tup = fir_tup(emitter->mod, args.elems, args.elem_count);
+    const struct fir_node* tup = fir_tup(emitter->mod, NULL, args.elems, args.elem_count);
     small_node_vec_destroy(&args);
     return tup;
 }
@@ -116,7 +116,7 @@ static const struct fir_node* emit_record_expr(struct emitter* emitter, struct a
         args.elems[index] = emit(emitter, field);
     }
 
-    const struct fir_node* tup = fir_tup(emitter->mod, args.elems, args.elem_count);
+    const struct fir_node* tup = fir_tup(emitter->mod, NULL, args.elems, args.elem_count);
     small_node_vec_destroy(&args);
     return tup;
 }
@@ -233,17 +233,17 @@ static const struct fir_node* emit_implicit_cast(
         return emit_implicit_cast(emitter, loaded_val, source_type->ref_type.pointee_type, target_type);
     }
     if (type_is_signed_int(source_type) && type_is_signed_int(target_type))
-        return fir_cast_op(FIR_SEXT, convert_type(emitter, target_type), val);
+        return fir_cast_op(FIR_SEXT, NULL, convert_type(emitter, target_type), val);
     if (type_is_unsigned_int(source_type) && type_is_unsigned_int(target_type))
-        return fir_cast_op(FIR_ZEXT, convert_type(emitter, target_type), val);
+        return fir_cast_op(FIR_ZEXT, NULL, convert_type(emitter, target_type), val);
     if (type_is_float(source_type) && type_is_float(target_type))
-        return fir_cast_op(FIR_FEXT, convert_type(emitter, target_type), val);
+        return fir_cast_op(FIR_FEXT, NULL, convert_type(emitter, target_type), val);
     if (source_type->tag == TYPE_RECORD && target_type->tag == TYPE_RECORD) {
         const struct fir_node* tup = fir_bot(convert_type(emitter, target_type));
         for (size_t i = 0; i < target_type->record_type.field_count; ++i) {
             size_t field_index = type_find_field(source_type, target_type->record_type.field_names[i]);
             assert(field_index < source_type->record_type.field_count);
-            tup = fir_ins_at(tup, i, fir_ext_at(val, field_index));
+            tup = fir_ins_at(NULL, tup, i, fir_ext_at(NULL, val, field_index));
         }
         return tup;
     }
@@ -261,14 +261,14 @@ static const struct fir_node* emit_cast_expr(struct emitter* emitter, struct ast
 
     const struct fir_node* cast_ty = convert_type(emitter, dest_type);
     if (type_is_float(source_type) && type_is_int_or_bool(dest_type))
-        return fir_cast_op(type_is_signed_int(dest_type) ? FIR_FTOS : FIR_FTOU, cast_ty, arg);
+        return fir_cast_op(type_is_signed_int(dest_type) ? FIR_FTOS : FIR_FTOU, NULL, cast_ty, arg);
     if (type_is_int_or_bool(source_type) && type_is_float(dest_type))
-        return fir_cast_op(type_is_signed_int(source_type) ? FIR_STOF : FIR_UTOF, cast_ty, arg);
+        return fir_cast_op(type_is_signed_int(source_type) ? FIR_STOF : FIR_UTOF, NULL, cast_ty, arg);
     if ((type_is_int_or_bool(source_type) && type_is_int_or_bool(dest_type)) ||
         (type_is_float(source_type) && type_is_float(dest_type)))
     {
         assert(type_bitwidth(source_type) >= type_bitwidth(dest_type));
-        return fir_cast_op(type_is_float(source_type) ? FIR_FTRUNC : FIR_ITRUNC, cast_ty, arg);
+        return fir_cast_op(type_is_float(source_type) ? FIR_FTRUNC : FIR_ITRUNC, NULL, cast_ty, arg);
     }
     return NULL;
 }
@@ -279,11 +279,11 @@ static const struct fir_node* emit_unary_expr(struct emitter* emitter, struct as
         case UNARY_EXPR_PLUS:
             return arg;
         case UNARY_EXPR_NOT:
-            return fir_not(arg);
+            return fir_not(NULL, arg);
         case UNARY_EXPR_NEG:
             if (type_is_float(unary_expr->type))
-                return fir_fneg(emitter->fp_flags, arg);
-            return fir_ineg(arg);
+                return fir_fneg(emitter->fp_flags, NULL, arg);
+            return fir_ineg(NULL, arg);
         case UNARY_EXPR_PRE_INC:
         case UNARY_EXPR_PRE_DEC:
         case UNARY_EXPR_POST_INC:
@@ -292,8 +292,8 @@ static const struct fir_node* emit_unary_expr(struct emitter* emitter, struct as
                 const struct fir_node* val_ty = convert_type(emitter, unary_expr->type);
                 const struct fir_node* old_val = fir_block_load(&emitter->block, 0, arg, val_ty);
                 const struct fir_node* new_val = unary_expr_tag_is_inc(unary_expr->unary_expr.tag)
-                    ? fir_iarith_op(FIR_IADD, old_val, fir_one(val_ty))
-                    : fir_iarith_op(FIR_ISUB, old_val, fir_one(val_ty));
+                    ? fir_iarith_op(FIR_IADD, NULL, old_val, fir_one(val_ty))
+                    : fir_iarith_op(FIR_ISUB, NULL, old_val, fir_one(val_ty));
                 fir_block_store(&emitter->block, 0, arg, new_val);
                 return unary_expr_tag_is_prefix(unary_expr->unary_expr.tag) ? new_val : old_val;
             }
@@ -313,11 +313,11 @@ static inline const struct fir_node* emit_arith_op(
     const struct fir_node* right)
 {
     if (type_is_signed_int(type))
-        return fir_iarith_op(signed_tag, left, right);
+        return fir_iarith_op(signed_tag, NULL, left, right);
     if (type_is_unsigned_int(type))
-        return fir_iarith_op(unsigned_tag, left, right);
+        return fir_iarith_op(unsigned_tag, NULL, left, right);
     if (type_is_float(type))
-        return fir_farith_op(float_tag, emitter->fp_flags, left, right);
+        return fir_farith_op(float_tag, emitter->fp_flags, NULL, left, right);
     assert(false && "invalid arithmetic operation");
     return NULL;
 }
@@ -333,13 +333,13 @@ static inline const struct fir_node* emit_cmp_op(
     const struct fir_node* right)
 {
     if (type_is_signed_int(type))
-        return fir_icmp_op(signed_tag, left, right);
+        return fir_icmp_op(signed_tag, NULL, left, right);
     if (type_is_unsigned_int(type))
-        return fir_icmp_op(unsigned_tag, left, right);
+        return fir_icmp_op(unsigned_tag, NULL, left, right);
     if (type_is_float(type)) {
         if (emitter->fp_flags & FIR_FP_FINITE_ONLY)
-            return fir_fcmp_op(ordered_tag, left, right);
-        return fir_fcmp_op(unordered_tag, left, right);
+            return fir_fcmp_op(ordered_tag, NULL, left, right);
+        return fir_fcmp_op(unordered_tag, NULL, left, right);
     }
     assert(false && "invalid comparison");
     return NULL;
@@ -353,9 +353,9 @@ static inline const struct fir_node* emit_shift_op(
     const struct fir_node* right)
 {
     if (type_is_signed_int(type))
-        return fir_shift_op(signed_tag, left, right);
+        return fir_shift_op(signed_tag, NULL, left, right);
     if (type_is_unsigned_int(type))
-        return fir_shift_op(unsigned_tag, left, right);
+        return fir_shift_op(unsigned_tag, NULL, left, right);
     assert(false && "invalid shift operation");
     return NULL;
 }
@@ -409,9 +409,9 @@ static inline const struct fir_node* emit_binary_expr(struct emitter* emitter, s
         case BINARY_EXPR_CMP_LE: result = emit_cmp_op(emitter, left_type, FIR_SCMPLE, FIR_UCMPLE, FIR_FCMPOLE, FIR_FCMPULE, left, right); break;
         case BINARY_EXPR_CMP_NE: result = emit_cmp_op(emitter, left_type, FIR_ICMPNE, FIR_ICMPNE, FIR_FCMPONE, FIR_FCMPUNE, left, right); break;
         case BINARY_EXPR_CMP_EQ: result = emit_cmp_op(emitter, left_type, FIR_ICMPEQ, FIR_ICMPEQ, FIR_FCMPOEQ, FIR_FCMPUEQ, left, right); break;
-        case BINARY_EXPR_AND:    result = fir_bit_op(FIR_AND, left, right); break;
-        case BINARY_EXPR_XOR:    result = fir_bit_op(FIR_XOR, left, right); break;
-        case BINARY_EXPR_OR:     result = fir_bit_op(FIR_OR, left, right); break;
+        case BINARY_EXPR_AND:    result = fir_bit_op(FIR_AND, NULL, left, right); break;
+        case BINARY_EXPR_XOR:    result = fir_bit_op(FIR_XOR, NULL, left, right); break;
+        case BINARY_EXPR_OR:     result = fir_bit_op(FIR_OR, NULL, left, right); break;
         default:
             assert(false && "invalid binary expression");
             return NULL;
@@ -452,17 +452,17 @@ static const struct fir_node* emit_proj_expr(struct emitter* emitter, struct ast
     for (struct ast* elem = proj_expr->proj_expr.elems; elem; elem = elem->next) {
         const struct fir_node* proj_elem = NULL;
         if (is_from_ptr) {
-            proj_elem = fir_addrof_at(arg, aggr_ty, elem->proj_elem.index);
+            proj_elem = fir_addrof_at(NULL, arg, aggr_ty, elem->proj_elem.index);
             if (elem->type->tag != TYPE_REF)
                 proj_elem = fir_block_load(&emitter->block, 0, proj_elem, convert_type(emitter, elem->type));
         } else {
-            proj_elem = fir_ext_at(arg, elem->proj_elem.index);
+            proj_elem = fir_ext_at(NULL, arg, elem->proj_elem.index);
         }
         small_node_vec_push(&proj_elems, &proj_elem);
     }
     const struct fir_node* proj = proj_elems.elem_count == 1
         ? proj_elems.elems[0]
-        : fir_tup(emitter->mod, proj_elems.elems, proj_elems.elem_count);
+        : fir_tup(emitter->mod, NULL, proj_elems.elems, proj_elems.elem_count);
     small_node_vec_destroy(&proj_elems);
     return proj;
 }

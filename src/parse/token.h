@@ -30,7 +30,8 @@ enum token_tag {
     TOK_COMMA,
     TOK_PLUS,
     TOK_MINUS,
-    TOK_EQ
+    TOK_EQ,
+    TOK_AT
 };
 
 struct token {

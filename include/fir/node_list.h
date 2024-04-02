@@ -11,6 +11,7 @@
 #define FIR_TYPE_LIST(x) \
     x(MEM_TY,      "mem_ty") \
     x(FRAME_TY,    "frame_ty") \
+    x(CTRL_TY,     "ctrl_ty") \
     x(PTR_TY,      "ptr_ty") \
     x(NORET_TY,    "noret_ty") \
     x(INT_TY,      "int_ty") \
@@ -115,8 +116,9 @@
 /// Lists all control-flow and function-related operations.
 #define FIR_CONTROL_OP_LIST(x) \
     x(PARAM, "param") \
+    x(CTRL,  "ctrl") \
     x(START, "start") \
-    x(CALL, "call")
+    x(CALL,  "call")
 
 /// Lists all constants.
 #define FIR_CONST_LIST(x) \
