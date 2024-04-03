@@ -271,7 +271,8 @@ static void gen_params_or_phis(
         for (size_t i = 0, j = 0; i < param_or_phi->ty->op_count; ++i) {
             if (!can_be_llvm_type(param_or_phi->ty->ops[i]))
                 continue;
-            gen_param_or_phi(codegen, fir_ext_at(param_or_phi, i), j++);
+            // TODO: Change this to generate phis on-demand.
+            gen_param_or_phi(codegen, fir_ext_at(NULL, param_or_phi, i), j++);
         }
     } else if (can_be_llvm_type(param_or_phi->ty)) {
         gen_param_or_phi(codegen, param_or_phi, 0);
@@ -395,7 +396,8 @@ static LLVMValueRef gen_param_as_tup(struct codegen_context* context, const stru
     for (size_t i = 0; i < param->ty->op_count; ++i) {
         if (!can_be_llvm_type(param->ty->ops[i]))
             continue;
-        LLVMValueRef arg = context->find_op(context, fir_ext_at(param, i));
+        // TODO: Change this to generate params on-demand.
+        LLVMValueRef arg = context->find_op(context, fir_ext_at(NULL, param, i));
         small_llvm_value_vec_push(&args, &arg);
     }
 
