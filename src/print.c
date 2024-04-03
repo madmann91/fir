@@ -10,6 +10,26 @@
 
 #include <inttypes.h>
 
+struct print_styles {
+    const char* error_style;
+    const char* value_style;
+    const char* type_style;
+    const char* keyword_style;
+    const char* reset_style;
+    const char* data_style;
+};
+
+static inline struct print_styles print_styles_from_options(const struct fir_print_options* options) {
+    return (struct print_styles) {
+        .error_style   = options->disable_colors ? "" : TERM2(TERM_FG_RED, TERM_BOLD),
+        .value_style   = options->disable_colors ? "" : TERM2(TERM_FG_GREEN, TERM_BOLD),
+        .type_style    = options->disable_colors ? "" : TERM1(TERM_FG_BLUE),
+        .keyword_style = options->disable_colors ? "" : TERM2(TERM_BOLD, TERM_FG_YELLOW),
+        .reset_style   = options->disable_colors ? "" : TERM1(TERM_RESET),
+        .data_style    = options->disable_colors ? "" : TERM1(TERM_FG_CYAN),
+    };
+}
+
 static void print_node(FILE*, const struct fir_node*, const struct fir_print_options*);
 
 static inline void print_indent(FILE* file, size_t indent, const char* tab) {
@@ -34,10 +54,9 @@ static void print_node_name(FILE* file, const struct fir_node* node) {
 }
 
 static void print_op(FILE* file, const struct fir_node* op, const struct fir_print_options* options) {
-    const char* error_style   = options->disable_colors ? "" : TERM2(TERM_FG_RED, TERM_BOLD);
-    const char* reset_style   = options->disable_colors ? "" : TERM1(TERM_RESET);
+    struct print_styles print_styles = print_styles_from_options(options);
     if (!op)
-        fprintf(file, "%s<unset>%s", error_style, reset_style);
+        fprintf(file, "%s<unset>%s", print_styles.error_style, print_styles.reset_style);
     else if (!fir_node_is_nominal(op) && (op->props & FIR_PROP_INVARIANT) != 0) {
         if (!fir_node_is_ty(op)) {
             print_node(file, op->ty, options);
@@ -49,33 +68,29 @@ static void print_op(FILE* file, const struct fir_node* op, const struct fir_pri
 }
 
 static void print_node(FILE* file, const struct fir_node* node, const struct fir_print_options* options) {
-    const char* value_style   = options->disable_colors ? "" : TERM2(TERM_FG_GREEN, TERM_BOLD);
-    const char* type_style    = options->disable_colors ? "" : TERM1(TERM_FG_BLUE);
-    const char* keyword_style = type_style;
-    const char* reset_style   = options->disable_colors ? "" : TERM1(TERM_RESET);
-    const char* data_style    = options->disable_colors ? "" : TERM1(TERM_FG_CYAN);
+    struct print_styles print_styles = print_styles_from_options(options);
     if (fir_node_is_external(node))
-        fprintf(file, "%sextern%s ", keyword_style, reset_style);
+        fprintf(file, "%sextern%s ", print_styles.keyword_style, print_styles.reset_style);
     fprintf(file, "%s%s%s",
-        fir_node_is_ty(node) ? type_style : value_style,
+        fir_node_is_ty(node) ? print_styles.type_style : print_styles.value_style,
         fir_node_tag_to_string(node->tag),
-        reset_style);
+        print_styles.reset_style);
     if (fir_node_has_bitwidth(node))
-        fprintf(file, "[%s%zu%s]", data_style, node->data.bitwidth, reset_style);
+        fprintf(file, "[%s%zu%s]", print_styles.data_style, node->data.bitwidth, print_styles.reset_style);
     else if (node->tag == FIR_CONST && node->ty->tag == FIR_INT_TY)
-        fprintf(file, "[%s%"PRIu64"%s]", data_style, node->data.int_val, reset_style);
+        fprintf(file, "[%s%"PRIu64"%s]", print_styles.data_style, node->data.int_val, print_styles.reset_style);
     else if (node->tag == FIR_CONST && node->ty->tag == FIR_FLOAT_TY)
-        fprintf(file, "[%s%a%s]", data_style, node->data.float_val, reset_style);
+        fprintf(file, "[%s%a%s]", print_styles.data_style, node->data.float_val, print_styles.reset_style);
     else if (node->tag == FIR_ARRAY_TY)
-        fprintf(file, "[%s%zu%s]", data_style, node->data.array_dim, reset_style);
+        fprintf(file, "[%s%zu%s]", print_styles.data_style, node->data.array_dim, print_styles.reset_style);
     else if (fir_node_has_mem_flags(node)) {
-        fprintf(file, "[%s", data_style);
+        fprintf(file, "[%s", print_styles.data_style);
         print_mem_flags(file, node->data.mem_flags);
-        fprintf(file, "%s]", reset_style);
+        fprintf(file, "%s]", print_styles.reset_style);
     } else if (fir_node_has_fp_flags(node)) {
-        fprintf(file, "[%s", data_style);
+        fprintf(file, "[%s", print_styles.data_style);
         print_fp_flags(file, node->data.fp_flags);
-        fprintf(file, "%s]", reset_style);
+        fprintf(file, "%s]", print_styles.reset_style);
     }
     if (node->op_count == 0)
         return;

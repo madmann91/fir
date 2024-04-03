@@ -16,6 +16,22 @@ static inline bool is_ast_equal(struct ast* const* ast_ptr, struct ast* const* o
 
 SET_IMPL(ast_set, struct ast*, hash_ast, is_ast_equal, PUBLIC)
 
+struct print_styles {
+    const char* error_style;
+    const char* keyword_style;
+    const char* literal_style;
+    const char* reset_style;
+};
+
+static inline struct print_styles print_styles_from_options(const struct fir_print_options* options) {
+    return (struct print_styles) {
+        .keyword_style = options->disable_colors ? "" : TERM2(TERM_FG_GREEN, TERM_BOLD),
+        .literal_style = options->disable_colors ? "" : TERM1(TERM_FG_CYAN),
+        .error_style = options->disable_colors ? "" : TERM2(TERM_FG_RED, TERM_BOLD),
+        .reset_style = options->disable_colors ? "" : TERM1(TERM_RESET)
+    };
+}
+
 static inline void print_indent(FILE* file, size_t indent, const char* tab) {
     for (size_t i = 0; i < indent; ++i)
         fputs(tab, file);
@@ -97,27 +113,24 @@ static void print_binary_expr_operand(
 }
 
 void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options* options) {
-    const char* keyword_style = options->disable_colors ? "" : TERM2(TERM_FG_GREEN, TERM_BOLD);
-    const char* literal_style = options->disable_colors ? "" : TERM1(TERM_FG_CYAN);
-    const char* error_style = options->disable_colors ? "" : TERM2(TERM_FG_RED, TERM_BOLD);
-    const char* reset_style = options->disable_colors ? "" : TERM1(TERM_RESET);
+    struct print_styles print_styles = print_styles_from_options(options);
     switch (ast->tag) {
         case AST_ERROR:
-            fprintf(file, "%s<ERROR>%s", error_style, reset_style);
+            fprintf(file, "%s<ERROR>%s", print_styles.error_style, print_styles.reset_style);
             break;
         case AST_PROGRAM:
             print_many(file, "", "\n", "", ast->program.decls, options);
             fprintf(file, "\n");
             break;
         case AST_LITERAL:
-            fprintf(file, "%s", literal_style);
+            fprintf(file, "%s", print_styles.literal_style);
             print_literal(file, &ast->literal);
-            fprintf(file, "%s", reset_style);
+            fprintf(file, "%s", print_styles.reset_style);
             break;
         case AST_PRIM_TYPE:
-            fprintf(file, "%s", keyword_style);
+            fprintf(file, "%s", print_styles.keyword_style);
             print_prim_type(file, ast->prim_type.tag);
-            fprintf(file, "%s", reset_style);
+            fprintf(file, "%s", print_styles.reset_style);
             break;
         case AST_IDENT_EXPR:
             fprintf(file, "%s", ast->ident_expr.name);
@@ -136,7 +149,7 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
             }
             fprintf(file, "(");
             ast_print(file, ast->cast_expr.arg, options);
-            fprintf(file, " %sas%s ", keyword_style, reset_style);
+            fprintf(file, " %sas%s ", print_styles.keyword_style, print_styles.reset_style);
             type_print(file, ast->type);
             fprintf(file, ")");
             break;
@@ -192,12 +205,12 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
             break;
         }
         case AST_IF_EXPR:
-            fprintf(file, "%sif%s ", keyword_style, reset_style);
+            fprintf(file, "%sif%s ", print_styles.keyword_style, print_styles.reset_style);
             ast_print(file, ast->if_expr.cond, options);
             fprintf(file, " ");
             ast_print(file, ast->if_expr.then_block, options);
             if (ast->if_expr.else_block) {
-                fprintf(file, " %selse%s ", keyword_style, reset_style);
+                fprintf(file, " %selse%s ", print_styles.keyword_style, print_styles.reset_style);
                 ast_print(file, ast->if_expr.else_block, options);
             }
             break;
@@ -220,13 +233,13 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
                 print_many(file, "(", ", ", ")", ast->proj_expr.elems, options);
             break;
         case AST_WHILE_LOOP:
-            fprintf(file, "%swhile%s ", keyword_style, reset_style);
+            fprintf(file, "%swhile%s ", print_styles.keyword_style, print_styles.reset_style);
             ast_print(file, ast->while_loop.cond, options);
             fprintf(file, " ");
             ast_print(file, ast->while_loop.body, options);
             break;
         case AST_FUNC_DECL:
-            fprintf(file, "%sfunc%s %s", keyword_style, reset_style, ast->func_decl.name);
+            fprintf(file, "%sfunc%s %s", print_styles.keyword_style, print_styles.reset_style, ast->func_decl.name);
             print_with_parens(file, ast->func_decl.param, options);
             if (ast->func_decl.ret_type) {
                 fprintf(file, " -> ");
@@ -239,7 +252,7 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
             fprintf(file, ";");
             break;
         case AST_VAR_DECL:
-            fprintf(file, "%svar%s ", keyword_style, reset_style);
+            fprintf(file, "%svar%s ", print_styles.keyword_style, print_styles.reset_style);
             ast_print(file, ast->var_decl.pattern, options);
             if (ast->var_decl.init) {
                 fprintf(file, " = ");
@@ -248,7 +261,7 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
             fprintf(file, ";");
             break;
         case AST_CONST_DECL:
-            fprintf(file, "%sconst%s ", keyword_style, reset_style);
+            fprintf(file, "%sconst%s ", print_styles.keyword_style, print_styles.reset_style);
             ast_print(file, ast->const_decl.pattern, options);
             fprintf(file, " = ");
             ast_print(file, ast->const_decl.init, options);
