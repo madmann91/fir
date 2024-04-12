@@ -33,7 +33,6 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{matrix.compiler.cxx}} \
             -DBUILD_TESTING=ON \
             -DTEST_DISABLE_FORK=ON \
-            -DTEST_DISABLE_REGEX=ON \
             -S $GITHUB_WORKSPACE
 
       - name: Build
