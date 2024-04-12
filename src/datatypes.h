@@ -1,11 +1,11 @@
 #pragma once
 
-#include "set.h"
-#include "map.h"
-#include "vec.h"
-#include "span.h"
-#include "str.h"
-#include "unique_stack.h"
+#include <overture/set.h>
+#include <overture/map.h>
+#include <overture/vec.h>
+#include <overture/span.h>
+#include <overture/str.h>
+#include <overture/unique_stack.h>
 
 struct fir_node;
 struct fir_use;

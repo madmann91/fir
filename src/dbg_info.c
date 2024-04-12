@@ -1,8 +1,8 @@
 #include <fir/dbg_info.h>
 
-#include "support/str_pool.h"
-#include "support/alloc.h"
-#include "support/vec.h"
+#include <overture/str_pool.h>
+#include <overture/mem.h>
+#include <overture/vec.h>
 
 VEC_DEFINE(dbg_info_vec, struct fir_dbg_info*, PRIVATE)
 

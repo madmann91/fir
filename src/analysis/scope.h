@@ -1,6 +1,6 @@
 #pragma once
 
-#include "support/datatypes.h"
+#include "datatypes.h"
 
 #include <stdbool.h>
 

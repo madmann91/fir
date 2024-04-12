@@ -2,10 +2,10 @@
 #include <fir/version.h>
 #include <fir/codegen.h>
 
-#include "support/io.h"
-#include "support/term.h"
-#include "support/cli.h"
-#include "support/str.h"
+#include <overture/term.h>
+#include <overture/cli.h>
+#include <overture/file.h>
+#include <overture/str.h>
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-static bool usage(void*, char*) {
+static enum cli_state usage(void*, char*) {
     printf(
         "usage: fir [options] file.fir ...\n"
         "options:\n"
@@ -23,10 +23,10 @@ static bool usage(void*, char*) {
         "      --no-color           Disables colors in the output.\n"
         "      --no-cleanup         Do not clean up the module after loading it.\n"
         "      --codegen <name>     Selects the given code generator.\n");
-    return false;
+    return CLI_STATE_ERROR;
 }
 
-static bool version(void*, char*) {
+static enum cli_state version(void*, char*) {
 #define HIGH TERM2(TERM_FG_WHITE, TERM_BOLD)
 #define MED TERM2(TERM_FG_YELLOW, TERM_BOLD)
 #define LOW TERM2(TERM_FG_RED, TERM_BOLD)
@@ -54,7 +54,7 @@ static bool version(void*, char*) {
         fir_version_patch(),
         fir_version_timestamp());
     printf("See LICENSE.txt for licensing and copyright information.\n");
-    return false;
+    return CLI_STATE_ERROR;
 }
 
 struct options {
@@ -89,7 +89,7 @@ static inline bool generate_code(struct fir_mod* mod, const struct options* opti
 
 static inline bool compile_file(const char* file_name, const struct options* options) {
     size_t file_size = 0;
-    char* file_data = read_file(file_name, &file_size);
+    char* file_data = file_read(file_name, &file_size);
     if (!file_data) {
         fprintf(stderr, "cannot open file '%s'\n", file_name);
         return false;
@@ -105,9 +105,11 @@ static inline bool compile_file(const char* file_name, const struct options* opt
     if (!options->disable_cleanup)
         fir_mod_cleanup(mod);
 
-    struct fir_print_options print_options = fir_print_options_default(stdout);
-    print_options.disable_colors |= options->disable_colors;
-    print_options.verbosity = options->is_verbose ? FIR_VERBOSITY_HIGH : FIR_VERBOSITY_MEDIUM;
+    struct fir_mod_print_options print_options = {
+        .tab = "    ",
+        .verbosity = options->is_verbose ? FIR_VERBOSITY_HIGH : FIR_VERBOSITY_MEDIUM,
+        .disable_colors = options->disable_colors || !is_term(stdout)
+    };
     fir_mod_print(stdout, mod, &print_options);
 
     status &= generate_code(mod, options);

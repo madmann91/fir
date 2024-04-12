@@ -1,7 +1,7 @@
 #include "ast.h"
 #include "types.h"
 
-#include "support/datatypes.h"
+#include "datatypes.h"
 
 #include <fir/node.h>
 #include <fir/block.h>

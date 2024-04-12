@@ -2,12 +2,13 @@
 #include "ast.h"
 #include "types.h"
 
-#include "support/io.h"
-#include "support/path.h"
-#include "support/cli.h"
-#include "support/str.h"
-#include "support/log.h"
-#include "support/mem_pool.h"
+#include <overture/file.h>
+#include <overture/path.h>
+#include <overture/cli.h>
+#include <overture/str.h>
+#include <overture/log.h>
+#include <overture/term.h>
+#include <overture/mem_pool.h>
 
 #include <fir/module.h>
 
@@ -19,7 +20,7 @@ struct options {
     bool print_ir;
 };
 
-static bool usage(void*, char*) {
+static enum cli_state usage(void*, char*) {
     printf(
         "usage: ash [options] files...\n"
         "options:\n"
@@ -29,7 +30,7 @@ static bool usage(void*, char*) {
         "      --no-cleanup         Do not clean up the module after emitting it.\n"
         "      --print-ast          Prints the AST on the standard output.\n"
         "      --print-ir           Prints the IR on the standard output.\n");
-    return true;
+    return CLI_STATE_ERROR;
 }
 
 static inline struct str make_mod_name(const char* file_name) {
@@ -40,7 +41,7 @@ static inline struct str make_mod_name(const char* file_name) {
 
 static bool compile_file(const char* file_name, const struct options* options) {
     size_t file_size = 0;
-    char* file_data = read_file(file_name, &file_size);
+    char* file_data = file_read(file_name, &file_size);
     if (!file_data) {
         fprintf(stderr, "cannot open '%s'\n", file_name);
         return false;
@@ -49,7 +50,7 @@ static bool compile_file(const char* file_name, const struct options* options) {
     struct log log = {
         .file = stderr,
         .max_errors = SIZE_MAX,
-        .disable_colors = options->disable_colors || !is_terminal(stderr),
+        .disable_colors = options->disable_colors || !is_term(stderr),
         .source_name = file_name,
         .source_data = (struct str_view) { .data = file_data, .length = file_size }
     };
@@ -72,12 +73,13 @@ static bool compile_file(const char* file_name, const struct options* options) {
     if (log.error_count != 0)
         goto error;
 
-    struct fir_print_options print_options = fir_print_options_default(stdout);
-    print_options.disable_colors |= options->disable_colors;
-    print_options.verbosity = options->is_verbose ? FIR_VERBOSITY_HIGH : FIR_VERBOSITY_MEDIUM;
-
-    if (options->print_ast)
-        ast_print(stdout, program, &print_options);
+    if (options->print_ast) {
+        ast_print(stdout, program, &(struct ast_print_options) {
+            .tab = "    ",
+            .disable_colors = options->disable_colors || !is_term(stdout),
+            .print_casts = options->is_verbose
+        });
+    }
 
     struct str mod_name = make_mod_name(file_name);
     mod = fir_mod_create(str_terminate(&mod_name));
@@ -85,8 +87,13 @@ static bool compile_file(const char* file_name, const struct options* options) {
     ast_emit(program, mod);
     if (!options->disable_cleanup)
         fir_mod_cleanup(mod);
-    if (options->print_ir)
-        fir_mod_print(stdout, mod, &print_options);
+    if (options->print_ir) {
+        fir_mod_print(stdout, mod, &(struct fir_mod_print_options) {
+            .tab = "    ",
+            .verbosity = options->is_verbose ? FIR_VERBOSITY_HIGH : FIR_VERBOSITY_MEDIUM,
+            .disable_colors = options->disable_colors || !is_term(stdout)
+        });
+    }
 
     goto done;
 

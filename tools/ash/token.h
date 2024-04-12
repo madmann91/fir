@@ -1,8 +1,7 @@
 #pragma once
 
-#include <fir/dbg_info.h>
-
-#include "support/str.h"
+#include <overture/str.h>
+#include <overture/log.h>
 
 #include <stdint.h>
 #include <stddef.h>
@@ -99,7 +98,7 @@ enum token_tag {
 
 struct token {
     enum token_tag tag;
-    struct fir_source_range source_range;
+    struct source_range source_range;
     union {
         uintmax_t int_val;
         double float_val;

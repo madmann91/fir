@@ -1,7 +1,7 @@
 #include "ast.h"
 #include "types.h"
 
-#include "support/term.h"
+#include <overture/term.h>
 
 #include <assert.h>
 #include <inttypes.h>
@@ -23,12 +23,12 @@ struct print_styles {
     const char* reset_style;
 };
 
-static inline struct print_styles print_styles_from_options(const struct fir_print_options* options) {
+static inline struct print_styles make_print_styles(bool disable_colors) {
     return (struct print_styles) {
-        .keyword_style = options->disable_colors ? "" : TERM2(TERM_FG_GREEN, TERM_BOLD),
-        .literal_style = options->disable_colors ? "" : TERM1(TERM_FG_CYAN),
-        .error_style = options->disable_colors ? "" : TERM2(TERM_FG_RED, TERM_BOLD),
-        .reset_style = options->disable_colors ? "" : TERM1(TERM_RESET)
+        .keyword_style = disable_colors ? "" : TERM2(TERM_FG_GREEN, TERM_BOLD),
+        .literal_style = disable_colors ? "" : TERM1(TERM_FG_CYAN),
+        .error_style = disable_colors ? "" : TERM2(TERM_FG_RED, TERM_BOLD),
+        .reset_style = disable_colors ? "" : TERM1(TERM_RESET)
     };
 }
 
@@ -43,11 +43,11 @@ static inline void print_many(
     const char* sep,
     const char* end,
     const struct ast* ast,
-    const struct fir_print_options* options)
+    const struct ast_print_options* print_options)
 {
     fprintf(file, "%s", begin);
     for (; ast; ast = ast->next) {
-        ast_print(file, ast, options);
+        ast_print(file, ast, print_options);
         if (ast->next)
             fprintf(file, "%s", sep);
     }
@@ -77,49 +77,49 @@ static void print_literal(FILE* file, const struct literal* literal) {
 static void print_with_parens(
     FILE* file,
     const struct ast* ast,
-    const struct fir_print_options* options)
+    const struct ast_print_options* print_options)
 {
     if (ast->tag == AST_TUPLE_TYPE ||
         ast->tag == AST_TUPLE_EXPR ||
         ast->tag == AST_TUPLE_PATTERN)
         ast = ast->tuple_type.args;
-    print_many(file, "(", ", ", ")", ast, options);
+    print_many(file, "(", ", ", ")", ast, print_options);
 }
 
 static void print_unary_expr_operand(
     FILE* file,
     const struct ast* operand,
-    const struct fir_print_options* options)
+    const struct ast_print_options* print_options)
 {
     if (operand->tag == AST_UNARY_EXPR)
-        print_with_parens(file, operand, options);
+        print_with_parens(file, operand, print_options);
     else
-        ast_print(file, operand, options);
+        ast_print(file, operand, print_options);
 }
 
 static void print_binary_expr_operand(
     FILE* file,
     const struct ast* operand,
-    const struct fir_print_options* options,
+    const struct ast_print_options* print_options,
     int precedence)
 {
     bool needs_parens =
         operand->tag == AST_BINARY_EXPR &&
         binary_expr_tag_to_precedence(operand->binary_expr.tag) > precedence;
     if (needs_parens)
-        print_with_parens(file, operand, options);
+        print_with_parens(file, operand, print_options);
     else
-        ast_print(file, operand, options);
+        ast_print(file, operand, print_options);
 }
 
-void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options* options) {
-    struct print_styles print_styles = print_styles_from_options(options);
+void ast_print(FILE* file, const struct ast* ast, const struct ast_print_options* print_options) {
+    struct print_styles print_styles = make_print_styles(print_options->disable_colors);
     switch (ast->tag) {
         case AST_ERROR:
             fprintf(file, "%s<ERROR>%s", print_styles.error_style, print_styles.reset_style);
             break;
         case AST_PROGRAM:
-            print_many(file, "", "\n", "", ast->program.decls, options);
+            print_many(file, "", "\n", "", ast->program.decls, print_options);
             fprintf(file, "\n");
             break;
         case AST_LITERAL:
@@ -139,16 +139,16 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
             fprintf(file, "%s", ast->ident_pattern.name);
             if (ast->ident_pattern.type) {
                 fprintf(file, ": ");
-                ast_print(file, ast->ident_pattern.type, options);
+                ast_print(file, ast->ident_pattern.type, print_options);
             }
             break;
         case AST_CAST_EXPR:
-            if (ast_is_implicit_cast(ast) && options->verbosity < FIR_VERBOSITY_HIGH) {
-                ast_print(file, ast->cast_expr.arg, options);
+            if (ast_is_implicit_cast(ast) && print_options->print_casts) {
+                ast_print(file, ast->cast_expr.arg, print_options);
                 return;
             }
             fprintf(file, "(");
-            ast_print(file, ast->cast_expr.arg, options);
+            ast_print(file, ast->cast_expr.arg, print_options);
             fprintf(file, " %sas%s ", print_styles.keyword_style, print_styles.reset_style);
             type_print(file, ast->type);
             fprintf(file, ")");
@@ -158,23 +158,23 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
         case AST_FIELD_PATTERN:
             if (ast->field_type.name)
                 fprintf(file, ast->tag == AST_FIELD_TYPE ? "%s: " : "%s = ", ast->field_type.name);
-            ast_print(file, ast->field_type.arg, options);
+            ast_print(file, ast->field_type.arg, print_options);
             break;
         case AST_RECORD_TYPE:
         case AST_RECORD_EXPR:
         case AST_RECORD_PATTERN:
-            print_many(file, "[", ", ", "]", ast->record_type.fields, options);
+            print_many(file, "[", ", ", "]", ast->record_type.fields, print_options);
             break;
         case AST_TUPLE_TYPE:
         case AST_TUPLE_EXPR:
         case AST_TUPLE_PATTERN:
-            print_many(file, "(", ", ", ")", ast->tuple_type.args, options);
+            print_many(file, "(", ", ", ")", ast->tuple_type.args, print_options);
             break;
         case AST_BLOCK_EXPR:
             if (!ast->block_expr.stmts) {
                 fprintf(file, "{}");
             } else {
-                struct fir_print_options block_options = *options;
+                struct ast_print_options block_options = *print_options;
                 block_options.indent++;
                 fprintf(file, "{\n");
                 for (struct ast* stmt = ast->block_expr.stmts; stmt; stmt = stmt->next) {
@@ -185,38 +185,38 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
                         fprintf(file, ";");
                     fprintf(file, "\n");
                 }
-                print_indent(file, options->indent, options->tab);
+                print_indent(file, print_options->indent, print_options->tab);
                 fprintf(file, "}");
             }
             break;
         case AST_UNARY_EXPR:
             if (unary_expr_tag_is_prefix(ast->unary_expr.tag))
                 fprintf(file, "%s", unary_expr_tag_to_string(ast->unary_expr.tag));
-            print_unary_expr_operand(file, ast->unary_expr.arg, options);
+            print_unary_expr_operand(file, ast->unary_expr.arg, print_options);
             if (!unary_expr_tag_is_prefix(ast->unary_expr.tag))
                 fprintf(file, "%s", unary_expr_tag_to_string(ast->unary_expr.tag));
             break;
         case AST_BINARY_EXPR:
         {
             int prec = binary_expr_tag_to_precedence(ast->binary_expr.tag);
-            print_binary_expr_operand(file, ast->binary_expr.left, options, prec);
+            print_binary_expr_operand(file, ast->binary_expr.left, print_options, prec);
             fprintf(file, " %s ", binary_expr_tag_to_string(ast->binary_expr.tag));
-            print_binary_expr_operand(file, ast->binary_expr.right, options, prec);
+            print_binary_expr_operand(file, ast->binary_expr.right, print_options, prec);
             break;
         }
         case AST_IF_EXPR:
             fprintf(file, "%sif%s ", print_styles.keyword_style, print_styles.reset_style);
-            ast_print(file, ast->if_expr.cond, options);
+            ast_print(file, ast->if_expr.cond, print_options);
             fprintf(file, " ");
-            ast_print(file, ast->if_expr.then_block, options);
+            ast_print(file, ast->if_expr.then_block, print_options);
             if (ast->if_expr.else_block) {
                 fprintf(file, " %selse%s ", print_styles.keyword_style, print_styles.reset_style);
-                ast_print(file, ast->if_expr.else_block, options);
+                ast_print(file, ast->if_expr.else_block, print_options);
             }
             break;
         case AST_CALL_EXPR:
-            ast_print(file, ast->call_expr.callee, options);
-            print_with_parens(file, ast->call_expr.arg, options);
+            ast_print(file, ast->call_expr.callee, print_options);
+            print_with_parens(file, ast->call_expr.arg, print_options);
             break;
         case AST_PROJ_ELEM:
             if (ast->proj_elem.name)
@@ -225,46 +225,46 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
                 fprintf(file, "%zu", ast->proj_elem.index);
             break;
         case AST_PROJ_EXPR:
-            ast_print(file, ast->proj_expr.arg, options);
+            ast_print(file, ast->proj_expr.arg, print_options);
             fprintf(file, ".");
             if (ast->proj_expr.elems && !ast->proj_expr.elems->next)
-                ast_print(file, ast->proj_expr.elems, options);
+                ast_print(file, ast->proj_expr.elems, print_options);
             else
-                print_many(file, "(", ", ", ")", ast->proj_expr.elems, options);
+                print_many(file, "(", ", ", ")", ast->proj_expr.elems, print_options);
             break;
         case AST_WHILE_LOOP:
             fprintf(file, "%swhile%s ", print_styles.keyword_style, print_styles.reset_style);
-            ast_print(file, ast->while_loop.cond, options);
+            ast_print(file, ast->while_loop.cond, print_options);
             fprintf(file, " ");
-            ast_print(file, ast->while_loop.body, options);
+            ast_print(file, ast->while_loop.body, print_options);
             break;
         case AST_FUNC_DECL:
             fprintf(file, "%sfunc%s %s", print_styles.keyword_style, print_styles.reset_style, ast->func_decl.name);
-            print_with_parens(file, ast->func_decl.param, options);
+            print_with_parens(file, ast->func_decl.param, print_options);
             if (ast->func_decl.ret_type) {
                 fprintf(file, " -> ");
-                ast_print(file, ast->func_decl.ret_type, options);
+                ast_print(file, ast->func_decl.ret_type, print_options);
             }
             if (ast->func_decl.body) {
                 fprintf(file, " = ");
-                ast_print(file, ast->func_decl.body, options);
+                ast_print(file, ast->func_decl.body, print_options);
             }
             fprintf(file, ";");
             break;
         case AST_VAR_DECL:
             fprintf(file, "%svar%s ", print_styles.keyword_style, print_styles.reset_style);
-            ast_print(file, ast->var_decl.pattern, options);
+            ast_print(file, ast->var_decl.pattern, print_options);
             if (ast->var_decl.init) {
                 fprintf(file, " = ");
-                ast_print(file, ast->var_decl.init, options);
+                ast_print(file, ast->var_decl.init, print_options);
             }
             fprintf(file, ";");
             break;
         case AST_CONST_DECL:
             fprintf(file, "%sconst%s ", print_styles.keyword_style, print_styles.reset_style);
-            ast_print(file, ast->const_decl.pattern, options);
+            ast_print(file, ast->const_decl.pattern, print_options);
             fprintf(file, " = ");
-            ast_print(file, ast->const_decl.init, options);
+            ast_print(file, ast->const_decl.init, print_options);
             fprintf(file, ";");
             break;
         default:
@@ -274,8 +274,11 @@ void ast_print(FILE* file, const struct ast* ast, const struct fir_print_options
 }
 
 void ast_dump(const struct ast* ast) {
-    struct fir_print_options options = fir_print_options_default(stdout);
-    ast_print(stdout, ast, &options);
+    ast_print(stdout, ast, &(struct ast_print_options) {
+        .tab = "    ",
+        .print_casts = true,
+        .disable_colors = !is_term(stdout)
+    });
     printf("\n");
     fflush(stdout);
 }

@@ -1,10 +1,10 @@
 #include "ast.h"
 #include "types.h"
+#include "datatypes.h"
 
-#include "support/hash.h"
-#include "support/log.h"
-#include "support/datatypes.h"
-#include "support/mem_pool.h"
+#include <overture/hash.h>
+#include <overture/log.h>
+#include <overture/mem_pool.h>
 
 #include <stdint.h>
 #include <assert.h>
@@ -23,7 +23,7 @@ static const struct type* check(struct type_checker*, struct ast*, const struct 
 
 static void cannot_infer(
     struct type_checker* type_checker,
-    const struct fir_source_range* source_range,
+    const struct source_range* source_range,
     const char* name)
 {
     log_error(type_checker->log, source_range, "cannot infer type for symbol '%s'", name);
@@ -31,7 +31,7 @@ static void cannot_infer(
 
 static void invalid_type(
     struct type_checker* type_checker,
-    const struct fir_source_range* source_range,
+    const struct source_range* source_range,
     const char* type_name,
     const struct type* type)
 {
@@ -45,7 +45,7 @@ static void invalid_type(
 
 static void invalid_cast(
     struct type_checker* type_checker,
-    const struct fir_source_range* source_range,
+    const struct source_range* source_range,
     const struct type* source_type,
     const struct type* dest_type)
 {
@@ -60,7 +60,7 @@ static void invalid_cast(
 
 static const struct type* expect_type(
     struct type_checker* type_checker,
-    const struct fir_source_range* source_range,
+    const struct source_range* source_range,
     const struct type* type,
     const struct type* expected_type)
 {
@@ -78,7 +78,7 @@ static const struct type* expect_type(
 
 static void expect_mutable(
     struct type_checker* type_checker,
-    const struct fir_source_range* source_range,
+    const struct source_range* source_range,
     const struct type* type)
 {
     if ((type->tag != TYPE_REF || type->ref_type.is_const) && !type->contains_top) {

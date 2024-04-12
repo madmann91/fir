@@ -1,7 +1,5 @@
 #pragma once
 
-#include "support/graph.h"
-
 #include "dom_tree.h"
 #include "loop_tree.h"
 

@@ -1,7 +1,5 @@
 #pragma once
 
-#include "support/datatypes.h"
-
 #include <stddef.h>
 #include <stdbool.h>
 

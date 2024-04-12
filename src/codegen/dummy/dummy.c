@@ -1,5 +1,6 @@
-#include "support/alloc.h"
 #include "codegen/codegen.h"
+
+#include <overture/mem.h>
 
 #include <stdlib.h>
 

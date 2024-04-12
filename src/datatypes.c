@@ -2,8 +2,6 @@
 
 #include "fir/node.h"
 
-#include <inttypes.h>
-
 static inline uint32_t hash_node(uint32_t h, const struct fir_node* const* node_ptr) {
     return hash_uint64(h, (*node_ptr)->id);
 }

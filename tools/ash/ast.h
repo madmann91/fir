@@ -2,9 +2,8 @@
 
 #include "token.h"
 
-#include "support/set.h"
-
-#include <fir/node.h>
+#include <overture/set.h>
+#include <overture/log.h>
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -131,7 +130,7 @@ struct type;
 
 struct ast {
     enum ast_tag tag;
-    struct fir_source_range source_range;
+    struct source_range source_range;
     const struct type* type;
     const struct fir_node* node;
     struct ast* next;
@@ -230,7 +229,14 @@ struct fir_mod;
 
 SET_DECL(ast_set, struct ast*, PUBLIC)
 
-void ast_print(FILE*, const struct ast*, const struct fir_print_options*);
+struct ast_print_options {
+    size_t indent;
+    const char* tab;
+    bool disable_colors;
+    bool print_casts;
+};
+
+void ast_print(FILE*, const struct ast*, const struct ast_print_options*);
 void ast_dump(const struct ast*);
 
 void ast_check(struct ast*, struct mem_pool*, struct type_set*, struct log*);

@@ -2,7 +2,7 @@
 #include "fir/node.h"
 #include "fir/module.h"
 
-#include "support/datatypes.h"
+#include "datatypes.h"
 
 #include <assert.h>
 
@@ -67,14 +67,14 @@ void fir_block_switch(
         *targets[i]  = make_block(fir_cont(fir_unit_ty(mod)), from->func, from->mem, true);
         small_node_vec_push(&target_blocks, (const struct fir_node*[]) { targets[i]->block });
     }
-    jump(from, fir_switch(fir_ctrl(from->block), index, fir_unit(mod), target_blocks.elems, target_count));
+    jump(from, fir_switch(NULL, index, fir_unit(mod), target_blocks.elems, target_count));
     small_node_vec_destroy(&target_blocks);
 }
 
 void fir_block_loop(struct fir_block* from, struct fir_block* continue_block) {
     struct fir_mod* mod = fir_node_mod(from->block);
     *continue_block = make_block(fir_cont(fir_mem_ty(mod)), from->func, NULL, true);
-    jump(from, fir_call(fir_ctrl(from->block), continue_block->block, from->mem));
+    jump(from, fir_call(NULL, continue_block->block, from->mem));
 }
 
 void fir_block_jump(struct fir_block* from, struct fir_block* target) {
@@ -82,14 +82,13 @@ void fir_block_jump(struct fir_block* from, struct fir_block* target) {
     assert(from->func == target->func);
     if (!from->is_terminated) {
         target->is_wired = true;
-        jump(from, fir_call(fir_ctrl(from->block), target->block, from->mem));
+        jump(from, fir_call(NULL, target->block, from->mem));
     }
 }
 
 void fir_block_return(struct fir_block* from, const struct fir_node* ret_val) {
     if (!from->is_terminated) {
-        jump(from, fir_call(
-            fir_ctrl(from->block),
+        jump(from, fir_call(NULL,
             fir_node_func_return(from->func),
             fir_node_prepend(ret_val, &from->mem, 1)));
     }

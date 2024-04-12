@@ -1,12 +1,13 @@
 #include "fir/module.h"
 #include "fir/node.h"
 
-#include "support/set.h"
-#include "support/bits.h"
-#include "support/vec.h"
-#include "support/alloc.h"
-#include "support/hash.h"
-#include "support/datatypes.h"
+#include "datatypes.h"
+
+#include <overture/set.h>
+#include <overture/bits.h>
+#include <overture/vec.h>
+#include <overture/mem.h>
+#include <overture/hash.h>
 
 #include <stdlib.h>
 #include <math.h>
@@ -213,6 +214,7 @@ static inline enum fir_node_props compute_props(const struct fir_node* node) {
 }
 
 static inline const struct fir_node* insert_node(struct fir_mod* mod, const struct fir_node* node) {
+    assert(!node->ctrl || node->ctrl->ty->tag == FIR_CTRL_TY);
     assert(!fir_node_tag_is_nominal(node->tag));
     assert(fir_node_mod(node) == mod);
     assert(node->uses == NULL);
@@ -705,7 +707,6 @@ const struct fir_node* fir_iarith_op(
     const struct fir_node* left,
     const struct fir_node* right)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(left->ty == right->ty);
     assert(left->ty->tag == FIR_INT_TY);
     assert(fir_node_tag_is_iarith_op(tag));
@@ -795,7 +796,6 @@ const struct fir_node* fir_farith_op(
     const struct fir_node* left,
     const struct fir_node* right)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(left->ty == right->ty);
     assert(left->ty->tag == FIR_FLOAT_TY);
     assert(fir_node_tag_is_farith_op(tag));
@@ -858,7 +858,6 @@ const struct fir_node* fir_icmp_op(
     const struct fir_node* left,
     const struct fir_node* right)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(left->ty == right->ty);
     assert(left->ty->tag == FIR_INT_TY);
     assert(fir_node_tag_is_icmp_op(tag));
@@ -878,7 +877,6 @@ const struct fir_node* fir_fcmp_op(
     const struct fir_node* left,
     const struct fir_node* right)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(left->ty == right->ty);
     assert(left->ty->tag == FIR_FLOAT_TY);
     assert(fir_node_tag_is_fcmp_op(tag));
@@ -906,7 +904,6 @@ const struct fir_node* fir_bit_op(
     const struct fir_node* left,
     const struct fir_node* right)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(left->ty == right->ty);
     assert(left->ty->tag == FIR_INT_TY);
     assert(fir_node_tag_is_bit_op(tag));
@@ -972,7 +969,6 @@ const struct fir_node* fir_shift_op(
     const struct fir_node* val,
     const struct fir_node* amount)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(fir_node_tag_is_shift_op(tag));
     assert(amount->ty->tag == FIR_INT_TY);
     assert(val->ty->tag == FIR_INT_TY);
@@ -1105,7 +1101,6 @@ const struct fir_node* fir_cast_op(
     const struct fir_node* ty,
     const struct fir_node* arg)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(fir_node_tag_is_cast_op(tag));
     assert(is_cast_possible(tag, ty, arg->ty));
 
@@ -1196,8 +1191,6 @@ const struct fir_node* fir_tup(
     const struct fir_node* const* elems,
     size_t elem_count)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
-
     if (elem_count == 0)
         return fir_unit(mod);
 
@@ -1230,8 +1223,6 @@ const struct fir_node* fir_array(
     const struct fir_node* ty,
     const struct fir_node* const* elems)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
-
     // array(ext(x, 0), ext(x, 1), ..., ext(x, n)) -> x
     if (is_from_exts(ty, elems, ty->data.array_dim))
         return FIR_EXT_AGGR(elems[0]);
@@ -1304,8 +1295,6 @@ const struct fir_node* fir_ext(
     const struct fir_node* aggr,
     const struct fir_node* index)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
-
     // ext(tup(x1, ..., xn), const[i]) -> xi
     // ext(array(x1, ..., xn), const[i]) -> xi
     if (aggr->tag == FIR_TUP || (aggr->tag == FIR_ARRAY && index->tag == FIR_CONST)) {
@@ -1389,7 +1378,6 @@ const struct fir_node* fir_ins(
     const struct fir_node* index,
     const struct fir_node* elem)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(infer_ext_ty(aggr->ty, index) == elem->ty);
 
     // ins(tup(x1, ..., xn), const[i], y) -> tup(x1, ...,, xi-1, y, xi+1, ..., xn)
@@ -1434,7 +1422,6 @@ const struct fir_node* fir_ins_mem(
     const struct fir_node* val,
     const struct fir_node* mem)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(mem->ty->tag == FIR_MEM_TY);
     if (val->ty->tag == FIR_MEM_TY)
         return mem;
@@ -1455,7 +1442,6 @@ const struct fir_node* fir_addrof(
     const struct fir_node* aggr_ty,
     const struct fir_node* index)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(ptr->ty->tag == FIR_PTR_TY);
     assert(infer_ext_ty(aggr_ty, index));
     return insert_node(fir_node_mod(ptr), (const struct fir_node*)&(struct { FIR_NODE(3) }) {
@@ -1531,7 +1517,6 @@ const struct fir_node* fir_load(
     const struct fir_node* ptr,
     const struct fir_node* ty)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(mem->ty->tag == FIR_MEM_TY);
     assert(ptr->ty->tag == FIR_PTR_TY);
     assert(is_valid_pointee_ty(ty));
@@ -1560,7 +1545,6 @@ const struct fir_node* fir_store(
     const struct fir_node* ptr,
     const struct fir_node* val)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(mem->ty->tag == FIR_MEM_TY);
     assert(ptr->ty->tag == FIR_PTR_TY);
     assert(is_valid_pointee_ty(val->ty));
@@ -1590,7 +1574,6 @@ const struct fir_node* fir_call(
     const struct fir_node* callee,
     const struct fir_node* arg)
 {
-    assert(!ctrl || ctrl->ty->tag == FIR_CTRL_TY);
     assert(callee->ty->tag == FIR_FUNC_TY);
     assert(FIR_FUNC_TY_PARAM(callee->ty) == arg->ty);
     return insert_node(fir_node_mod(callee), (const struct fir_node*)&(struct { FIR_NODE(2) }) {

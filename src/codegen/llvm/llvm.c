@@ -2,13 +2,14 @@
 #include "fir/module.h"
 #include "fir/node.h"
 
-#include "support/alloc.h"
-#include "support/mem_pool.h"
-#include "support/datatypes.h"
 #include "codegen/codegen.h"
 #include "analysis/scope.h"
 #include "analysis/cfg.h"
 #include "analysis/schedule.h"
+#include "datatypes.h"
+
+#include <overture/mem.h>
+#include <overture/mem_pool.h>
 
 #include <stdlib.h>
 #include <assert.h>

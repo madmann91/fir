@@ -1,7 +1,7 @@
 #include "ast.h"
 
-#include "support/log.h"
-#include "support/map.h"
+#include <overture/log.h>
+#include <overture/map.h>
 
 #include <assert.h>
 
@@ -53,7 +53,7 @@ static inline void pop_env(struct name_binder* name_binder) {
 
 static struct ast* find_symbol(
     struct name_binder* name_binder,
-    struct fir_source_range* source_range,
+    struct source_range* source_range,
     const char* name)
 {
     struct env* env = name_binder->env;

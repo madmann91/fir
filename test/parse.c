@@ -1,4 +1,4 @@
-#include "macros.h"
+#include <overture/test.h>
 
 #include <fir/module.h>
 #include <fir/node.h>

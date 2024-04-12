@@ -3,7 +3,7 @@
 #include "token.h"
 #include "ast.h"
 
-#include "support/vec.h"
+#include <overture/vec.h>
 
 #include <stdio.h>
 

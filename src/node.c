@@ -1,9 +1,10 @@
 #include "fir/node.h"
 #include "fir/module.h"
 
-#include "support/bits.h"
-#include "support/datatypes.h"
-#include "support/mem_stream.h"
+#include "datatypes.h"
+
+#include <overture/bits.h>
+#include <overture/mem_stream.h>
 
 #include <assert.h>
 #include <inttypes.h>
@@ -283,8 +284,7 @@ const struct fir_node* fir_node_rebuild(
     }
 }
 
-const struct fir_node* fir_node_pin(const struct fir_node* node, const struct fir_node* ctrl)
-{
+const struct fir_node* fir_node_pin(const struct fir_node* node, const struct fir_node* ctrl) {
     assert(ctrl);
     assert(ctrl->ty->tag == FIR_CTRL_TY);
     struct fir_mod* mod = fir_node_mod(node);
@@ -450,14 +450,14 @@ const struct fir_use* fir_use_find(
     return NULL;
 }
 
-const struct fir_node* fir_assert_tag_debug(const struct fir_node* node, enum fir_node_tag tag) {
+const struct fir_node* fir_assert_tag_debug(const struct fir_node* node, [[maybe_unused]] enum fir_node_tag tag) {
     assert(node->tag == tag);
     return node;
 }
 
 const struct fir_node* fir_assert_kind_debug(
     const struct fir_node* node,
-    bool (*kind)(const struct fir_node*))
+    [[maybe_unused]] bool (*kind)(const struct fir_node*))
 {
     assert(kind(node));
     return node;

@@ -9,7 +9,7 @@ struct lexer lexer_create(const char* data, size_t size) {
     return (struct lexer) {
         .data = data,
         .bytes_left = size,
-        .source_pos = (struct fir_source_pos) { .row = 1, .col = 1 }
+        .source_pos = (struct source_pos) { .row = 1, .col = 1 }
     };
 }
 
@@ -63,7 +63,7 @@ static inline void eat_digits(struct lexer* lexer, int base) {
 
 static inline struct token make_token(
     struct lexer* lexer,
-    const struct fir_source_pos* begin_pos,
+    const struct source_pos* begin_pos,
     enum token_tag tag)
 {
     return (struct token) {
@@ -89,7 +89,7 @@ static inline struct token parse_literal(struct lexer* lexer, bool has_minus) {
 
     int base = 10;
     int prefix_len = 0;
-    struct fir_source_pos begin_pos = lexer->source_pos;
+    struct source_pos begin_pos = lexer->source_pos;
     if (accept_char(lexer, '0')) {
         if (accept_char(lexer, 'b')) { base = 2; prefix_len = 2; }
         else if (accept_char(lexer, 'x')) { base = 16; prefix_len = 2; }
@@ -126,7 +126,7 @@ struct token lexer_advance(struct lexer* lexer) {
     while (true) {
         eat_spaces(lexer);
 
-        struct fir_source_pos begin_pos = lexer->source_pos;
+        struct source_pos begin_pos = lexer->source_pos;
         if (is_eof(lexer))
             return make_token(lexer, &begin_pos, TOK_EOF);
 

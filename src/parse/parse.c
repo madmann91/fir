@@ -1,15 +1,15 @@
 #include "fir/module.h"
 
 #include "lexer.h"
+#include "datatypes.h"
 
-#include "support/io.h"
-#include "support/log.h"
-#include "support/vec.h"
-#include "support/map.h"
-#include "support/str.h"
-#include "support/hash.h"
-#include "support/bits.h"
-#include "support/datatypes.h"
+#include <overture/log.h>
+#include <overture/vec.h>
+#include <overture/map.h>
+#include <overture/str.h>
+#include <overture/term.h>
+#include <overture/hash.h>
+#include <overture/bits.h>
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -82,7 +82,7 @@ static inline void invalid_token(struct parser* parser, const char* msg) {
 
 static inline void unknown_identifier(
     struct parser* parser,
-    const struct fir_source_range* ident_range,
+    const struct source_range* ident_range,
     struct str_view ident)
 {
     log_error(&parser->log,
@@ -93,7 +93,7 @@ static inline void unknown_identifier(
 
 static inline void invalid_flag(
     struct parser* parser,
-    const struct fir_source_range* source_range,
+    const struct source_range* source_range,
     const char* flag_type,
     struct str_view flag_name)
 {
@@ -254,7 +254,7 @@ static inline const struct fir_node* parse_op(struct parser* parser) {
         return ty;
     }
 
-    struct fir_source_range ident_range = parser->state.ahead->source_range;
+    struct source_range ident_range = parser->state.ahead->source_range;
     struct str_view ident = parse_ident(parser);
     const struct fir_node* const* symbol = symbol_table_find(&parser->symbol_table, &ident);
     if (!symbol) {
@@ -372,7 +372,7 @@ static inline const struct fir_node* parse_node(struct parser* parser) {
     if (!ty)
         return NULL;
 
-    struct fir_source_range ident_range = parser->state.ahead->source_range;
+    struct source_range ident_range = parser->state.ahead->source_range;
     struct str_view ident = parse_ident(parser);
     expect_token(parser, TOK_EQ);
 
@@ -418,7 +418,7 @@ static inline void parse_header(struct parser* parser) {
 }
 
 bool fir_mod_parse(struct fir_mod* mod, const struct fir_parse_input* input) {
-    bool disable_colors = input->error_log ? !is_terminal(input->error_log) : true;
+    bool disable_colors = input->error_log ? !is_term(input->error_log) : true;
     struct parser parser = {
         .mod = mod,
         .log = {

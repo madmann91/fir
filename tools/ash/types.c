@@ -1,10 +1,10 @@
 #include "types.h"
+#include "datatypes.h"
 
-#include "support/datatypes.h"
-#include "support/hash.h"
-#include "support/str_pool.h"
-#include "support/mem_pool.h"
-#include "support/mem_stream.h"
+#include <overture/hash.h>
+#include <overture/str_pool.h>
+#include <overture/mem_pool.h>
+#include <overture/mem_stream.h>
 
 SMALL_VEC_IMPL(small_type_vec, const struct type*, PUBLIC)
 

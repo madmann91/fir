@@ -13,8 +13,8 @@
 
 /// Enumeration containing the types of code generators.
 enum fir_codegen_tag {
-    FIR_CODEGEN_DUMMY,
-    FIR_CODEGEN_LLVM
+    FIR_CODEGEN_DUMMY, ///< Dummy backend that does nothing.
+    FIR_CODEGEN_LLVM   ///< Code-generation through LLVM.
 };
 
 struct fir_mod;

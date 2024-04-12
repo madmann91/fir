@@ -1,12 +1,11 @@
 #include "fir/node.h"
 #include "fir/module.h"
 
-#include "support/term.h"
-#include "support/io.h"
-
 #include "analysis/scope.h"
 #include "analysis/cfg.h"
 #include "analysis/schedule.h"
+
+#include <overture/term.h>
 
 #include <inttypes.h>
 
@@ -15,22 +14,24 @@ struct print_styles {
     const char* value_style;
     const char* type_style;
     const char* keyword_style;
+    const char* comment_style;
     const char* reset_style;
     const char* data_style;
 };
 
-static inline struct print_styles print_styles_from_options(const struct fir_print_options* options) {
+static inline struct print_styles make_print_styles(bool disable_colors) {
     return (struct print_styles) {
-        .error_style   = options->disable_colors ? "" : TERM2(TERM_FG_RED, TERM_BOLD),
-        .value_style   = options->disable_colors ? "" : TERM2(TERM_FG_GREEN, TERM_BOLD),
-        .type_style    = options->disable_colors ? "" : TERM1(TERM_FG_BLUE),
-        .keyword_style = options->disable_colors ? "" : TERM2(TERM_BOLD, TERM_FG_YELLOW),
-        .reset_style   = options->disable_colors ? "" : TERM1(TERM_RESET),
-        .data_style    = options->disable_colors ? "" : TERM1(TERM_FG_CYAN),
+        .error_style   = disable_colors ? "" : TERM2(TERM_FG_RED, TERM_BOLD),
+        .value_style   = disable_colors ? "" : TERM2(TERM_FG_GREEN, TERM_BOLD),
+        .type_style    = disable_colors ? "" : TERM1(TERM_FG_BLUE),
+        .keyword_style = disable_colors ? "" : TERM2(TERM_FG_GREEN, TERM_BOLD),
+        .comment_style = disable_colors ? "" : TERM2(TERM_FG_CYAN, TERM_ITALIC),
+        .reset_style   = disable_colors ? "" : TERM1(TERM_RESET),
+        .data_style    = disable_colors ? "" : TERM1(TERM_FG_CYAN),
     };
 }
 
-static void print_node(FILE*, const struct fir_node*, const struct fir_print_options*);
+static void print_node(FILE*, const struct fir_node*, const struct fir_node_print_options*);
 
 static inline void print_indent(FILE* file, size_t indent, const char* tab) {
     for (size_t i = 0; i < indent; ++i)
@@ -53,22 +54,30 @@ static void print_node_name(FILE* file, const struct fir_node* node) {
     fprintf(file, "%s_%"PRIu64, fir_node_name(node), node->id);
 }
 
-static void print_op(FILE* file, const struct fir_node* op, const struct fir_print_options* options) {
-    struct print_styles print_styles = print_styles_from_options(options);
+static void print_op(
+    FILE* file,
+    const struct fir_node* op,
+    const struct fir_node_print_options* print_options)
+{
+    struct print_styles print_styles = make_print_styles(print_options->disable_colors);
     if (!op)
         fprintf(file, "%s<unset>%s", print_styles.error_style, print_styles.reset_style);
     else if (!fir_node_is_nominal(op) && (op->props & FIR_PROP_INVARIANT) != 0) {
         if (!fir_node_is_ty(op)) {
-            print_node(file, op->ty, options);
+            print_node(file, op->ty, print_options);
             fprintf(file, " ");
         }
-        print_node(file, op, options);
+        print_node(file, op, print_options);
     } else
         print_node_name(file, op);
 }
 
-static void print_node(FILE* file, const struct fir_node* node, const struct fir_print_options* options) {
-    struct print_styles print_styles = print_styles_from_options(options);
+static void print_node(
+    FILE* file,
+    const struct fir_node* node,
+    const struct fir_node_print_options* print_options)
+{
+    struct print_styles print_styles = make_print_styles(print_options->disable_colors);
     if (fir_node_is_external(node))
         fprintf(file, "%sextern%s ", print_styles.keyword_style, print_styles.reset_style);
     fprintf(file, "%s%s%s",
@@ -96,52 +105,46 @@ static void print_node(FILE* file, const struct fir_node* node, const struct fir
         return;
     fprintf(file, "(");
     for (size_t i = 0; i < node->op_count; ++i) {
-        print_op(file, node->ops[i], options);
+        print_op(file, node->ops[i], print_options);
         if (i != node->op_count - 1)
             fprintf(file, ", ");
     }
     fprintf(file, ")");
-    if (node->ctrl && options->verbosity != FIR_VERBOSITY_COMPACT) {
+    if (node->ctrl && print_options->verbosity != FIR_VERBOSITY_COMPACT) {
         fprintf(file, "@");
-        print_op(file, node->ctrl, options);
+        print_op(file, node->ctrl, print_options);
     }
 }
 
-void fir_node_print(FILE* file, const struct fir_node* node, const struct fir_print_options* options) {
-    print_indent(file, options->indent, options->tab);
+void fir_node_print(
+    FILE* file,
+    const struct fir_node* node,
+    const struct fir_node_print_options* print_options)
+{
     if (!fir_node_is_ty(node)) {
-        if (options->verbosity != FIR_VERBOSITY_COMPACT) {
-            print_node(file, node->ty, options);
+        if (print_options->verbosity != FIR_VERBOSITY_COMPACT) {
+            print_node(file, node->ty, print_options);
             fprintf(file, " ");
         }
         print_node_name(file, node);
         fprintf(file, " = ");
     }
-    print_node(file, node, options);
-}
-
-struct fir_print_options fir_print_options_default(FILE* file) {
-    return (struct fir_print_options) {
-        .tab = "    ",
-        .disable_colors = !is_terminal(file),
-        .verbosity = FIR_VERBOSITY_MEDIUM
-    };
+    print_node(file, node, print_options);
 }
 
 void fir_node_dump(const struct fir_node* node) {
-    struct fir_print_options options = fir_print_options_default(stdout);
-    fir_node_print(stdout, node, &options);
+    fir_node_print(stdout, node, &(struct fir_node_print_options) {
+        .verbosity = FIR_VERBOSITY_HIGH,
+        .disable_colors = !is_term(stdout)
+    });
     printf("\n");
     fflush(stdout);
 }
 
-void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print_options* options) {
-    const char* keyword_style = options->disable_colors ? "" : TERM1(TERM_FG_BLUE);
-    const char* comment_style = options->disable_colors ? "" : TERM2(TERM_FG_CYAN, TERM_ITALIC);
-    const char* reset_style   = options->disable_colors ? "" : TERM1(TERM_RESET);
-
+void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_mod_print_options* print_options) {
+    struct print_styles print_styles = make_print_styles(print_options->disable_colors);
     fprintf(file, "%smod%s \"%.*s\"\n\n",
-        keyword_style, reset_style,
+        print_styles.keyword_style, print_styles.reset_style,
         (int)strlen(fir_mod_name(mod)), fir_mod_name(mod));
 
     struct fir_node* const* globals = fir_mod_globals(mod);
@@ -149,9 +152,14 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
     size_t func_count = fir_mod_func_count(mod);
     size_t global_count = fir_mod_global_count(mod);
 
+    const struct fir_node_print_options node_print_options = {
+        .verbosity = print_options->verbosity,
+        .disable_colors = print_options->disable_colors
+    };
+
     for (size_t i = 0; i < global_count; ++i) {
-        print_indent(file, options->indent, options->tab);
-        fir_node_print(file, globals[i], options);
+        print_indent(file, print_options->indent, print_options->tab);
+        fir_node_print(file, globals[i], &node_print_options);
         fprintf(file, "\n");
     }
 
@@ -159,8 +167,8 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
         if (funcs[i]->ty->ops[1]->tag == FIR_NORET_TY)
             continue;
 
-        print_indent(file, options->indent, options->tab);
-        fir_node_print(file, funcs[i], options);
+        print_indent(file, print_options->indent, print_options->tab);
+        fir_node_print(file, funcs[i], &node_print_options);
         fprintf(file, "\n");
         if (!funcs[i]->ops[0])
             continue;
@@ -173,8 +181,8 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
             if ((*block_ptr) == cfg.graph.sink)
                 continue;
 
-            print_indent(file, options->indent + 1, options->tab);
-            fir_node_print(file, cfg_block_func(*block_ptr), options);
+            print_indent(file, print_options->indent + 1, print_options->tab);
+            fir_node_print(file, cfg_block_func(*block_ptr), &node_print_options);
             fprintf(file, "\n");
         }
         fprintf(file, "\n");
@@ -189,14 +197,14 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
                 continue;
 
             const struct fir_node* block_func = cfg_block_func(*block_ptr);
-            print_indent(file, options->indent + 1, options->tab);
-            fprintf(file, "%s#", comment_style);
+            print_indent(file, print_options->indent + 1, print_options->tab);
+            fprintf(file, "%s#", print_styles.comment_style);
             print_node_name(file, block_func);
-            fprintf(file, ": %s\n", reset_style);
+            fprintf(file, ": %s\n", print_styles.reset_style);
 
             VEC_FOREACH(const struct fir_node*, node_ptr, block_contents[(*block_ptr)->index]) {
-                print_indent(file, options->indent + 2, options->tab);
-                fir_node_print(file, *node_ptr, options);
+                print_indent(file, print_options->indent + 2, print_options->tab);
+                fir_node_print(file, *node_ptr, &node_print_options);
                 fprintf(file, "\n");
             }
             fprintf(file, "\n");
@@ -212,7 +220,10 @@ void fir_mod_print(FILE* file, const struct fir_mod* mod, const struct fir_print
 }
 
 void fir_mod_dump(const struct fir_mod* mod) {
-    struct fir_print_options options = fir_print_options_default(stdout);
-    fir_mod_print(stdout, mod, &options);
+    fir_mod_print(stdout, mod, &(struct fir_mod_print_options) {
+        .tab = "    ",
+        .verbosity = FIR_VERBOSITY_HIGH,
+        .disable_colors = !is_term(stdout)
+    });
     fflush(stdout);
 }

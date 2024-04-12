@@ -1,7 +1,7 @@
 #pragma once
 
-#include "support/vec.h"
-#include "support/graph.h"
+#include <overture/vec.h>
+#include <overture/graph.h>
 
 #include <stddef.h>
 

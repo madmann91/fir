@@ -317,20 +317,18 @@ enum fir_verbosity {
     FIR_VERBOSITY_HIGH       ///< High verbosity level, for debugging.
 };
 
-/// Options passed to @ref fir_node_print and @ref fir_mod_print.
-struct fir_print_options {
-    const char* tab;              ///< String used as a tabulation character for indentation.
-    size_t indent;                ///< Indentation level.
+/// Options passed to @ref fir_node_print.
+struct fir_node_print_options {
     bool disable_colors;          ///< Disables terminal colors in the output.
     enum fir_verbosity verbosity; ///< Verbosity of the output (when applicable).
 };
 
-/// Constructs default print options for the given output stream. This makes sure that colors are
-/// disabled for streams that do not support them.
-FIR_SYMBOL struct fir_print_options fir_print_options_default(FILE*);
+/// Prints a node on a stream.
+FIR_SYMBOL void fir_node_print(
+    FILE* file,
+    const struct fir_node* node,
+    const struct fir_node_print_options* print_options);
 
-/// Prints a node on the given file with the given indentation level.
-FIR_SYMBOL void fir_node_print(FILE*, const struct fir_node*, const struct fir_print_options*);
 /// Prints a node on standard output.
 FIR_SYMBOL void fir_node_dump(const struct fir_node*);
 

@@ -57,8 +57,20 @@ FIR_SYMBOL size_t fir_mod_global_count(const struct fir_mod*);
 /// @name Printing
 /// @{
 
-/// Prints the given module in the given file.
-FIR_SYMBOL void fir_mod_print(FILE*, const struct fir_mod*, const struct fir_print_options*);
+/// Options passed to @ref fir_mod_print.
+struct fir_mod_print_options {
+    size_t indent;                ///< Indentation level.
+    const char* tab;              ///< String used as a tabulation character.
+    bool disable_colors;          ///< Disables terminal colors in the output.
+    enum fir_verbosity verbosity; ///< Verbosity of the output (when applicable).
+};
+
+/// Prints the given module on the given stream.
+FIR_SYMBOL void fir_mod_print(
+    FILE* file,
+    const struct fir_mod*,
+    const struct fir_mod_print_options*);
+
 /// Prints the given module on the standard output.
 FIR_SYMBOL void fir_mod_dump(const struct fir_mod*);
 

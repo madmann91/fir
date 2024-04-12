@@ -1,6 +1,6 @@
 #include "lexer.h"
 
-#include "support/log.h"
+#include <overture/log.h>
 
 #include <assert.h>
 #include <ctype.h>
@@ -51,7 +51,7 @@ static inline void eat_spaces(struct lexer* lexer) {
 
 static inline struct token make_token(
     struct lexer* lexer,
-    const struct fir_source_pos* begin_pos,
+    const struct source_pos* begin_pos,
     enum token_tag tag)
 {
     return (struct token) {
@@ -84,7 +84,7 @@ static inline bool accept_exp(struct lexer* lexer, int base) {
 }
 
 static inline struct token parse_literal(struct lexer* lexer) {
-    struct fir_source_pos begin_pos = lexer->source_pos;
+    struct source_pos begin_pos = lexer->source_pos;
 
     int base = 10;
     size_t prefix_len = 0;
@@ -128,7 +128,7 @@ struct token lexer_advance(struct lexer* lexer) {
     while (true) {
         eat_spaces(lexer);
 
-        struct fir_source_pos begin_pos = lexer->source_pos;
+        struct source_pos begin_pos = lexer->source_pos;
         if (is_eof(lexer))
             return make_token(lexer, &begin_pos, TOK_EOF);
 
@@ -210,7 +210,7 @@ struct token lexer_advance(struct lexer* lexer) {
                 while (true) {
                     if (is_eof(lexer)) {
                         log_error(lexer->log,
-                            &(struct fir_source_range) { .begin = begin_pos, .end = lexer->source_pos },
+                            &(struct source_range) { .begin = begin_pos, .end = lexer->source_pos },
                             "unterminated multi-line comment");
                         break;
                     }

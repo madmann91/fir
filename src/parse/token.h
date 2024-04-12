@@ -4,7 +4,8 @@
 #include "fir/node_list.h"
 #include "fir/node.h"
 
-#include "support/str.h"
+#include <overture/str.h>
+#include <overture/log.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -36,7 +37,7 @@ enum token_tag {
 
 struct token {
     enum token_tag tag;
-    struct fir_source_range source_range;
+    struct source_range source_range;
     union {
         uint64_t int_val;
         double float_val;

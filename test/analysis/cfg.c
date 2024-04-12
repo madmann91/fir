@@ -1,7 +1,7 @@
-#include "macros.h"
-
 #include "analysis/scope.h"
 #include "analysis/cfg.h"
+
+#include <overture/test.h>
 
 #include <fir/module.h>
 #include <fir/block.h>

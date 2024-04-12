@@ -1,4 +1,5 @@
 #include "schedule.h"
+#include "datatypes.h"
 
 #include "fir/node.h"
 
@@ -7,10 +8,9 @@
 #include "analysis/cfg.h"
 #include "analysis/liveness.h"
 
-#include "support/datatypes.h"
-#include "support/graph.h"
-#include "support/queue.h"
-#include "support/vec.h"
+#include <overture/graph.h>
+#include <overture/queue.h>
+#include <overture/vec.h>
 
 #include <string.h>
 #include <stdlib.h>
@@ -42,10 +42,7 @@ static inline int cmp_block(
 IMMUTABLE_SET_IMPL(block_list, struct graph_node*, hash_block, cmp_block, PUBLIC)
 
 static inline bool is_pinned_to_source(const struct fir_node* node) {
-    return
-        (node->props & FIR_PROP_INVARIANT) != 0 ||
-        node->tag == FIR_FUNC ||
-        node->tag == FIR_GLOBAL;
+    return (node->props & FIR_PROP_INVARIANT) != 0;
 }
 
 static inline struct graph_node* find_func_block(struct cfg* cfg, const struct fir_node* func) {
@@ -86,9 +83,6 @@ static inline struct graph_node* find_deepest_dom_block(
 static inline struct graph_node* compute_early_block(struct schedule* schedule, const struct fir_node* node) {
     struct graph_node* early_block = schedule->cfg->graph.source;
     for (size_t i = 0; i < node->op_count; ++i) {
-        if (is_pinned_to_source(node))
-            continue;
-
         struct graph_node* op_block = find_early_block(schedule, node->ops[i]);
         if (!op_block) {
             node_vec_push(&schedule->early_stack, &node->ops[i]);
@@ -138,7 +132,7 @@ restart:
             early_block = find_func_block(schedule->cfg, FIR_CTRL_BLOCK(node->ctrl));
         } else if (node->tag == FIR_PARAM) {
             early_block = find_func_block(schedule->cfg, FIR_PARAM_FUNC(node));
-        } else if ((node->props & FIR_PROP_INVARIANT) || fir_node_is_nominal(node)) {
+        } else if (is_pinned_to_source(node)) {
             early_block = schedule->cfg->graph.source;
         } else {
             early_block = compute_early_block(schedule, node);
@@ -324,9 +318,12 @@ restart:
             struct graph_node* param_block = find_func_block(schedule->cfg, FIR_PARAM_FUNC(node));
             late_blocks = block_list_pool_insert(&schedule->block_list_pool, &param_block, 1);
         } else if (node->tag == FIR_FUNC && fir_node_is_cont_ty(node->ty)) {
-            struct graph_node* block = find_func_block(schedule->cfg, node);
-            late_blocks = block_list_pool_insert(&schedule->block_list_pool, &block, 1);
-        } else if ((node->props & FIR_PROP_INVARIANT) || fir_node_is_nominal(node)) {
+            // Everything that is used by a basic-block must be attached to it. For instance, a
+            // basic-block that jumps somewhere else uses a call instruction to perform the jump.
+            // That call must be attached to the basic-block that uses it for the jump to make sense.
+            struct graph_node* func_block = cfg_find(schedule->cfg, node);
+            late_blocks = block_list_pool_insert(&schedule->block_list_pool, &func_block, 1);
+        } else if (is_pinned_to_source(node)) {
             late_blocks = block_list_pool_insert(&schedule->block_list_pool, &schedule->cfg->graph.source, 1);
         } else {
             late_blocks = compute_late_blocks(schedule, node);
@@ -335,6 +332,13 @@ restart:
         }
         assert(late_blocks);
         assert(late_blocks->elem_count > 0);
+
+#ifndef NDEBUG
+        // The late blocks must be dominated by the early block.
+        struct graph_node* early_block = schedule_early(schedule, node);
+        for (size_t i = 0; i < late_blocks->elem_count; ++i)
+            assert(cfg_is_dominated_by(late_blocks->elems[i], early_block));
+#endif
 
         node_map_insert(&schedule->late_blocks, &node, (void**)&late_blocks);
         node_vec_pop(&schedule->late_stack);
@@ -399,7 +403,7 @@ void schedule_list_block_contents(struct schedule* schedule, struct node_vec* bl
 
             unique_node_stack_pop(&stack);
 
-            if ((node->props & FIR_PROP_INVARIANT) == 0) {
+            if (!is_pinned_to_source(node)) {
                 const struct block_list* blocks = schedule_find_blocks(schedule, node);
                 for (size_t i = 0; i < blocks->elem_count; ++i)
                     node_vec_push(&block_contents[blocks->elems[i]->index], &node);

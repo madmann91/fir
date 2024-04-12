@@ -1,9 +1,9 @@
 #pragma once
 
-#include "support/datatypes.h"
-#include "support/graph.h"
-#include "support/immutable_set.h"
+#include <overture/graph.h>
+#include <overture/immutable_set.h>
 
+#include "datatypes.h"
 #include "liveness.h"
 
 struct cfg;

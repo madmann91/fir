@@ -1,8 +1,8 @@
 #include "loop_tree.h"
 
-#include "support/union_find.h"
-#include "support/vec.h"
-#include "support/set.h"
+#include <overture/union_find.h>
+#include <overture/vec.h>
+#include <overture/set.h>
 
 #include <string.h>
 

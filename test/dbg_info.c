@@ -1,4 +1,4 @@
-#include "macros.h"
+#include <overture/test.h>
 
 #include <fir/dbg_info.h>
 

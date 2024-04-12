@@ -1,7 +1,7 @@
 PROJECT_NAME           = Fir
 PROJECT_NUMBER         = 1.0
 PROJECT_BRIEF          = "Functional IR"
-OUTPUT_DIRECTORY       = build/
+OUTPUT_DIRECTORY       = doc/build
 JAVADOC_AUTOBRIEF      = YES
 OPTIMIZE_OUTPUT_FOR_C  = YES
 IDL_PROPERTY_SUPPORT   = NO
@@ -9,12 +9,14 @@ EXTRACT_STATIC         = YES
 EXTRACT_LOCAL_CLASSES  = NO
 SHOW_INCLUDE_FILES     = NO
 FORCE_LOCAL_INCLUDES   = YES
-INPUT                  = README.md include
+INPUT                  = \
+    include/fir/ \
+    README.md
 FILE_PATTERNS          = *.md *.h
 RECURSIVE              = YES
 USE_MDFILE_AS_MAINPAGE = README.md
-HTML_EXTRA_STYLESHEET  = doxygen-awesome-css/doxygen-awesome.css \
-                         doxygen-awesome-css/doxygen-awesome-sidebar-only.css
+HTML_EXTRA_STYLESHEET  = doc/doxygen-awesome-css/doxygen-awesome.css \
+                         doc/doxygen-awesome-css/doxygen-awesome-sidebar-only.css
 STRIP_FROM_PATH        = include
 GENERATE_TREEVIEW      = YES
 GENERATE_LATEX         = NO
