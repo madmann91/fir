@@ -11,7 +11,8 @@ struct cfg cfg_create(const struct scope* scope) {
 
     struct cfg cfg = {
         .graph = graph_create(
-            CFG_USER_DATA_COUNT,
+            CFG_NODE_DATA_SIZE,
+            CFG_EDGE_DATA_SIZE,
             (void*)fir_node_func_entry(scope->func),
             (void*)fir_node_func_return(scope->func))
     };
@@ -36,11 +37,11 @@ struct cfg cfg_create(const struct scope* scope) {
     cfg.depth_first_order = graph_compute_depth_first_order(&cfg.graph, GRAPH_DIR_FORWARD);
 
     for (size_t i = 0; i < cfg.post_order.elem_count; ++i)
-        cfg.post_order.elems[i]->data[CFG_POST_ORDER_INDEX].index = i;
+        cfg.post_order.elems[i]->user_data[CFG_POST_ORDER_INDEX].index = i;
     for (size_t i = 0; i < cfg.post_order_back.elem_count; ++i)
-        cfg.post_order_back.elems[i]->data[CFG_POST_ORDER_BACK_INDEX].index = i;
+        cfg.post_order_back.elems[i]->user_data[CFG_POST_ORDER_BACK_INDEX].index = i;
     for (size_t i = 0; i < cfg.depth_first_order.elem_count; ++i)
-        cfg.depth_first_order.elems[i]->data[CFG_DEPTH_FIRST_ORDER_INDEX].index = i;
+        cfg.depth_first_order.elems[i]->user_data[CFG_DEPTH_FIRST_ORDER_INDEX].index = i;
 
     cfg.dom_tree = dom_tree_create(&cfg.post_order,
         CFG_POST_ORDER_INDEX, CFG_DOM_TREE_INDEX, GRAPH_DIR_FORWARD);
@@ -75,15 +76,15 @@ struct graph_node* cfg_find(struct cfg* cfg, const struct fir_node* node) {
 }
 
 struct dom_tree_node* cfg_dom_tree_node(const struct graph_node* node) {
-    return (struct dom_tree_node*)node->data[CFG_DOM_TREE_INDEX].ptr;
+    return (struct dom_tree_node*)node->user_data[CFG_DOM_TREE_INDEX].ptr;
 }
 
 struct dom_tree_node* cfg_post_dom_tree_node(const struct graph_node* node) {
-    return (struct dom_tree_node*)node->data[CFG_POST_DOM_TREE_INDEX].ptr;
+    return (struct dom_tree_node*)node->user_data[CFG_POST_DOM_TREE_INDEX].ptr;
 }
 
 struct loop_tree_node* cfg_loop_tree_node(const struct graph_node* node) {
-    return (struct loop_tree_node*)node->data[CFG_LOOP_TREE_INDEX].ptr;
+    return (struct loop_tree_node*)node->user_data[CFG_LOOP_TREE_INDEX].ptr;
 }
 
 bool cfg_is_dominated_by(const struct graph_node* block, const struct graph_node* other_block) {

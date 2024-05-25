@@ -29,7 +29,7 @@ static inline size_t* compute_last_descendants(
         const struct graph_node* node = depth_first_order->elems[i];
         size_t last_descendant = i;
         GRAPH_FOREACH_EDGE(edge, node, dir) {
-            size_t descendant = last_descendants[graph_edge_endpoint(edge, dir)->data[depth_first_order_index].index];
+            size_t descendant = last_descendants[graph_edge_endpoint(edge, dir)->user_data[depth_first_order_index].index];
             last_descendant = last_descendant < descendant ? descendant : last_descendant;
         }
         last_descendants[i] = last_descendant;
@@ -62,12 +62,12 @@ struct loop_tree loop_tree_create(
         headers[i] = i;
         back_preds[i] = index_vec_create();
         non_back_preds[i] = index_vec_create();
-        depth_first_order->elems[i]->data[loop_tree_index].ptr = &nodes[i];
+        depth_first_order->elems[i]->user_data[loop_tree_index].ptr = &nodes[i];
 
         const struct graph_node* node = depth_first_order->elems[i];
         GRAPH_FOREACH_EDGE(edge, node, reverse_dir) {
             const struct graph_node* endpoint = graph_edge_endpoint(edge, reverse_dir);
-            size_t endpoint_index = endpoint->data[depth_first_order_index].index;
+            size_t endpoint_index = endpoint->user_data[depth_first_order_index].index;
             bool is_back_pred = is_ancestor(last_descendants, i, endpoint_index);
             index_vec_push(is_back_pred ? &back_preds[i] : &non_back_preds[i], &endpoint_index);
         }

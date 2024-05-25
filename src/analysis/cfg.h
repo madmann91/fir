@@ -7,13 +7,17 @@ struct scope;
 struct fir_node;
 
 enum {
+    CFG_EDGE_DATA_SIZE
+};
+
+enum {
     CFG_POST_ORDER_INDEX,
     CFG_POST_ORDER_BACK_INDEX,
     CFG_DEPTH_FIRST_ORDER_INDEX,
     CFG_DOM_TREE_INDEX,
     CFG_POST_DOM_TREE_INDEX,
     CFG_LOOP_TREE_INDEX,
-    CFG_USER_DATA_COUNT
+    CFG_NODE_DATA_SIZE
 };
 
 struct cfg {

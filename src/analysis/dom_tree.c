@@ -44,7 +44,7 @@ static inline void compute_idoms(
         for (size_t i = node_count - 1; i-- > 0;) {
             size_t idom = idom_sentinel;
             GRAPH_FOREACH_EDGE(edge, post_order->elems[i], reverse_dir) {
-                size_t other_idom = graph_edge_endpoint(edge, reverse_dir)->data[post_order_index].index;
+                size_t other_idom = graph_edge_endpoint(edge, reverse_dir)->user_data[post_order_index].index;
                 if (idoms[other_idom] == idom_sentinel)
                     continue;
                 idom = idom == idom_sentinel ? other_idom : intersect_idoms(idoms, idom, other_idom, node_count);
@@ -70,7 +70,7 @@ struct dom_tree dom_tree_create(
     compute_idoms(post_order, post_order_index, idoms, dir);
 
     for (size_t i = node_count; i-- > 0;) {
-        post_order->elems[i]->data[dom_tree_index].ptr = &nodes[i];
+        post_order->elems[i]->user_data[dom_tree_index].ptr = &nodes[i];
         nodes[i].idom = post_order->elems[idoms[i]];
         nodes[i].depth = nodes[idoms[i]].depth + 1;
     }
@@ -93,6 +93,6 @@ bool dom_tree_node_is_dominated_by(
     size_t dom_tree_index)
 {
     while (node_ptr->depth > other_ptr->depth)
-        node_ptr = node_ptr->idom->data[dom_tree_index].ptr;
+        node_ptr = node_ptr->idom->user_data[dom_tree_index].ptr;
     return node_ptr == other_ptr;
 }
