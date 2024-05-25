@@ -8,9 +8,15 @@ option(ENABLE_DOXYGEN "Turn on code documentation target via Doxygen." ON)
 option(ENABLE_LLVM_CODEGEN "Enables code generation via LLVM." ON)
 
 add_compile_options(
+    $<$<AND:$<C_COMPILER_ID:GNU,Clang>,$<CONFIG:Debug,Coverage>>:-fsanitize=address>
+    $<$<AND:$<C_COMPILER_ID:GNU,Clang>,$<CONFIG:Debug,Coverage>>:-fsanitize=undefined>
     $<$<C_COMPILER_ID:GNU,Clang>:-Wall>
     $<$<C_COMPILER_ID:GNU,Clang>:-Wextra>
     $<$<C_COMPILER_ID:GNU,Clang>:-pedantic>)
+
+add_link_options(
+    $<$<AND:$<C_COMPILER_ID:GNU,Clang>,$<CONFIG:Debug,Coverage>>:-fsanitize=address>
+    $<$<AND:$<C_COMPILER_ID:GNU,Clang>,$<CONFIG:Debug,Coverage>>:-fsanitize=undefined>)
 
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
