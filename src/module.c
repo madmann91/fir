@@ -1520,18 +1520,24 @@ const struct fir_node* fir_load(
     assert(mem->ty->tag == FIR_MEM_TY);
     assert(ptr->ty->tag == FIR_PTR_TY);
     assert(is_valid_pointee_ty(ty));
+    struct fir_mod* mod = fir_node_mod(mem);
 
     // load(store(mem, ptr, val), ptr) -> val
-    if (mem->tag == FIR_STORE && FIR_STORE_PTR(mem) == ptr && FIR_STORE_VAL(mem)->ty == ty && (flags & FIR_MEM_VOLATILE) == 0)
-        return FIR_STORE_VAL(mem);
+    if (mem->tag == FIR_STORE &&
+        FIR_STORE_PTR(mem) == ptr &&
+        FIR_STORE_VAL(mem)->ty == ty &&
+        (flags & FIR_MEM_VOLATILE) == 0)
+    {
+        return fir_tup(mod, ctrl, (const struct fir_node*[]) { mem, FIR_STORE_VAL(mem) }, 2);
+    }
 
     if (is_from_local(ptr))
         flags |= FIR_MEM_NON_NULL;
 
-    return insert_node(fir_node_mod(mem), (const struct fir_node*)&(struct { FIR_NODE(2) }) {
+    return insert_node(mod, (const struct fir_node*)&(struct { FIR_NODE(2) }) {
         .tag = FIR_LOAD,
         .op_count = 2,
-        .ty = ty,
+        .ty = fir_tup_ty(mod, (const struct fir_node*[]) { fir_mem_ty(mod), ty }, 2),
         .data.mem_flags = flags,
         .ctrl = ctrl,
         .ops = { mem, ptr }
@@ -1567,6 +1573,79 @@ const struct fir_node* fir_store(
         .ctrl = ctrl,
         .ops = { mem, ptr, val }
     });
+}
+
+const struct fir_node* fir_split(
+    const struct fir_node* ctrl,
+    const struct fir_node* mem,
+    size_t mem_count)
+{
+    assert(mem->ty->tag == FIR_MEM_TY);
+
+    struct small_node_vec elems;
+    small_node_vec_init(&elems);
+    for (size_t i = 0; i < mem_count; ++i)
+        small_node_vec_push(&elems, &mem->ty);
+    struct fir_mod* mod = fir_node_mod(mem);
+    const struct fir_node* ty = fir_tup_ty(mod, elems.elems, mem_count);
+    small_node_vec_destroy(&elems);
+
+    return insert_node(mod, (const struct fir_node*) &(struct { FIR_NODE(1) }) {
+        .tag = FIR_SPLIT,
+        .op_count = 1,
+        .ty = ty,
+        .ctrl = ctrl,
+        .ops = { mem }
+    });
+}
+
+static inline bool is_from_split(const struct fir_node* const* ops, size_t op_count) {
+    assert(op_count > 0);
+    if (ops[0]->tag != FIR_EXT || FIR_EXT_AGGR(ops[0])->tag != FIR_SPLIT)
+        return false;
+    const struct fir_node* split = FIR_EXT_AGGR(ops[0]);
+    if (op_count != split->ty->op_count)
+        return false;
+    for (size_t i = 1; i < op_count; ++i) {
+        if (ops[i]->tag != FIR_EXT || FIR_EXT_AGGR(ops[i]) != split)
+            return false;
+    }
+    return true;
+}
+
+const struct fir_node* fir_join(
+    const struct fir_node* ctrl,
+    const struct fir_node* const* mem_elems,
+    size_t mem_count)
+{
+    assert(mem_count > 0);
+    assert(mem_elems[0]->ty->tag == FIR_MEM_TY);
+
+#ifndef NDEBUG
+    for (size_t i = 0; i < mem_count; ++i) {
+        for (size_t j = i + 1; j < mem_count; ++j)
+            assert(mem_elems[i] != mem_elems[j]);
+    }
+#endif
+
+    // join(ext(split(m), i), ext(split(m), j), ...) -> m
+    if (is_from_split(mem_elems, mem_count))
+        return FIR_SPLIT_MEM(FIR_EXT_AGGR(mem_elems[0]));
+
+    struct fir_mod* mod = fir_node_mod(mem_elems[0]);
+    struct small_node small_join = {};
+    struct fir_node* join = (struct fir_node*)&small_join;
+    if (mem_count > SMALL_NODE_OP_COUNT)
+        join = alloc_node(mem_count);
+    join->tag = FIR_JOIN;
+    join->mod = mod;
+    join->ctrl = ctrl;
+    join->op_count = mem_count;
+    memcpy(join->ops, mem_elems, sizeof(struct fir_node*) * mem_count);
+    const struct fir_node* result = insert_node(mod, join);
+    if (mem_count > SMALL_NODE_OP_COUNT)
+        free(join);
+    return result;
 }
 
 const struct fir_node* fir_call(

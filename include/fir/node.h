@@ -419,6 +419,8 @@ FIR_SYMBOL const struct fir_use* fir_use_find(
 #define FIR_STORE_PTR(x) (fir_assert_tag((x), FIR_STORE)->ops[1])
 /// Obtains the value stored to a pointer by a store.
 #define FIR_STORE_VAL(x) (fir_assert_tag((x), FIR_STORE)->ops[2])
+/// Obtains the memory object that is split.
+#define FIR_SPLIT_MEM(x) (fir_assert_tag((x), FIR_SPLIT)->ops[0])
 /// Obtains the element at the given index in a tuple.
 #define FIR_TUP_ARG(x, i) (fir_assert_tag((x), FIR_TUP)->ops[i])
 /// Obtains the element at the given index in an array.

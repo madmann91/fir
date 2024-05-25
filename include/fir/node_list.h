@@ -111,7 +111,9 @@
 /// Lists all memory operations.
 #define FIR_MEM_OP_LIST(x) \
     x(LOAD,  "load") \
-    x(STORE, "store")
+    x(STORE, "store") \
+    x(SPLIT, "split") \
+    x(JOIN,  "join")
 
 /// Lists all control-flow and function-related operations.
 #define FIR_CONTROL_OP_LIST(x) \

@@ -93,22 +93,6 @@ static inline struct graph_node* compute_early_block(struct schedule* schedule, 
         early_block = find_deepest_dom_block(early_block, op_block);
     }
 
-    if (node->tag == FIR_STORE) {
-        // Stores need to be scheduled at the earliest _after_ all the loads on the same memory object.
-        for (const struct fir_use* use = FIR_STORE_MEM(node)->uses; use; use = use->next) {
-            if (use->user->tag != FIR_LOAD)
-                continue;
-
-            struct graph_node* load_block = find_early_block(schedule, use->user);
-            if (!load_block) {
-                node_vec_push(&schedule->early_stack, &use->user);
-                return NULL;
-            }
-
-            early_block = find_deepest_dom_block(early_block, load_block);
-        }
-    }
-
     return early_block;
 }
 
@@ -265,16 +249,6 @@ static inline const struct block_list* compute_late_blocks(
             return NULL;
     }
 
-    // Loads should be scheduled _before_ the stores that write to their memory object.
-    if (node->tag == FIR_LOAD) {
-        for (const struct fir_use* use = FIR_LOAD_MEM(node)->uses; use; use = use->next) {
-            if (use->user->tag != FIR_STORE)
-                continue;
-            if (!collect_late_blocks(schedule, &late_blocks, use->user))
-                return NULL;
-        }
-    }
-
     assert(late_blocks.elem_count > 0);
 
     // Try to group and/or move the definitions of the node earlier. This is not possible for
@@ -390,15 +364,6 @@ void schedule_list_block_contents(struct schedule* schedule, struct node_vec* bl
             for (size_t i = 0; i < node->op_count; ++i) {
                 if (node->ops[i] && unique_node_stack_push(&stack, &node->ops[i]))
                     goto restart;
-            }
-
-            if (node->tag == FIR_STORE) {
-                for (const struct fir_use* use = FIR_STORE_MEM(node)->uses; use; use = use->next) {
-                    if (use->user->tag != FIR_LOAD)
-                        continue;
-                    if (unique_node_stack_push(&stack, &use->user))
-                        goto restart;
-                }
             }
 
             unique_node_stack_pop(&stack);

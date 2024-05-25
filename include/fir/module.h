@@ -361,7 +361,7 @@ FIR_SYMBOL const struct fir_node* fir_choice(
 /// @name Memory operations
 /// @{
 
-/// Loads the data located at the given address. The block
+/// Loads the data located at the given address.
 FIR_SYMBOL const struct fir_node* fir_load(
     enum fir_mem_flags flags,
     const struct fir_node* ctrl,
@@ -376,6 +376,18 @@ FIR_SYMBOL const struct fir_node* fir_store(
     const struct fir_node* mem,
     const struct fir_node* ptr,
     const struct fir_node* val);
+
+/// Split a memory object into smaller, independent ones.
+FIR_SYMBOL const struct fir_node* fir_split(
+    const struct fir_node* ctrl,
+    const struct fir_node* mem,
+    size_t mem_count);
+
+/// Joins memory objects that were previously split.
+FIR_SYMBOL const struct fir_node* fir_join(
+    const struct fir_node* ctrl,
+    const struct fir_node* const* mem_elems,
+    size_t mem_count);
 
 /// @}
 
