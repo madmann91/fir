@@ -113,8 +113,8 @@ const struct fir_node* fir_block_load(
 {
     assert(!block->is_terminated);
     const struct fir_node* tup = fir_load(mem_flags, NULL, block->mem, ptr, ty);
-    block->mem = fir_ext_at(tup, NULL, 0);
-    return fir_ext_at(tup, NULL, 1);
+    block->mem = fir_ext_at(NULL, tup, 0);
+    return fir_ext_at(NULL, tup, 1);
 }
 
 void fir_block_store(
